@@ -1,0 +1,41 @@
+{
+  "tasks": [
+    {
+      "id": 1,
+      "title": "Complete Math Assignment",
+      "due_date": "2024-01-15T23:59:59",
+      "estimated_hours": 5.0,
+      "priority": 8,
+      "status": "pending"
+    },
+    {
+      "id": 2,
+      "title": "Study for History Exam",
+      "due_date": "2024-01-20T09:00:00",
+      "estimated_hours": 10.0,
+      "priority": 9,
+      "status": "pending"
+    },
+    {
+      "id": 3,
+      "title": "Write Essay",
+      "due_date": "2024-01-18T23:59:59",
+      "estimated_hours": 8.0,
+      "priority": 7,
+      "status": "in_progress"
+    }
+  ],
+  "training_data": [
+    {
+      "task": {
+        "id": 1,
+        "due_date": "2024-01-15T23:59:59",
+        "estimated_hours": 5.0,
+        "priority": 8,
+        "status": "pending"
+      },
+      "risk_score": 0.7
+    }
+  ]
+}
+

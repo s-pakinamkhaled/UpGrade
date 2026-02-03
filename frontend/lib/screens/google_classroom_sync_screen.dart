@@ -3,6 +3,11 @@ import '../core/theme.dart';
 import '../core/constants.dart';
 import '../widgets/app_logo.dart';
 import '../widgets/gradient_card.dart';
+import '../services/google_auth_service.dart';
+import '../services/classroom_sync_service.dart';
+import 'dart:convert';
+
+
 
 class GoogleClassroomSyncScreen extends StatefulWidget {
   const GoogleClassroomSyncScreen({super.key});
@@ -15,22 +20,50 @@ class _GoogleClassroomSyncScreenState extends State<GoogleClassroomSyncScreen> {
   bool _isSyncing = false;
   
   Future<void> _handleSync() async {
-    setState(() {
-      _isSyncing = true;
-    });
-    
-    // Simulate Google Classroom sync process
-    await Future.delayed(const Duration(seconds: 2));
-    
-    if (mounted) {
-      setState(() {
-        _isSyncing = false;
-      });
-      
-      // Navigate to device pairing after successful sync
-      Navigator.of(context).pushReplacementNamed(AppConstants.routeDevicePairing);
+    setState(() => _isSyncing = true);
+
+    try {
+      // 1️⃣ Google login + access token
+      final accessToken =
+          await GoogleAuthService.signInAndGetToken();
+
+      if (accessToken == null) {
+        throw Exception('Google sign-in cancelled');
+      }
+
+      // 2️⃣ Sync Classroom data
+      final syncResult =
+    await ClassroomSyncService.syncAll(accessToken);
+
+          print('===== CLASSROOM SYNC RESULT =====');
+          print(jsonEncode(syncResult));
+          print('=================================');
+
+      // 3️⃣ TODO: save locally or send to backend
+      // Example:
+      // await LocalStorage.saveClassroomData(syncResult);
+
+      if (!mounted) return;
+
+      // 4️⃣ Go to next step
+      Navigator.of(context).pushReplacementNamed(
+        AppConstants.routeDevicePairing,
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Sync failed: ${e.toString()}'),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isSyncing = false);
+      }
     }
   }
+
   
   void _handleSkip() {
     // Navigate to device pairing without syncing

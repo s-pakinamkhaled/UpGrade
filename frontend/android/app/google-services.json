@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "476917880453",
+    "project_id": "upgrade-e87b3",
+    "storage_bucket": "upgrade-e87b3.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:476917880453:android:9924b162dca814c6703bec",
+        "android_client_info": {
+          "package_name": "com.example.frontend"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCynKlyNgC236I8DJ9pqjGpZFKG_Pjx_WE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

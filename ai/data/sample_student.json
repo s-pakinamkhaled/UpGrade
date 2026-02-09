@@ -1,0 +1,152 @@
+{
+  "student_profile": {
+    "student_id": "S-2026-001",
+    "name": "Ahmed Hassan",
+    "email": "ahmed@student.edu",
+    "university": "Faculty of Science",
+    "major": "AI Engineering",
+    "academic_year": 3,
+    "semester": "Spring 2026",
+    "timezone": "Africa/Cairo",
+    "goals": [
+      "Improve GPA",
+      "Avoid missing deadlines",
+      "Reduce study stress"
+    ]
+  },
+
+  "courses": [
+    {
+      "course_id": "AI401",
+      "course_name": "Artificial Intelligence",
+      "instructor": "Dr. Mohamed Ali",
+      "credit_hours": 3,
+      "difficulty_level": 5,
+      "importance_weight": 0.9
+    },
+    {
+      "course_id": "DS312",
+      "course_name": "Data Mining",
+      "instructor": "Dr. Sara Ahmed",
+      "credit_hours": 3,
+      "difficulty_level": 4,
+      "importance_weight": 0.8
+    }
+  ],
+
+  "tasks": [
+    {
+      "task_id": "T-AI-01",
+      "course_id": "AI401",
+      "course_name": "Artificial Intelligence",
+      "task_title": "Assignment 2 – Search Algorithms",
+      "task_type": "assignment",
+      "deadline": "2026-02-05",
+      "estimated_duration_minutes": 240,
+      "current_progress_percentage": 20,
+      "priority": "high",
+      "is_completed": false
+    },
+    {
+      "task_id": "T-DS-02",
+      "course_id": "DS312",
+      "course_name": "Data Mining",
+      "task_title": "Quiz 1 – Classification",
+      "task_type": "quiz",
+      "deadline": "2026-02-03",
+      "estimated_duration_minutes": 120,
+      "current_progress_percentage": 0,
+      "priority": "medium",
+      "is_completed": false
+    }
+  ],
+
+  "grades": [
+    {
+      "course_id": "AI401",
+      "assessment_type": "midterm",
+      "assessment_name": "Midterm Exam",
+      "score": 14,
+      "max_score": 20,
+      "date": "2026-01-20",
+      "weight_percentage": 30
+    },
+    {
+      "course_id": "DS312",
+      "assessment_type": "quiz",
+      "assessment_name": "Quiz 0",
+      "score": 7,
+      "max_score": 10,
+      "date": "2026-01-15",
+      "weight_percentage": 10
+    }
+  ],
+
+  "attendance": {
+    "AI401": 85,
+    "DS312": 70
+  },
+
+  "availability": {
+    "weekly_schedule": {
+      "Saturday": [
+        { "start": "18:00", "end": "22:00" }
+      ],
+      "Sunday": [
+        { "start": "18:00", "end": "22:00" }
+      ],
+      "Monday": [
+        { "start": "19:00", "end": "22:00" }
+      ],
+      "Tuesday": [
+        { "start": "19:00", "end": "22:00" }
+      ],
+      "Wednesday": [
+        { "start": "18:00", "end": "22:00" }
+      ],
+      "Thursday": [
+        { "start": "18:00", "end": "21:00" }
+      ],
+      "Friday": []
+    },
+    "max_daily_study_hours": 4
+  },
+
+  "productivity_pattern": {
+    "preferred_study_days": ["Saturday", "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday"],
+    "peak_focus_hours": ["18:00-22:00"],
+    "average_focus_session_minutes": 50,
+    "average_break_minutes": 10,
+    "total_study_hours_last_week": 10,
+    "productivity_score": 72
+  },
+
+  "historical_behavior": {
+    "missed_deadlines_count": 2,
+    "late_submission_rate": 0.25,
+    "average_daily_study_minutes": 90,
+    "most_delayed_course": "Artificial Intelligence"
+  },
+
+  "computed_analytics": {
+    "risk_per_course": [
+      {
+        "course_id": "AI401",
+        "risk_score": 78,
+        "risk_level": "high",
+        "reason": "High difficulty + low progress + close deadline"
+      },
+      {
+        "course_id": "DS312",
+        "risk_score": 45,
+        "risk_level": "medium",
+        "reason": "Moderate performance and upcoming quiz"
+      }
+    ],
+    "workload_forecast": {
+      "current_week_load_hours": 8,
+      "next_week_load_hours": 14,
+      "overload_risk": true
+    }
+  }
+}

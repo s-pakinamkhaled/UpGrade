@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../core/theme.dart';
 import '../models/study_group.dart';
-import '../widgets/gradient_card.dart';
 
 class GroupStudyScreen extends StatefulWidget {
   const GroupStudyScreen({super.key});

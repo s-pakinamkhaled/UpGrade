@@ -35,6 +35,8 @@ UpGrade is a Flutter-based graduation project designed to help students plan, ma
 
 - **Framework:** Flutter
 - **Language:** Dart
+- **Backend:** FastAPI (Python)
+- **AI/LLM:** Llama 3.3 (70B) via Groq API
 - **Platforms:** Android, iOS, Web, Windows
 - **UI:** Material Design
 - **Version Control:** Git & GitHub

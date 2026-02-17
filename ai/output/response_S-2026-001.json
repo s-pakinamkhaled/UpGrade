@@ -1,0 +1,46 @@
+{
+  "success": true,
+  "study_plan": "# Personalized Study Plan for Ahmed Hassan\n## 📅 Introduction\nGiven Ahmed's current academic situation, this study plan aims to prioritize urgent tasks, optimize study time, and mitigate risk areas. The plan will focus on the next 48-72 hours and provide a detailed weekly schedule.\n\n## 🚨 Priority Levels\nBased on the provided data, tasks are categorized into three priority levels:\n- **High Priority (HP)**: Urgent tasks with close deadlines or high risk\n- **Medium Priority (MP)**: Important tasks with manageable deadlines\n- **Low Priority (LP)**: Less urgent tasks\n\n## 📝 Task Prioritization (Next 48-72 hours)\n### High Priority (1 task)\n- **Assignment 2 – Search Algorithms** (AI401)\n  - Deadline: 2026-02-05\n  - Estimated Time: 240 minutes (4h 0m)\n  - Progress: 20%\n  - **Allocated Time**: Saturday (18:00-22:00), Sunday (18:00-20:00)\n\n### Medium Priority (1 task)\n- **Quiz 1 – Classification** (DS312)\n  - Deadline: 2026-02-03\n  - Time needed: 120 minutes (2h 0m)\n  - Progress: 0%\n  - **Allocated Time**: Sunday (20:00-22:00), Monday (19:00-21:00)\n\n## 📅 Weekly Study Schedule\n### Saturday\n- 18:00-20:00: Assignment 2 – Search Algorithms (AI401)\n- 20:00-20:10: Break\n- 20:10-22:00: Assignment 2 – Search Algorithms (AI401)\n\n### Sunday\n- 18:00-20:00: Assignment 2 – Search Algorithms (AI401)\n- 20:00-20:10: Break\n- 20:10-22:00: Quiz 1 – Classification (DS312)\n\n### Monday\n- 19:00-21:00: Quiz 1 – Classification (DS312)\n- 21:00-21:10: Break\n- 21:10-22:00: Review AI401 notes\n\n### Tuesday\n- 19:00-21:00: Review DS312 notes\n- 21:00-21:10: Break\n- 21:10-22:00: Work on Assignment 2 – Search Algorithms (AI401)\n\n### Wednesday\n- 18:00-20:00: Review AI401 and DS312 notes\n- 20:00-20:10: Break\n- 20:10-22:00: Practice problems for AI401 and DS312\n\n### Thursday\n- 18:00-20:00: Review and finalize Assignment 2 – Search Algorithms (AI401)\n- 20:00-20:10: Break\n- 20:10-21:00: Review Quiz 1 – Classification (DS312)\n\n## 📈 Productivity Optimization\n- **Peak Focus Hours**: 18:00-22:00\n- **Average Focus Session**: 50 minutes\n- **Average Break**: 10 minutes\n- **Last Week Study Time**: 10 hours\n- **Productivity Score**: 72/100\n\n## 🚫 Risk Mitigation\n- **AI401**: Allocate extra time for review and practice problems\n- **DS312**: Focus on improving attendance and progress in the course\n\n## 📊 Workload Forecast\n- **Current Week**: 8 hours\n- **Next Week**: 14 hours ⚠️ OVERLOAD RISK!\n- **Mitigation Strategy**: Prioritize tasks, allocate specific time slots, and maintain a consistent study schedule\n\n## 📝 Study Tips and Strategies\n- **Break tasks into smaller chunks**: Divide large tasks into manageable parts to reduce stress and increase productivity\n- **Use active learning techniques**: Engage with course materials by summarizing notes in your own words, creating concept maps, and self-testing\n- **Review regularly**: Set aside dedicated time for reviewing notes and practice problems to reinforce learning\n- **Seek help when needed**: Don't hesitate to ask instructors or classmates for help when struggling with a concept or task\n\n## 🎯 Motivation and Accountability\n- **Set achievable goals**: Break down large goals into smaller, manageable objectives to maintain motivation and track progress\n- **Celebrate milestones**: Reward yourself for completing tasks and reaching milestones to stay motivated and encouraged\n- **Stay organized**: Use a planner, calendar, or app to keep track of tasks, deadlines, and study schedule\n\nBy following this personalized study plan, Ahmed can effectively prioritize tasks, optimize study time, and mitigate risk areas to achieve his academic goals. 🎓",
+  "raw_response": {
+    "id": "chatcmpl-71f0084c-6e19-49cf-b476-28805e632eda",
+    "object": "chat.completion",
+    "created": 1771332787,
+    "model": "llama-3.3-70b-versatile",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "# Personalized Study Plan for Ahmed Hassan\n## 📅 Introduction\nGiven Ahmed's current academic situation, this study plan aims to prioritize urgent tasks, optimize study time, and mitigate risk areas. The plan will focus on the next 48-72 hours and provide a detailed weekly schedule.\n\n## 🚨 Priority Levels\nBased on the provided data, tasks are categorized into three priority levels:\n- **High Priority (HP)**: Urgent tasks with close deadlines or high risk\n- **Medium Priority (MP)**: Important tasks with manageable deadlines\n- **Low Priority (LP)**: Less urgent tasks\n\n## 📝 Task Prioritization (Next 48-72 hours)\n### High Priority (1 task)\n- **Assignment 2 – Search Algorithms** (AI401)\n  - Deadline: 2026-02-05\n  - Estimated Time: 240 minutes (4h 0m)\n  - Progress: 20%\n  - **Allocated Time**: Saturday (18:00-22:00), Sunday (18:00-20:00)\n\n### Medium Priority (1 task)\n- **Quiz 1 – Classification** (DS312)\n  - Deadline: 2026-02-03\n  - Time needed: 120 minutes (2h 0m)\n  - Progress: 0%\n  - **Allocated Time**: Sunday (20:00-22:00), Monday (19:00-21:00)\n\n## 📅 Weekly Study Schedule\n### Saturday\n- 18:00-20:00: Assignment 2 – Search Algorithms (AI401)\n- 20:00-20:10: Break\n- 20:10-22:00: Assignment 2 – Search Algorithms (AI401)\n\n### Sunday\n- 18:00-20:00: Assignment 2 – Search Algorithms (AI401)\n- 20:00-20:10: Break\n- 20:10-22:00: Quiz 1 – Classification (DS312)\n\n### Monday\n- 19:00-21:00: Quiz 1 – Classification (DS312)\n- 21:00-21:10: Break\n- 21:10-22:00: Review AI401 notes\n\n### Tuesday\n- 19:00-21:00: Review DS312 notes\n- 21:00-21:10: Break\n- 21:10-22:00: Work on Assignment 2 – Search Algorithms (AI401)\n\n### Wednesday\n- 18:00-20:00: Review AI401 and DS312 notes\n- 20:00-20:10: Break\n- 20:10-22:00: Practice problems for AI401 and DS312\n\n### Thursday\n- 18:00-20:00: Review and finalize Assignment 2 – Search Algorithms (AI401)\n- 20:00-20:10: Break\n- 20:10-21:00: Review Quiz 1 – Classification (DS312)\n\n## 📈 Productivity Optimization\n- **Peak Focus Hours**: 18:00-22:00\n- **Average Focus Session**: 50 minutes\n- **Average Break**: 10 minutes\n- **Last Week Study Time**: 10 hours\n- **Productivity Score**: 72/100\n\n## 🚫 Risk Mitigation\n- **AI401**: Allocate extra time for review and practice problems\n- **DS312**: Focus on improving attendance and progress in the course\n\n## 📊 Workload Forecast\n- **Current Week**: 8 hours\n- **Next Week**: 14 hours ⚠️ OVERLOAD RISK!\n- **Mitigation Strategy**: Prioritize tasks, allocate specific time slots, and maintain a consistent study schedule\n\n## 📝 Study Tips and Strategies\n- **Break tasks into smaller chunks**: Divide large tasks into manageable parts to reduce stress and increase productivity\n- **Use active learning techniques**: Engage with course materials by summarizing notes in your own words, creating concept maps, and self-testing\n- **Review regularly**: Set aside dedicated time for reviewing notes and practice problems to reinforce learning\n- **Seek help when needed**: Don't hesitate to ask instructors or classmates for help when struggling with a concept or task\n\n## 🎯 Motivation and Accountability\n- **Set achievable goals**: Break down large goals into smaller, manageable objectives to maintain motivation and track progress\n- **Celebrate milestones**: Reward yourself for completing tasks and reaching milestones to stay motivated and encouraged\n- **Stay organized**: Use a planner, calendar, or app to keep track of tasks, deadlines, and study schedule\n\nBy following this personalized study plan, Ahmed can effectively prioritize tasks, optimize study time, and mitigate risk areas to achieve his academic goals. 🎓"
+        },
+        "logprobs": null,
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "queue_time": 0.091312295,
+      "prompt_tokens": 1194,
+      "prompt_time": 0.061418328,
+      "completion_tokens": 996,
+      "completion_time": 2.330155554,
+      "total_tokens": 2190,
+      "total_time": 2.391573882
+    },
+    "usage_breakdown": null,
+    "system_fingerprint": "fp_dae98b5ecb",
+    "x_groq": {
+      "id": "req_01khntjmnzfs4rczz5b2nywd07",
+      "seed": 2032540248
+    },
+    "service_tier": "on_demand"
+  },
+  "usage": {
+    "queue_time": 0.091312295,
+    "prompt_tokens": 1194,
+    "prompt_time": 0.061418328,
+    "completion_tokens": 996,
+    "completion_time": 2.330155554,
+    "total_tokens": 2190,
+    "total_time": 2.391573882
+  }
+}

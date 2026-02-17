@@ -7,10 +7,14 @@ import os
 import json
 from typing import Dict, Any, Optional
 from pathlib import Path
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Import our modules
 from data.data_generator import StudentDataGenerator
-from planner_llm.llm_client import DeepSeekLLMClient, OpenAICompatibleClient
+from planner_llm.llm_client import DeepSeekLLMClient, OpenAICompatibleClient, GroqClient
 from planner_llm.prompt import StudyPlanPrompts
 
 
@@ -21,8 +25,8 @@ class UpGradeAIService:
         self,
         api_key: Optional[str] = None,
         api_base_url: Optional[str] = None,
-        model: str = "deepseek-reasoner",
-        use_openai: bool = False
+        model: Optional[str] = None,
+        provider: Optional[str] = None
     ):
         """
         Initialize UpGrade AI Service
@@ -31,19 +35,29 @@ class UpGradeAIService:
             api_key: API key for LLM service
             api_base_url: Base URL for API
             model: Model name to use
-            use_openai: If True, use OpenAI-compatible client
+            provider: LLM provider ('groq', 'deepseek', 'openai') - defaults to env var LLM_PROVIDER
         """
-        if use_openai:
-            self.llm_client = OpenAICompatibleClient(
-                api_key=api_key,
-                api_base_url=api_base_url or "https://api.openai.com/v1",
-                model=model or "gpt-4"
+        # Determine provider from env or parameter
+        provider = provider or os.getenv("LLM_PROVIDER", "groq")
+        
+        print(f"🤖 Initializing with provider: {provider}")
+        
+        if provider.lower() == "groq":
+            self.llm_client = GroqClient(
+                api_key=api_key or os.getenv("GROQ_API_KEY"),
+                model=model or os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
             )
-        else:
+        elif provider.lower() == "openai":
+            self.llm_client = OpenAICompatibleClient(
+                api_key=api_key or os.getenv("OPENAI_API_KEY"),
+                api_base_url=api_base_url or os.getenv("OPENAI_API_BASE", "https://api.openai.com/v1"),
+                model=model or os.getenv("OPENAI_MODEL", "gpt-4")
+            )
+        else:  # deepseek
             self.llm_client = DeepSeekLLMClient(
-                api_key=api_key,
-                api_base_url=api_base_url,
-                model=model
+                api_key=api_key or os.getenv("DEEPSEEK_API_KEY"),
+                api_base_url=api_base_url or os.getenv("DEEPSEEK_API_BASE"),
+                model=model or os.getenv("DEEPSEEK_MODEL", "deepseek-reasoner")
             )
         
         self.data_generator = StudentDataGenerator()

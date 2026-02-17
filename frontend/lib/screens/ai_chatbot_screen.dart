@@ -4,7 +4,7 @@ import '../core/theme.dart';
 import '../core/constants.dart';
 import '../models/task.dart';
 import '../widgets/task_card.dart';
-import '../widgets/gradient_card.dart';
+import '../services/api_service.dart';
 
 class AIChatbotScreen extends StatefulWidget {
   const AIChatbotScreen({super.key});
@@ -109,18 +109,64 @@ class _AIChatbotScreenState extends State<AIChatbotScreen> with TickerProviderSt
       _isTyping = true;
     });
     
-    // Simulate AI thinking
-    await Future.delayed(const Duration(milliseconds: 800));
-    
-    // Generate AI response based on user input
-    final response = _generateAIResponse(text);
-    
-    if (mounted) {
-      setState(() {
-        _isTyping = false;
-        _messages.add(response);
-      });
-      _scrollToBottom();
+    // Get AI response from backend (Llama 3.3)
+    try {
+      // Prepare conversation history
+      final history = _messages.take(_messages.length - 1).map((msg) {
+        return {
+          'role': msg.isAI ? 'assistant' : 'user',
+          'content': msg.text,
+        };
+      }).toList();
+      
+      // Prepare student context
+      final studentContext = {
+        'name': 'Student',  // In real app, get from user profile
+        'tasks': _todayTasks.map((task) => {
+          'title': task.title,
+          'priority': task.priority.name,
+          'deadline': task.deadline.toIso8601String(),
+          'courseName': task.courseName,
+        }).toList(),
+      };
+      
+      // Call API
+      final apiService = ApiService();
+      final response = await apiService.sendChatMessage(
+        message: text,
+        conversationHistory: history,
+        studentContext: studentContext,
+      );
+      
+      if (mounted) {
+        setState(() {
+          _isTyping = false;
+          
+          if (response != null && response['success'] == true) {
+            // Add AI response
+            _messages.add(ChatMessage(
+              text: response['message'] ?? 'Sorry, I couldn\'t generate a response.',
+              isAI: true,
+              timestamp: DateTime.now(),
+              suggestions: List<String>.from(response['suggestions'] ?? []),
+            ));
+          } else {
+            // Fallback to local response if API fails
+            _messages.add(_generateAIResponse(text));
+          }
+        });
+        _scrollToBottom();
+      }
+    } catch (e) {
+      print('Error calling AI API: $e');
+      // Fallback to local mock response
+      if (mounted) {
+        setState(() {
+          _isTyping = false;
+          _messages.add(_generateAIResponse(text));
+        });
+        _scrollToBottom();
+      }
     }
   }
   

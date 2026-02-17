@@ -2,7 +2,7 @@
 
 ## What's Implemented
 
-✅ **Complete AI Service** for generating personalized study plans using DeepSeek R1 LLM
+✅ **Complete AI Service** for generating personalized study plans using Llama 3.3 via Groq API
 
 ### Components Created:
 
@@ -11,8 +11,8 @@
    - Includes: profile, courses, tasks, grades, attendance, availability, productivity patterns
    
 2. **LLM Client** ([planner_llm/llm_client.py](planner_llm/llm_client.py))
-   - DeepSeek R1 API integration
-   - OpenAI-compatible client support
+   - Groq API integration (Llama 3.3)
+   - DeepSeek and OpenAI support
    - Mock mode for testing without API key
    
 3. **Prompt System** ([planner_llm/prompt.py](planner_llm/prompt.py))
@@ -46,26 +46,41 @@ cd ai
 python ai_service.py
 ```
 
-### Option 3: With Real DeepSeek API
+### Option 3: With Real Groq API (Llama 3.3)
 
-1. Install dependencies:
+✅ **Already Configured!** The `.env` file is set up with Groq API.
+
+1. Install dependencies (if not done):
 ```powershell
 pip install -r requirements.txt
 ```
 
-2. Create `.env` file:
-```powershell
-cp .env.example .env
-```
-
-3. Edit `.env` and add your API key:
-```
-DEEPSEEK_API_KEY=your_actual_api_key_here
-```
-
-4. Run:
+2. Run with real LLM:
 ```powershell
 python ai_service.py
+# or
+python test_service.py
+```
+
+The service will automatically use:
+- **Provider**: Groq
+- **Model**: Llama 3.3 (70B)
+- **API Key**: From `.env` file
+
+### Option 4: Switch to Different Provider
+
+Edit `.env` to change providers:
+
+**For DeepSeek:**
+```env
+LLM_PROVIDER=deepseek
+DEEPSEEK_API_KEY=your_key_here
+```
+
+**For OpenAI:**
+```env
+LLM_PROVIDER=openai
+OPENAI_API_KEY=your_key_here
 ```
 
 ## 📁 Output Files

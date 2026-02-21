@@ -1,0 +1,46 @@
+{
+  "success": true,
+  "study_plan": "# Personalized Study Plan for Youssef Mahmoud\n## 📝 Introduction\nThis study plan is designed to help Youssef Mahmoud prioritize tasks, manage time effectively, and reduce stress while preparing for exams. The plan is based on the student's profile, goals, enrolled courses, pending tasks, past performance, available study time, productivity patterns, historical behavior, and risk analytics.\n\n## 📊 High-Priority Tasks (Next 48-72 hours)\n### 🔴 HIGH PRIORITY (1 task)\n\n* **Project 3 – Artificial Intelligence**: Complete the remaining 36% of the project (Deadline: 2026-02-18, 0 days left)\n\t+ Allocate 3 hours on Saturday (18:00-21:00) to complete the project\n\t+ Take a 15-minute break every hour to maintain focus\n\n## 📆 Weekly Schedule\n### Saturday (18:00-21:00)\n* **Project 3 – Artificial Intelligence**: 3 hours\n* **Break**: 15 minutes every hour\n\n### Sunday (14:00-19:00)\n* **Assignment 6 – Software Engineering**: 1 hour (14:00-15:00)\n* **Break**: 15 minutes (15:00-15:15)\n* **Exam 2 – Software Engineering**: 2 hours (15:15-17:15)\n* **Break**: 15 minutes (17:15-17:30)\n* **Review AI401 course material**: 1.5 hours (17:30-19:00)\n\n### Tuesday (18:00-21:00)\n* **Exam 2 – Software Engineering**: 2 hours (18:00-20:00)\n* **Break**: 15 minutes (20:00-20:15)\n* **Review SE302 course material**: 1 hour (20:15-21:00)\n\n### Wednesday (18:00-20:00)\n* **Exam 7 – Software Engineering**: 1.5 hours (18:00-19:30)\n* **Break**: 15 minutes (19:30-19:45)\n* **Review ML501 course material**: 30 minutes (19:45-20:15)\n\n## 📈 Time Management and Productivity\n* **Peak Focus Hours**: 18:00-22:00\n* **Average Focus Session**: 60 minutes\n* **Average Break**: 15 minutes\n* **Max Daily Study Hours**: 4 hours\n\n## 📊 Addressing High-Risk Courses\n* **Artificial Intelligence (AI401)**: Review course material for 1.5 hours on Sunday (17:30-19:00) and allocate 1 hour on Wednesday (19:45-20:45) to review and practice problems\n* **Software Engineering (SE302)**: Review course material for 1 hour on Tuesday (20:15-21:00) and allocate 1 hour on Thursday (18:00-19:00) to review and practice problems\n\n## 📝 Study Tips and Strategies\n* **Break tasks into smaller chunks**: Divide large tasks into smaller, manageable chunks to reduce stress and increase productivity\n* **Use active learning techniques**: Engage with course material by summarizing notes in your own words, creating concept maps, and self-testing\n* **Review and practice regularly**: Regular review and practice help to reinforce learning and improve retention\n* **Seek help when needed**: Don't hesitate to ask instructors or classmates for help when struggling with a concept or assignment\n\n## 📈 Motivation and Accountability\n* **Set achievable goals**: Break down large goals into smaller, achievable goals to maintain motivation and track progress\n* **Create a study group**: Join or create a study group to collaborate with classmates, share resources, and stay motivated\n* **Reward yourself**: Set small rewards for achieving milestones or completing challenging tasks to maintain motivation and enthusiasm\n\n## 📊 Workload Forecast\n* **Current Week**: 8 hours\n* **Next Week**: 11 hours\n* **Realistic Scheduling**: Allocate study time based on availability and productivity patterns to prevent workload overload\n\nBy following this personalized study plan, Youssef Mahmoud can effectively manage time, prioritize tasks, and reduce stress while preparing for exams. Remember to stay flexible, adjust the plan as needed, and seek help when required. 📚💪",
+  "raw_response": {
+    "id": "chatcmpl-fb1ba397-b791-49c6-bbbc-5c0c39d24e51",
+    "object": "chat.completion",
+    "created": 1771332784,
+    "model": "llama-3.3-70b-versatile",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "# Personalized Study Plan for Youssef Mahmoud\n## 📝 Introduction\nThis study plan is designed to help Youssef Mahmoud prioritize tasks, manage time effectively, and reduce stress while preparing for exams. The plan is based on the student's profile, goals, enrolled courses, pending tasks, past performance, available study time, productivity patterns, historical behavior, and risk analytics.\n\n## 📊 High-Priority Tasks (Next 48-72 hours)\n### 🔴 HIGH PRIORITY (1 task)\n\n* **Project 3 – Artificial Intelligence**: Complete the remaining 36% of the project (Deadline: 2026-02-18, 0 days left)\n\t+ Allocate 3 hours on Saturday (18:00-21:00) to complete the project\n\t+ Take a 15-minute break every hour to maintain focus\n\n## 📆 Weekly Schedule\n### Saturday (18:00-21:00)\n* **Project 3 – Artificial Intelligence**: 3 hours\n* **Break**: 15 minutes every hour\n\n### Sunday (14:00-19:00)\n* **Assignment 6 – Software Engineering**: 1 hour (14:00-15:00)\n* **Break**: 15 minutes (15:00-15:15)\n* **Exam 2 – Software Engineering**: 2 hours (15:15-17:15)\n* **Break**: 15 minutes (17:15-17:30)\n* **Review AI401 course material**: 1.5 hours (17:30-19:00)\n\n### Tuesday (18:00-21:00)\n* **Exam 2 – Software Engineering**: 2 hours (18:00-20:00)\n* **Break**: 15 minutes (20:00-20:15)\n* **Review SE302 course material**: 1 hour (20:15-21:00)\n\n### Wednesday (18:00-20:00)\n* **Exam 7 – Software Engineering**: 1.5 hours (18:00-19:30)\n* **Break**: 15 minutes (19:30-19:45)\n* **Review ML501 course material**: 30 minutes (19:45-20:15)\n\n## 📈 Time Management and Productivity\n* **Peak Focus Hours**: 18:00-22:00\n* **Average Focus Session**: 60 minutes\n* **Average Break**: 15 minutes\n* **Max Daily Study Hours**: 4 hours\n\n## 📊 Addressing High-Risk Courses\n* **Artificial Intelligence (AI401)**: Review course material for 1.5 hours on Sunday (17:30-19:00) and allocate 1 hour on Wednesday (19:45-20:45) to review and practice problems\n* **Software Engineering (SE302)**: Review course material for 1 hour on Tuesday (20:15-21:00) and allocate 1 hour on Thursday (18:00-19:00) to review and practice problems\n\n## 📝 Study Tips and Strategies\n* **Break tasks into smaller chunks**: Divide large tasks into smaller, manageable chunks to reduce stress and increase productivity\n* **Use active learning techniques**: Engage with course material by summarizing notes in your own words, creating concept maps, and self-testing\n* **Review and practice regularly**: Regular review and practice help to reinforce learning and improve retention\n* **Seek help when needed**: Don't hesitate to ask instructors or classmates for help when struggling with a concept or assignment\n\n## 📈 Motivation and Accountability\n* **Set achievable goals**: Break down large goals into smaller, achievable goals to maintain motivation and track progress\n* **Create a study group**: Join or create a study group to collaborate with classmates, share resources, and stay motivated\n* **Reward yourself**: Set small rewards for achieving milestones or completing challenging tasks to maintain motivation and enthusiasm\n\n## 📊 Workload Forecast\n* **Current Week**: 8 hours\n* **Next Week**: 11 hours\n* **Realistic Scheduling**: Allocate study time based on availability and productivity patterns to prevent workload overload\n\nBy following this personalized study plan, Youssef Mahmoud can effectively manage time, prioritize tasks, and reduce stress while preparing for exams. Remember to stay flexible, adjust the plan as needed, and seek help when required. 📚💪"
+        },
+        "logprobs": null,
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "queue_time": 0.051500175,
+      "prompt_tokens": 1558,
+      "prompt_time": 0.079939784,
+      "completion_tokens": 906,
+      "completion_time": 2.219735497,
+      "total_tokens": 2464,
+      "total_time": 2.299675281
+    },
+    "usage_breakdown": null,
+    "system_fingerprint": "fp_f8b414701e",
+    "x_groq": {
+      "id": "req_01khntjhy2frwtdh65fmjnehxb",
+      "seed": 1861136042
+    },
+    "service_tier": "on_demand"
+  },
+  "usage": {
+    "queue_time": 0.051500175,
+    "prompt_tokens": 1558,
+    "prompt_time": 0.079939784,
+    "completion_tokens": 906,
+    "completion_time": 2.219735497,
+    "total_tokens": 2464,
+    "total_time": 2.299675281
+  }
+}

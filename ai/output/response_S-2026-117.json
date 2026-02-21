@@ -1,0 +1,46 @@
+{
+  "success": true,
+  "study_plan": "# Personalized Study Plan for Youssef Mahmoud\n## 📅 Overview\nGiven Youssef's current academic situation, the focus for the next 48-72 hours will be on addressing high-priority tasks, particularly the upcoming Machine Learning exam, and managing time effectively to mitigate risks associated with high-difficulty courses.\n\n## 🚨 High Priority Tasks (Next 48-72 hours)\n### 🔴 Exam 1 – Machine Learning\n- **Deadline**: 2026-02-19 (1 day left)\n- **Estimated Time**: 120 minutes (2h 0m)\n- **Progress**: 34%\n- **Allocated Time**: Saturday (15:00-17:00) and Sunday (19:00-21:00)\n- **Action Plan**: Review all notes, practice past exams, and focus on weak areas.\n\n### 🟡 Quiz 3 – Machine Learning\n- **Deadline**: 2026-02-20 (2 days)\n- **Time Needed**: 4h 0m\n- **Progress**: 2%\n- **Allocated Time**: Sunday (21:00-23:00), Tuesday (16:00-18:00)\n- **Action Plan**: Go through the syllabus, make a list of key concepts, and allocate time for each.\n\n## 📆 Weekly Study Schedule\n### Saturday\n- 15:00-17:00: **Machine Learning Exam Prep**\n- 17:00-17:10: Break\n- 17:10-19:00: **Artificial Intelligence Review** (High-risk course mitigation)\n\n### Sunday\n- 19:00-21:00: **Machine Learning Exam Prep**\n- 21:00-21:10: Break\n- 21:10-23:00: **Machine Learning Quiz 3 Prep**\n\n### Tuesday\n- 16:00-18:00: **Machine Learning Quiz 3 Prep**\n- 18:00-18:10: Break\n- 18:10-21:00: **Software Engineering Assignment 2** (Medium priority task)\n\n### Wednesday\n- 19:00-21:00: **Computer Networks Review** (High-risk course mitigation)\n- 21:00-21:10: Break\n- 21:10-23:00: **Data Mining Homework 4** (Low priority, but ongoing)\n\n### Thursday\n- 14:00-16:00: **Artificial Intelligence Review** (High-risk course mitigation)\n- 16:00-18:00: **Software Engineering Assignment 2** (Medium priority task)\n- 18:00-21:00: **Review and Practice for all courses**\n\n## 📈 Productivity Tips\n- **Use Peak Hours Wisely**: Focus on the most challenging tasks during your peak productivity hours (18:00-22:00).\n- **Breaks are Essential**: Take regular 10-minute breaks every 60 minutes to maintain focus.\n- **Review Consistently**: Allocate time each day for a quick review of all courses to prevent backlog.\n- **Seek Help**: If struggling with a concept, don’t hesitate to ask instructors or peers for help.\n\n## 📊 Risk Mitigation Strategies\n- **For ML501, NET401, and AI401**: Regular review sessions, focusing on understanding concepts rather than just completing assignments.\n- **Improve Attendance**: Aim for 100% attendance in all classes, especially for high-risk courses.\n- **Submission Planning**: Plan submissions in advance to avoid late submissions and missed deadlines.\n\n## 📝 Study Tips\n- **Active Learning**: Engage with the material by summarizing notes in your own words, creating concept maps, or making flashcards.\n- **Practice Past Exams**: For high-risk courses, regularly practice past exams or quizzes to assess knowledge and identify weak areas.\n- **Stay Organized**: Use a planner, app, or spreadsheet to keep track of assignments, deadlines, and study schedule.\n\n## 🔍 Conclusion\nThis study plan is designed to help Youssef manage his time effectively, prioritize high-risk tasks, and mitigate the risks associated with his current academic situation. By following this plan, staying focused, and seeking help when needed, Youssef can improve his academic performance, meet deadlines, and achieve his goals. Remember, consistency and persistence are key. Stay motivated and adapt this plan as needed to ensure it continues to meet your evolving needs. 🎯",
+  "raw_response": {
+    "id": "chatcmpl-84ae61a8-67ef-4b11-bfc7-5d6cdbc7ea9f",
+    "object": "chat.completion",
+    "created": 1771294708,
+    "model": "llama-3.3-70b-versatile",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "# Personalized Study Plan for Youssef Mahmoud\n## 📅 Overview\nGiven Youssef's current academic situation, the focus for the next 48-72 hours will be on addressing high-priority tasks, particularly the upcoming Machine Learning exam, and managing time effectively to mitigate risks associated with high-difficulty courses.\n\n## 🚨 High Priority Tasks (Next 48-72 hours)\n### 🔴 Exam 1 – Machine Learning\n- **Deadline**: 2026-02-19 (1 day left)\n- **Estimated Time**: 120 minutes (2h 0m)\n- **Progress**: 34%\n- **Allocated Time**: Saturday (15:00-17:00) and Sunday (19:00-21:00)\n- **Action Plan**: Review all notes, practice past exams, and focus on weak areas.\n\n### 🟡 Quiz 3 – Machine Learning\n- **Deadline**: 2026-02-20 (2 days)\n- **Time Needed**: 4h 0m\n- **Progress**: 2%\n- **Allocated Time**: Sunday (21:00-23:00), Tuesday (16:00-18:00)\n- **Action Plan**: Go through the syllabus, make a list of key concepts, and allocate time for each.\n\n## 📆 Weekly Study Schedule\n### Saturday\n- 15:00-17:00: **Machine Learning Exam Prep**\n- 17:00-17:10: Break\n- 17:10-19:00: **Artificial Intelligence Review** (High-risk course mitigation)\n\n### Sunday\n- 19:00-21:00: **Machine Learning Exam Prep**\n- 21:00-21:10: Break\n- 21:10-23:00: **Machine Learning Quiz 3 Prep**\n\n### Tuesday\n- 16:00-18:00: **Machine Learning Quiz 3 Prep**\n- 18:00-18:10: Break\n- 18:10-21:00: **Software Engineering Assignment 2** (Medium priority task)\n\n### Wednesday\n- 19:00-21:00: **Computer Networks Review** (High-risk course mitigation)\n- 21:00-21:10: Break\n- 21:10-23:00: **Data Mining Homework 4** (Low priority, but ongoing)\n\n### Thursday\n- 14:00-16:00: **Artificial Intelligence Review** (High-risk course mitigation)\n- 16:00-18:00: **Software Engineering Assignment 2** (Medium priority task)\n- 18:00-21:00: **Review and Practice for all courses**\n\n## 📈 Productivity Tips\n- **Use Peak Hours Wisely**: Focus on the most challenging tasks during your peak productivity hours (18:00-22:00).\n- **Breaks are Essential**: Take regular 10-minute breaks every 60 minutes to maintain focus.\n- **Review Consistently**: Allocate time each day for a quick review of all courses to prevent backlog.\n- **Seek Help**: If struggling with a concept, don’t hesitate to ask instructors or peers for help.\n\n## 📊 Risk Mitigation Strategies\n- **For ML501, NET401, and AI401**: Regular review sessions, focusing on understanding concepts rather than just completing assignments.\n- **Improve Attendance**: Aim for 100% attendance in all classes, especially for high-risk courses.\n- **Submission Planning**: Plan submissions in advance to avoid late submissions and missed deadlines.\n\n## 📝 Study Tips\n- **Active Learning**: Engage with the material by summarizing notes in your own words, creating concept maps, or making flashcards.\n- **Practice Past Exams**: For high-risk courses, regularly practice past exams or quizzes to assess knowledge and identify weak areas.\n- **Stay Organized**: Use a planner, app, or spreadsheet to keep track of assignments, deadlines, and study schedule.\n\n## 🔍 Conclusion\nThis study plan is designed to help Youssef manage his time effectively, prioritize high-risk tasks, and mitigate the risks associated with his current academic situation. By following this plan, staying focused, and seeking help when needed, Youssef can improve his academic performance, meet deadlines, and achieve his goals. Remember, consistency and persistence are key. Stay motivated and adapt this plan as needed to ensure it continues to meet your evolving needs. 🎯"
+        },
+        "logprobs": null,
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "queue_time": 0.091619087,
+      "prompt_tokens": 1613,
+      "prompt_time": 0.112687488,
+      "completion_tokens": 921,
+      "completion_time": 2.825714726,
+      "total_tokens": 2534,
+      "total_time": 2.938402214
+    },
+    "usage_breakdown": null,
+    "system_fingerprint": "fp_c06d5113ec",
+    "x_groq": {
+      "id": "req_01khmp8hddexw9qg83pebj2206",
+      "seed": 2067461817
+    },
+    "service_tier": "on_demand"
+  },
+  "usage": {
+    "queue_time": 0.091619087,
+    "prompt_tokens": 1613,
+    "prompt_time": 0.112687488,
+    "completion_tokens": 921,
+    "completion_time": 2.825714726,
+    "total_tokens": 2534,
+    "total_time": 2.938402214
+  }
+}

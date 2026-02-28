@@ -7,6 +7,7 @@ import '../core/constants.dart';
 import '../widgets/app_logo.dart';
 import '../providers/classroom_provider.dart';
 import '../models/classroom_course.dart';
+import 'google_classroom_sync_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -150,7 +151,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     }
 
     if (!mounted) return;
-    Navigator.of(context).pushReplacementNamed(AppConstants.routeHome);
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => const GoogleClassroomSyncScreen(),
+      ),
+    );
   }
 
   @override

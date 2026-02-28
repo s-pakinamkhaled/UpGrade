@@ -25,10 +25,7 @@ class DefaultFirebaseOptions {
       case TargetPlatform.iOS:
         return ios;
       case TargetPlatform.macOS:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for macos - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return macos;
       case TargetPlatform.windows:
         return windows;
       case TargetPlatform.linux:
@@ -44,39 +41,50 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyA3DKfmjVM_CPf6p5tFFVexzSDjHfx3On4',
-    appId: '1:476917880453:web:8d8e172980e5c6f9703bec',
-    messagingSenderId: '476917880453',
-    projectId: 'upgrade-e87b3',
-    authDomain: 'upgrade-e87b3.firebaseapp.com',
-    storageBucket: 'upgrade-e87b3.firebasestorage.app',
-    measurementId: 'G-32QTXGY6E0',
+    apiKey: 'AIzaSyC8BtTeCvP0II7YOZjElCk0Dab3Z0XGqpM',
+    appId: '1:1022608019530:web:8d49b3c3a24533b5ed56b3',
+    messagingSenderId: '1022608019530',
+    projectId: 'upgrade-aa19f',
+    authDomain: 'upgrade-aa19f.firebaseapp.com',
+    storageBucket: 'upgrade-aa19f.firebasestorage.app',
+    measurementId: 'G-YH9G9NEWVS',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyCynKlyNgC236I8DJ9pqjGpZFKG_Pjx_WE',
-    appId: '1:476917880453:android:9924b162dca814c6703bec',
-    messagingSenderId: '476917880453',
-    projectId: 'upgrade-e87b3',
-    storageBucket: 'upgrade-e87b3.firebasestorage.app',
+    apiKey: 'AIzaSyDxSqSUl5o96ykdg_44gkjy5KONPZXYL2A',
+    appId: '1:1022608019530:android:7a9427a00a423ca4ed56b3',
+    messagingSenderId: '1022608019530',
+    projectId: 'upgrade-aa19f',
+    storageBucket: 'upgrade-aa19f.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyD7msGNOsnmuQZ1VrV7S1ih3dvMrC1k3Gw',
-    appId: '1:476917880453:ios:7e2f5865d825d905703bec',
-    messagingSenderId: '476917880453',
-    projectId: 'upgrade-e87b3',
-    storageBucket: 'upgrade-e87b3.firebasestorage.app',
+    apiKey: 'AIzaSyBX2QVfTghI9YY6lR2hTwX2VmNRD-5zqB4',
+    appId: '1:1022608019530:ios:f22c6a4cf764b3bbed56b3',
+    messagingSenderId: '1022608019530',
+    projectId: 'upgrade-aa19f',
+    storageBucket: 'upgrade-aa19f.firebasestorage.app',
+    iosClientId: '1022608019530-t9a641dft19p87s0mdi1tijrhhi1foof.apps.googleusercontent.com',
+    iosBundleId: 'com.example.frontend',
+  );
+
+  static const FirebaseOptions macos = FirebaseOptions(
+    apiKey: 'AIzaSyBX2QVfTghI9YY6lR2hTwX2VmNRD-5zqB4',
+    appId: '1:1022608019530:ios:f22c6a4cf764b3bbed56b3',
+    messagingSenderId: '1022608019530',
+    projectId: 'upgrade-aa19f',
+    storageBucket: 'upgrade-aa19f.firebasestorage.app',
+    iosClientId: '1022608019530-t9a641dft19p87s0mdi1tijrhhi1foof.apps.googleusercontent.com',
     iosBundleId: 'com.example.frontend',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyA3DKfmjVM_CPf6p5tFFVexzSDjHfx3On4',
-    appId: '1:476917880453:web:be601da2cab28436703bec',
-    messagingSenderId: '476917880453',
-    projectId: 'upgrade-e87b3',
-    authDomain: 'upgrade-e87b3.firebaseapp.com',
-    storageBucket: 'upgrade-e87b3.firebasestorage.app',
-    measurementId: 'G-LYX1LPMMWD',
+    apiKey: 'AIzaSyC8BtTeCvP0II7YOZjElCk0Dab3Z0XGqpM',
+    appId: '1:1022608019530:web:bd77ee521c999bdbed56b3',
+    messagingSenderId: '1022608019530',
+    projectId: 'upgrade-aa19f',
+    authDomain: 'upgrade-aa19f.firebaseapp.com',
+    storageBucket: 'upgrade-aa19f.firebasestorage.app',
+    measurementId: 'G-XE093HNNWP',
   );
 }

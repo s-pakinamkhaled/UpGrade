@@ -4,8 +4,9 @@ import 'package:http/http.dart' as http;
 
 /// API Service for connecting to the UpGrade backend
 class ApiService {
-  // Backend API base URL
-  static const String baseUrl = 'http://127.0.0.1:8001';
+  /// Backend API base URL.
+  /// Use localhost when running in browser (Flutter web or Docker web on host).
+  static const String baseUrl = 'http://localhost:8001';
   
   // Singleton pattern
   static final ApiService _instance = ApiService._internal();
@@ -45,14 +46,19 @@ class ApiService {
     }
   }
 
-  /// Test backend connection
+  /// Test backend connection. Returns a user-friendly message.
   Future<String> testConnection() async {
-    final isHealthy = await checkHealth();
-    if (isHealthy) {
-      final message = await getWelcomeMessage();
-      return message?['message'] ?? 'Backend is running';
+    try {
+      final isHealthy = await checkHealth();
+      if (isHealthy) {
+        final message = await getWelcomeMessage();
+        final msg = message?['message'] ?? 'Backend is running';
+        return 'Connected: $msg';
+      }
+    } catch (e) {
+      return 'Connection failed. Is the backend running at $baseUrl?';
     }
-    return 'Backend connection failed';
+    return 'Connection failed. Is the backend running at $baseUrl?';
   }
 
   /// Send a message to the AI chatbot

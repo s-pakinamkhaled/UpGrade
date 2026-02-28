@@ -24,6 +24,16 @@ import 'screens/missed_tasks_screen.dart';
 import 'models/task.dart';
 import 'widgets/app_logo.dart';
 
+/// صفحة الدخول — بسيطة: Login فقط (بدون اعتماد على Firestore أو Google).
+class AuthPage extends StatelessWidget {
+  const AuthPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const LoginScreen();
+  }
+}
+
 class UpGradeApp extends StatelessWidget {
   const UpGradeApp({super.key});
 
@@ -33,7 +43,7 @@ class UpGradeApp extends StatelessWidget {
       title: AppConstants.appName,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
-      initialRoute: AppConstants.routeLogin,
+      home: const AuthPage(),
       routes: {
         AppConstants.routeLogin: (context) => const LoginScreen(),
         AppConstants.routeRegister: (context) => const RegisterScreen(),

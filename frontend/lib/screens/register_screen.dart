@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/theme.dart';
-import '../core/constants.dart';
-import '../widgets/app_logo.dart';
-import '../services/firebase_auth_service.dart';
+import '../services/auth_service.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -13,97 +11,83 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
-  final FirebaseAuthService _authService = FirebaseAuthService();
-
+  final AuthService _auth = AuthService();
   final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
-  final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
-  final _confirmPasswordController = TextEditingController();
-
-  bool _obscurePassword = true;
-  bool _obscureConfirmPassword = true;
-  bool _isLoading = false;
-  bool _agreeToTerms = false;
-  String? _error;
+  final emailController = TextEditingController();
+  final passwordController = TextEditingController();
+  String error = '';
+  bool isLoading = false;
 
   @override
   void dispose() {
-    _nameController.dispose();
-    _emailController.dispose();
-    _passwordController.dispose();
-    _confirmPasswordController.dispose();
+    emailController.dispose();
+    passwordController.dispose();
     super.dispose();
   }
 
-  // 🔥 Email / Password Register (Firebase)
   Future<void> _handleRegister() async {
+    error = '';
     if (!_formKey.currentState!.validate()) return;
 
-    if (!_agreeToTerms) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please agree to the terms')),
+    setState(() => isLoading = true);
+
+    try {
+      await _auth.register(
+        emailController.text.trim(),
+        passwordController.text.trim(),
       );
+      if (!context.mounted) return;
+      Navigator.pop(context);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        error = AuthService.getAuthErrorMessage(e);
+        isLoading = false;
+      });
       return;
     }
 
-    setState(() {
-      _isLoading = true;
-      _error = null;
-    });
-
-    try {
-      final user = await _authService.signUpWithEmail(
-        _emailController.text.trim(),
-        _passwordController.text.trim(),
-      );
-
-      if (user == null) throw Exception('Registration failed');
-
-      if (!mounted) return;
-
-      Navigator.of(context).pushReplacementNamed(
-        AppConstants.routeGoogleClassroomSync,
-      );
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _error = e.toString().replaceAll('Exception:', '').trim();
-      });
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
+    if (!mounted) return;
+    setState(() => isLoading = false);
   }
 
-  // 🔥 Google Register (Firebase)
-  Future<void> _handleGoogleRegister() async {
+  Future<void> _handleGoogleSignIn() async {
     setState(() {
-      _isLoading = true;
-      _error = null;
+      error = '';
+      isLoading = true;
     });
 
     try {
-      final user = await _authService.signInWithGoogle();
-      if (user == null) throw Exception('Google sign-in cancelled');
-
+      final user = await _auth.signInWithGoogle();
       if (!mounted) return;
-
-      Navigator.of(context).pushReplacementNamed(
-        AppConstants.routeGoogleClassroomSync,
-      );
+      if (user == null) {
+        setState(() {
+          error = 'Google sign-in was cancelled';
+          isLoading = false;
+        });
+        return;
+      }
+      if (!context.mounted) return;
+      Navigator.pop(context);
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = 'Google Sign-Up failed';
+        error = AuthService.getAuthErrorMessage(e);
+        isLoading = false;
       });
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppTheme.lightGray,
+      appBar: AppBar(
+        title: const Text("Register"),
+        backgroundColor: AppTheme.white,
+        foregroundColor: AppTheme.darkText,
+        elevation: 0,
+      ),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
@@ -112,96 +96,112 @@ class _RegisterScreenState extends State<RegisterScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const SizedBox(height: 20),
-
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.arrow_back),
-                  ),
-                ),
-
-                const SizedBox(height: 20),
-                const Center(child: AppLogo.large()),
                 const SizedBox(height: 32),
-
-                const Text(
+                Text(
                   'Create Account',
-                  style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
+                  style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                        color: AppTheme.darkText,
+                      ),
                   textAlign: TextAlign.center,
                 ),
-
-                const SizedBox(height: 16),
-
-                if (_error != null) ...[
-                  Text(_error!,
-                      style: const TextStyle(color: Colors.red),
-                      textAlign: TextAlign.center),
-                  const SizedBox(height: 16),
-                ],
-
+                const SizedBox(height: 8),
+                Text(
+                  'Sign up to get started',
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: AppTheme.darkText.withOpacity(0.7),
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 32),
                 TextFormField(
-                  controller: _nameController,
-                  decoration: const InputDecoration(labelText: 'Full Name'),
-                  validator: (v) =>
-                      v == null || v.isEmpty ? 'Enter your name' : null,
+                  controller: emailController,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: const InputDecoration(
+                    labelText: "Email",
+                    prefixIcon: Icon(Icons.email_outlined),
+                  ),
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Enter your email';
+                    }
+                    final emailRegex = RegExp(
+                      r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                    );
+                    if (!emailRegex.hasMatch(value.trim())) {
+                      return 'Invalid email format';
+                    }
+                    return null;
+                  },
                 ),
-
                 const SizedBox(height: 20),
-
                 TextFormField(
-                  controller: _emailController,
-                  decoration: const InputDecoration(labelText: 'Email'),
-                  validator: (v) =>
-                      v == null || !v.contains('@') ? 'Invalid email' : null,
+                  controller: passwordController,
+                  decoration: const InputDecoration(
+                    labelText: "Password",
+                    prefixIcon: Icon(Icons.lock_outlined),
+                  ),
+                  obscureText: true,
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Enter your password';
+                    }
+                    if (value.length < 6) {
+                      return 'Password must be at least 6 characters';
+                    }
+                    return null;
+                  },
                 ),
-
-                const SizedBox(height: 20),
-
-                TextFormField(
-                  controller: _passwordController,
-                  obscureText: _obscurePassword,
-                  decoration: const InputDecoration(labelText: 'Password'),
-                  validator: (v) =>
-                      v == null || v.length < 6 ? 'Weak password' : null,
-                ),
-
-                const SizedBox(height: 20),
-
-                TextFormField(
-                  controller: _confirmPasswordController,
-                  obscureText: _obscureConfirmPassword,
-                  decoration:
-                      const InputDecoration(labelText: 'Confirm Password'),
-                  validator: (v) =>
-                      v != _passwordController.text ? 'Passwords mismatch' : null,
-                ),
-
-                const SizedBox(height: 20),
-
-                CheckboxListTile(
-                  value: _agreeToTerms,
-                  onChanged: (v) => setState(() => _agreeToTerms = v ?? false),
-                  title: const Text('I agree to terms & privacy'),
-                  controlAffinity: ListTileControlAffinity.leading,
-                ),
-
                 const SizedBox(height: 24),
-
-                ElevatedButton(
-                  onPressed: _isLoading ? null : _handleRegister,
-                  child: _isLoading
-                      ? const CircularProgressIndicator()
-                      : const Text('Create Account'),
+                if (isLoading)
+                  const Center(child: CircularProgressIndicator())
+                else
+                  ElevatedButton(
+                    onPressed: _handleRegister,
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                    ),
+                    child: const Text("Create Account"),
+                  ),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    const Expanded(child: Divider()),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Text(
+                        'OR',
+                        style: TextStyle(
+                          color: AppTheme.mediumGray,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    const Expanded(child: Divider()),
+                  ],
                 ),
-
-                const SizedBox(height: 16),
-
-                OutlinedButton(
-                  onPressed: _isLoading ? null : _handleGoogleRegister,
-                  child: const Text('Sign up with Google'),
+                const SizedBox(height: 20),
+                OutlinedButton.icon(
+                  onPressed: isLoading ? null : _handleGoogleSignIn,
+                  icon: const Icon(Icons.g_mobiledata, size: 24),
+                  label: const Text("Sign up with Google"),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    side: const BorderSide(color: AppTheme.mediumGray),
+                  ),
                 ),
+                if (error.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 16),
+                    child: Text(
+                      error,
+                      style: const TextStyle(
+                        color: AppTheme.errorRed,
+                        fontSize: 14,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
               ],
             ),
           ),

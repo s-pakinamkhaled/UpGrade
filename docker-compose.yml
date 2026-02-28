@@ -1,0 +1,17 @@
+version: "3.9"
+
+services:
+  backend:
+    build: ./backend
+    container_name: upgrade-backend
+    ports:
+      - "8001:8001"
+    restart: always
+
+  frontend:
+    build: ./frontend
+    container_name: upgrade-frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend

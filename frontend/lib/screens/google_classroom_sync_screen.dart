@@ -49,10 +49,9 @@ class _GoogleClassroomSyncScreenState extends State<GoogleClassroomSyncScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
-              'No assignments found. Check the console for debug output. '
-              'If you previously signed in, try signing out of Google in device settings and sync again.',
+              'No assignments found. You can skip this step or try again with Google.',
             ),
-            duration: Duration(seconds: 5),
+            duration: Duration(seconds: 3),
           ),
         );
       }

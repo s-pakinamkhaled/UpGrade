@@ -153,13 +153,12 @@ class _DevicePairingScreenState extends State<DevicePairingScreen> {
               if (!widget.isFromSettings && _isPaired)
                 TextButton(
                   onPressed: () {
-                    // Remove any SnackBar (e.g. "Pairing code copied") so onboarding opens clean
                     ScaffoldMessenger.of(context).hideCurrentSnackBar();
                     Navigator.of(context).pushReplacementNamed(
-                      AppConstants.routeOnboarding,
+                      AppConstants.routeHome,
                     );
                   },
-                  child: const Text('Continue to Setup'),
+                  child: const Text('Continue to App'),
                 ),
             ],
           ),

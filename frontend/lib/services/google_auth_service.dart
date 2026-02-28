@@ -1,12 +1,12 @@
 import 'package:google_sign_in/google_sign_in.dart';
 
+/// Google Sign-In for Classroom API (returns access token for sync).
 class GoogleAuthService {
-  // Student scopes: view your own courses and coursework (assignments + grades).
-  // .students.readonly is for teachers; .me.readonly is for the signed-in student.
   static final GoogleSignIn _googleSignIn = GoogleSignIn(
     scopes: [
       'https://www.googleapis.com/auth/classroom.courses.readonly',
-      'https://www.googleapis.com/auth/classroom.coursework.me.readonly',
+      'https://www.googleapis.com/auth/classroom.coursework.me',
+      'https://www.googleapis.com/auth/classroom.student-submissions.me.readonly',
     ],
   );
 
@@ -16,9 +16,5 @@ class GoogleAuthService {
 
     final auth = await account.authentication;
     return auth.accessToken;
-  }
-
-  static Future<void> signOut() async {
-    await _googleSignIn.signOut();
   }
 }

@@ -8,11 +8,20 @@ from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 import sys
 import os
+from dotenv import load_dotenv
+
+# Load environment variables from backend/.env and ai/.env
+current_dir = os.path.dirname(os.path.abspath(__file__))
+# current_dir = backend/app/api/routes → 4 dirname calls = project root (UpGrade/)
+project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_dir))))
+
+backend_env = os.path.join(project_root, 'backend', '.env')
+ai_env = os.path.join(project_root, 'ai', '.env')
+load_dotenv(backend_env)
+load_dotenv(ai_env)
 
 # Add AI service to path
-current_dir = os.path.dirname(os.path.abspath(__file__))
-backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_dir))))
-ai_path = os.path.join(backend_dir, 'ai')
+ai_path = os.path.join(project_root, 'ai')
 sys.path.insert(0, ai_path)
 
 try:

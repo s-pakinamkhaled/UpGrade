@@ -21,6 +21,7 @@ import 'screens/ai_chatbot_screen.dart';
 import 'screens/past_tasks_screen.dart';
 import 'screens/missed_tasks_screen.dart';
 import 'screens/firestore_example_screen.dart';
+import 'screens/study_plan_screen.dart';
 
 import 'models/task.dart';
 import 'widgets/app_logo.dart';
@@ -98,6 +99,8 @@ class UpGradeApp extends StatelessWidget {
             const MissedTasksScreen(),
         AppConstants.routeFirestoreExample: (context) =>
             const FirestoreExampleScreen(),
+        AppConstants.routeStudyPlan: (context) =>
+            const StudyPlanScreen(),
       },
     );
   }

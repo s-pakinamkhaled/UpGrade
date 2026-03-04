@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../core/theme.dart';
 import '../core/constants.dart';
 import '../widgets/app_logo.dart';
 import '../services/firebase_auth_service.dart';

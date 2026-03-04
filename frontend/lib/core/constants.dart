@@ -30,4 +30,5 @@ class AppConstants {
   static const String routePastTasks = '/past-tasks';
   static const String routeMissedTasks = '/missed-tasks';
   static const String routeFirestoreExample = '/firestore-example';
+  static const String routeStudyPlan = '/study-plan';
 }

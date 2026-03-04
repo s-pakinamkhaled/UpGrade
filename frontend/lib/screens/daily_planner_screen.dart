@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../core/theme.dart';
+import '../core/constants.dart';
 import '../models/task.dart';
 import '../models/focus_session.dart';
 import '../providers/classroom_provider.dart';
@@ -134,6 +135,7 @@ class _DailyPlannerScreenState extends State<DailyPlannerScreen> {
                     child: Column(
                       children: [
                         _buildDailySection(selectedDayTasks),
+                        _buildGeneratePlanButton(),
                         _buildWeeklyNavigationCard(weeklyTasks),
                         const SizedBox(height: 24),
                       ],
@@ -303,6 +305,71 @@ class _DailyPlannerScreenState extends State<DailyPlannerScreen> {
           child: Column(children: _buildTimelineItems(selectedDayTasks)),
         ),
       ],
+    );
+  }
+
+  // ---------------- GENERATE PLAN BUTTON ----------------
+
+  Widget _buildGeneratePlanButton() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: AppTheme.primaryGradient,
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: AppTheme.mediumShadow,
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () =>
+                Navigator.of(context).pushNamed(AppConstants.routeStudyPlan),
+            borderRadius: BorderRadius.circular(14),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppTheme.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.auto_awesome,
+                        color: AppTheme.white, size: 22),
+                  ),
+                  const SizedBox(width: 14),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Generate Personalized Plan',
+                          style: TextStyle(
+                            color: AppTheme.white,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        SizedBox(height: 2),
+                        Text(
+                          'AI-powered study schedule via Llama 3.3',
+                          style: TextStyle(
+                            color: AppTheme.white,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.arrow_forward_ios,
+                      color: AppTheme.white, size: 16),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 

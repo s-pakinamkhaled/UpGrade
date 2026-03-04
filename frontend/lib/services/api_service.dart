@@ -106,11 +106,52 @@ class ApiService {
     }
   }
 
+  /// Generate a personalised study plan from the student's active tasks.
+  Future<Map<String, dynamic>?> generateStudyPlan({
+    required String studentName,
+    required List tasks,
+  }) async {
+    try {
+      final taskPayload = tasks.map((t) {
+        final json = t.toJson();
+        return {
+          'id': json['id'] ?? '',
+          'title': json['title'] ?? '',
+          'courseName': json['courseName'] ?? '',
+          'deadline': json['deadline'],
+          'estimatedMinutes': json['estimatedMinutes'] ?? 60,
+          'priority': json['priority'] ?? 'medium',
+          'status': json['status'] ?? 'pending',
+          'description': json['description'],
+          'assignedGrade': json['assignedGrade'],
+          'maxPoints': json['maxPoints'],
+        };
+      }).toList();
+
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/plan/generate'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'studentName': studentName,
+          'tasks': taskPayload,
+        }),
+      ).timeout(const Duration(seconds: 60));
+
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      }
+      print('Plan API error: ${response.statusCode} ${response.body}');
+      return null;
+    } catch (e) {
+      print('Failed to generate study plan: $e');
+      return null;
+    }
+  }
+
   // Add more API methods here as needed:
   // - getUserTasks()
   // - createTask()
   // - updateTask()
-  // - getStudyPlan()
   // - etc.
 
 }

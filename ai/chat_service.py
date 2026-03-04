@@ -115,23 +115,42 @@ Remember: You're a study companion, not just a chatbot. Be personal and understa
             }
     
     def _build_context_message(self, context: Dict[str, Any]) -> str:
-        """Build a context message from student data"""
+        """Build a rich context message from student data so the LLM can give personalised advice"""
         parts = []
-        
+
         if "name" in context:
-            parts.append(f"Student: {context['name']}")
-        
+            parts.append(f"Student name: {context['name']}")
+
         if "tasks" in context and context["tasks"]:
-            task_count = len(context["tasks"])
-            urgent_count = sum(1 for t in context["tasks"] if t.get("priority") == "urgent")
-            parts.append(f"Current tasks: {task_count} total, {urgent_count} urgent")
-        
+            tasks = context["tasks"]
+            task_count = len(tasks)
+            urgent_count = sum(1 for t in tasks if t.get("priority") == "urgent")
+            overdue_count = sum(1 for t in tasks if t.get("status") == "overdue")
+            parts.append(f"Total tasks: {task_count} | Urgent: {urgent_count} | Overdue: {overdue_count}")
+            parts.append("")
+            parts.append("Task details:")
+            for i, t in enumerate(tasks[:20], 1):  # cap at 20 to avoid huge prompts
+                line = f"  {i}. {t.get('title', 'Untitled')}"
+                if t.get("courseName"):
+                    line += f" — Course: {t['courseName']}"
+                if t.get("priority"):
+                    line += f" | Priority: {t['priority']}"
+                if t.get("status"):
+                    line += f" | Status: {t['status']}"
+                if t.get("deadline"):
+                    line += f" | Deadline: {t['deadline']}"
+                if t.get("estimatedMinutes"):
+                    line += f" | Est: {t['estimatedMinutes']} min"
+                if t.get("grades"):
+                    line += f" | Grade: {t['grades']}"
+                parts.append(line)
+
         if "schedule" in context:
-            parts.append(f"Today's schedule: {context['schedule']}")
-        
+            parts.append(f"\nToday's schedule: {context['schedule']}")
+
         if parts:
-            return "Current context:\n" + "\n".join(parts)
-        
+            return "Current student context:\n" + "\n".join(parts)
+
         return ""
     
     def get_quick_suggestions(self, student_context: Optional[Dict[str, Any]] = None) -> List[str]:

@@ -351,7 +351,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           const SizedBox(height: 12),
           // Course dropdown
           DropdownButtonFormField<String>(
-            value: _selectedCourseId,
+            initialValue: _selectedCourseId,
             decoration: const InputDecoration(
               prefixIcon: Icon(Icons.book),
               hintText: 'Select course',

@@ -5,6 +5,7 @@ import 'core/constants.dart';
 
 import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
+import 'screens/forgot_password_screen.dart';
 import 'screens/google_classroom_sync_screen.dart';
 import 'screens/device_pairing_screen.dart';
 import 'screens/onboarding_screen.dart';
@@ -17,6 +18,10 @@ import 'screens/burnout_risk_screen.dart';
 import 'screens/group_study_screen.dart';
 import 'screens/end_of_day_screen.dart';
 import 'screens/ai_chatbot_screen.dart';
+import 'screens/past_tasks_screen.dart';
+import 'screens/missed_tasks_screen.dart';
+import 'screens/firestore_example_screen.dart';
+import 'screens/study_plan_screen.dart';
 
 import 'models/task.dart';
 import 'widgets/app_logo.dart';
@@ -34,6 +39,8 @@ class UpGradeApp extends StatelessWidget {
       routes: {
         AppConstants.routeLogin: (context) => const LoginScreen(),
         AppConstants.routeRegister: (context) => const RegisterScreen(),
+        AppConstants.routeForgotPassword: (context) =>
+            const ForgotPasswordScreen(),
         AppConstants.routeGoogleClassroomSync: (context) =>
             const GoogleClassroomSyncScreen(),
         AppConstants.routeDevicePairing: (context) =>
@@ -86,6 +93,14 @@ class UpGradeApp extends StatelessWidget {
             const AIChatbotScreen(),
         AppConstants.routeEndOfDay: (context) =>
             EndOfDayScreen(),
+        AppConstants.routePastTasks: (context) =>
+            const PastTasksScreen(),
+        AppConstants.routeMissedTasks: (context) =>
+            const MissedTasksScreen(),
+        AppConstants.routeFirestoreExample: (context) =>
+            const FirestoreExampleScreen(),
+        AppConstants.routeStudyPlan: (context) =>
+            const StudyPlanScreen(),
       },
     );
   }
@@ -106,20 +121,22 @@ class MainNavigationScreen extends StatefulWidget {
 class _MainNavigationScreenState
     extends State<MainNavigationScreen> {
   int _currentIndex = 0;
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
-  final List<Widget> _screens = [
-    const DailyPlannerScreen(),
-    const AIChatbotScreen(),
-    const ProgressDashboardScreen(),
-    const GroupStudyScreen(),
-  ];
+  void _openDrawer() => _scaffoldKey.currentState?.openDrawer();
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      key: _scaffoldKey,
       body: IndexedStack(
         index: _currentIndex,
-        children: _screens,
+        children: [
+          DailyPlannerScreen(openDrawer: _openDrawer),
+          AIChatbotScreen(openDrawer: _openDrawer),
+          ProgressDashboardScreen(openDrawer: _openDrawer),
+          GroupStudyScreen(openDrawer: _openDrawer),
+        ],
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentIndex,
@@ -255,6 +272,16 @@ class _MainNavigationScreenState
           ),
 
           ListTile(
+            leading: const Icon(Icons.history_edu),
+            title: const Text('Past Tasks'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.of(context)
+                  .pushNamed(AppConstants.routePastTasks);
+            },
+          ),
+
+          ListTile(
             leading: const Icon(Icons.dashboard),
             title: const Text('Progress Dashboard'),
             onTap: () {
@@ -289,6 +316,16 @@ class _MainNavigationScreenState
               Navigator.pop(context);
               Navigator.of(context)
                   .pushNamed(AppConstants.routeEndOfDay);
+            },
+          ),
+
+          ListTile(
+            leading: const Icon(Icons.cloud),
+            title: const Text('Firestore Example'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.of(context)
+                  .pushNamed(AppConstants.routeFirestoreExample);
             },
           ),
         ],

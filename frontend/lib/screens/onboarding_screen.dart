@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
+
 import '../core/theme.dart';
 import '../core/constants.dart';
 import '../widgets/app_logo.dart';
+import '../providers/classroom_provider.dart';
+import '../models/classroom_course.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -14,28 +19,101 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   int _currentStep = 0;
   final PageController _pageController = PageController();
 
-  final List<String> _courses = [];
-  final List<DateTime> _deadlines = [];
+  // Step 1: Courses
+  final TextEditingController _courseController = TextEditingController();
+  final List<String> _manualCourses = [];
+
+  // Step 2: Deadlines/Tasks
+  final TextEditingController _taskNameController = TextEditingController();
+  DateTime? _selectedDeadline;
+  String? _selectedCourseId;
+  final List<_ManualTask> _manualTasks = [];
+
+  // Step 3: Preferred times
   final List<String> _preferredTimes = [];
 
-  final TextEditingController _courseController = TextEditingController();
-  final TextEditingController _deadlineController = TextEditingController();
+  @override
+  void initState() {
+    super.initState();
+    // Clear any SnackBar from previous screen (e.g. sync or pairing) so UI is clean
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      }
+    });
+  }
 
   @override
   void dispose() {
     _pageController.dispose();
     _courseController.dispose();
-    _deadlineController.dispose();
+    _taskNameController.dispose();
     super.dispose();
   }
 
   void _addCourse() {
-    if (_courseController.text.isNotEmpty) {
-      setState(() {
-        _courses.add(_courseController.text);
-        _courseController.clear();
-      });
+    final name = _courseController.text.trim();
+    if (name.isEmpty) return;
+    setState(() {
+      _manualCourses.add(name);
+      _courseController.clear();
+    });
+  }
+
+  void _removeCourse(int index) {
+    setState(() {
+      _manualCourses.removeAt(index);
+    });
+  }
+
+  Future<void> _pickDeadline() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now().add(const Duration(days: 1)),
+      firstDate: DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+    );
+    if (picked != null) {
+      setState(() => _selectedDeadline = picked);
     }
+  }
+
+  void _addTask() {
+    final name = _taskNameController.text.trim();
+    if (name.isEmpty || _selectedDeadline == null || _selectedCourseId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please fill in task name, deadline, and select a course')),
+      );
+      return;
+    }
+    setState(() {
+      _manualTasks.add(_ManualTask(
+        name: name,
+        deadline: _selectedDeadline!,
+        courseId: _selectedCourseId!,
+        courseName: _allCourses.firstWhere((c) => c.id == _selectedCourseId).name,
+      ));
+      _taskNameController.clear();
+      _selectedDeadline = null;
+      _selectedCourseId = null;
+    });
+  }
+
+  void _removeTask(int index) {
+    setState(() {
+      _manualTasks.removeAt(index);
+    });
+  }
+
+  List<ClassroomCourse> get _allCourses {
+    final provider = context.read<ClassroomProvider>();
+    final syncedCourses = provider.courses;
+    final manual = _manualCourses
+        .asMap()
+        .entries
+        .map((e) => ClassroomCourse(id: 'manual_onboarding_${e.key}', name: e.value))
+        .toList();
+    return [...syncedCourses, ...manual];
   }
 
   void _nextStep() {
@@ -45,9 +123,34 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         curve: Curves.easeInOut,
       );
     } else {
-      Navigator.of(context)
-          .pushReplacementNamed(AppConstants.routeHome);
+      _finishOnboarding();
     }
+  }
+
+  Future<void> _finishOnboarding() async {
+    final provider = context.read<ClassroomProvider>();
+
+    // Save manual courses
+    for (final name in _manualCourses) {
+      await provider.addManualCourse(name);
+    }
+
+    // Save manual tasks
+    for (final t in _manualTasks) {
+      // Find the actual course (may be synced or manual)
+      final courses = provider.courses;
+      final match = courses.where((c) => c.name == t.courseName).toList();
+      final courseId = match.isNotEmpty ? match.first.id : t.courseId;
+      await provider.addManualTask(
+        title: t.name,
+        deadline: t.deadline,
+        courseId: courseId,
+        courseName: t.courseName,
+      );
+    }
+
+    if (!mounted) return;
+    Navigator.of(context).pushReplacementNamed(AppConstants.routeHome);
   }
 
   @override
@@ -56,47 +159,37 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       body: SafeArea(
         child: Column(
           children: [
-              // Progress Indicator
-              Padding(
-                padding: const EdgeInsets.all(20),
-                child: Row(
-                  children: List.generate(3, (index) {
-                    return Expanded(
-                      child: Container(
-                        height: 5,
-                        margin: EdgeInsets.only(right: index < 2 ? 10 : 0),
-                        decoration: BoxDecoration(
-                          gradient: index <= _currentStep
-                              ? AppTheme.primaryGradient
-                              : null,
-                          color: index <= _currentStep
-                              ? null
-                              : AppTheme.mediumGray.withOpacity(0.3),
-                          borderRadius: BorderRadius.circular(3),
-                          boxShadow: index <= _currentStep
-                              ? AppTheme.softShadow
-                              : null,
-                        ),
+            // Progress Indicator
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Row(
+                children: List.generate(3, (index) {
+                  return Expanded(
+                    child: Container(
+                      height: 5,
+                      margin: EdgeInsets.only(right: index < 2 ? 10 : 0),
+                      decoration: BoxDecoration(
+                        gradient: index <= _currentStep ? AppTheme.primaryGradient : null,
+                        color: index <= _currentStep ? null : AppTheme.mediumGray.withOpacity(0.3),
+                        borderRadius: BorderRadius.circular(3),
+                        boxShadow: index <= _currentStep ? AppTheme.softShadow : null,
                       ),
-                    );
-                  }),
-                ),
+                    ),
+                  );
+                }),
               ),
+            ),
 
             // Logo
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 32),
-              child: Column(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      gradient: AppTheme.softGradient,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const AppLogo.large(),
-                  ),
-                ],
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  gradient: AppTheme.softGradient,
+                  shape: BoxShape.circle,
+                ),
+                child: const AppLogo.small(),
               ),
             ),
 
@@ -104,11 +197,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             Expanded(
               child: PageView(
                 controller: _pageController,
-                onPageChanged: (index) {
-                  setState(() {
-                    _currentStep = index;
-                  });
-                },
+                onPageChanged: (index) => setState(() => _currentStep = index),
                 children: [
                   _buildCoursesStep(),
                   _buildDeadlinesStep(),
@@ -126,8 +215,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     TextButton(
                       onPressed: () {
                         _pageController.previousPage(
-                          duration:
-                              const Duration(milliseconds: 300),
+                          duration: const Duration(milliseconds: 300),
                           curve: Curves.easeInOut,
                         );
                       },
@@ -136,8 +224,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   const Spacer(),
                   ElevatedButton(
                     onPressed: _nextStep,
-                    child: Text(
-                        _currentStep < 2 ? 'Next' : 'Get Started'),
+                    child: Text(_currentStep < 2 ? 'Next' : 'Get Started'),
                   ),
                 ],
               ),
@@ -148,8 +235,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     );
   }
 
-  // -------------------- STEP 1 --------------------
+  // ==================== STEP 1: COURSES ====================
   Widget _buildCoursesStep() {
+    final syncedCourses = context.watch<ClassroomProvider>().courses;
     return Padding(
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -157,18 +245,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         children: [
           const Text(
             'Add Your Courses',
-            style:
-                TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+            style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
           Text(
-            'Tell us about the courses you\'re taking this semester',
-            style: TextStyle(
-              fontSize: 16,
-              color: AppTheme.darkText.withOpacity(0.7),
-            ),
+            'Add any extra courses not synced from Google Classroom',
+            style: TextStyle(fontSize: 15, color: AppTheme.darkText.withOpacity(0.7)),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
           Row(
             children: [
               Expanded(
@@ -182,127 +266,164 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 ),
               ),
               const SizedBox(width: 8),
-              IconButton(
-                onPressed: _addCourse,
-                icon: const Icon(Icons.add_circle),
-                color: AppTheme.primaryBlue,
-                iconSize: 32,
+              MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: IconButton(
+                  onPressed: _addCourse,
+                  icon: const Icon(Icons.add_circle),
+                  color: AppTheme.primaryBlue,
+                  iconSize: 36,
+                  tooltip: 'Add course',
+                ),
               ),
             ],
           ),
           const SizedBox(height: 16),
-          if (_courses.isNotEmpty)
-            Expanded(
-              child: ListView.builder(
-                itemCount: _courses.length,
-                itemBuilder: (context, index) {
-                  return Card(
-                    child: ListTile(
-                      leading: const Icon(Icons.book,
-                          color: AppTheme.primaryBlue),
-                      title: Text(_courses[index]),
-                      trailing: IconButton(
-                        icon: const Icon(Icons.close),
-                        onPressed: () {
-                          setState(() {
-                            _courses.removeAt(index);
-                          });
-                        },
-                      ),
-                    ),
-                  );
-                },
-              ),
+          if (syncedCourses.isNotEmpty) ...[
+            Text(
+              'Synced from Google Classroom:',
+              style: TextStyle(fontWeight: FontWeight.w600, color: AppTheme.mediumGray),
             ),
+            const SizedBox(height: 8),
+            ...syncedCourses.map((c) => Card(
+                  child: ListTile(
+                    leading: const Icon(Icons.cloud_done, color: AppTheme.successGreen),
+                    title: Text(c.name),
+                  ),
+                )),
+            const SizedBox(height: 16),
+          ],
+          if (_manualCourses.isNotEmpty) ...[
+            Text(
+              'Manual courses:',
+              style: TextStyle(fontWeight: FontWeight.w600, color: AppTheme.mediumGray),
+            ),
+            const SizedBox(height: 8),
+          ],
+          Expanded(
+            child: ListView.builder(
+              itemCount: _manualCourses.length,
+              itemBuilder: (context, index) {
+                return Card(
+                  child: ListTile(
+                    leading: const Icon(Icons.book, color: AppTheme.primaryBlue),
+                    title: Text(_manualCourses[index]),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => _removeCourse(index),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
         ],
       ),
     );
   }
 
-  // -------------------- STEP 2 --------------------
+  // ==================== STEP 2: DEADLINES ====================
   Widget _buildDeadlinesStep() {
+    final courses = _allCourses;
     return Padding(
       padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Important Deadlines',
-            style:
-                TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+            'Add Deadlines',
+            style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
           Text(
-            'Add any upcoming deadlines or important dates',
-            style: TextStyle(
-              fontSize: 16,
-              color: AppTheme.darkText.withOpacity(0.7),
+            'Add tasks/assignments with deadlines',
+            style: TextStyle(fontSize: 15, color: AppTheme.darkText.withOpacity(0.7)),
+          ),
+          const SizedBox(height: 20),
+          // Task name
+          TextField(
+            controller: _taskNameController,
+            decoration: const InputDecoration(
+              hintText: 'Task name (e.g., Essay draft)',
+              prefixIcon: Icon(Icons.assignment),
             ),
           ),
-          const SizedBox(height: 24),
-          TextField(
-            controller: _deadlineController,
+          const SizedBox(height: 12),
+          // Course dropdown
+          DropdownButtonFormField<String>(
+            initialValue: _selectedCourseId,
             decoration: const InputDecoration(
-              hintText: 'Deadline description',
-              prefixIcon: Icon(Icons.event),
+              prefixIcon: Icon(Icons.book),
+              hintText: 'Select course',
+            ),
+            items: courses
+                .map((c) => DropdownMenuItem(value: c.id, child: Text(c.name)))
+                .toList(),
+            onChanged: (v) => setState(() => _selectedCourseId = v),
+          ),
+          const SizedBox(height: 12),
+          // Date picker
+          InkWell(
+            onTap: _pickDeadline,
+            child: InputDecorator(
+              decoration: const InputDecoration(
+                prefixIcon: Icon(Icons.calendar_today),
+                hintText: 'Select deadline',
+              ),
+              child: Text(
+                _selectedDeadline != null
+                    ? DateFormat('EEE, MMM d, y').format(_selectedDeadline!)
+                    : 'Tap to pick deadline',
+                style: TextStyle(
+                  color: _selectedDeadline != null ? AppTheme.darkText : AppTheme.mediumGray,
+                ),
+              ),
             ),
           ),
           const SizedBox(height: 16),
           ElevatedButton.icon(
-            onPressed: () {
-              setState(() {
-                _deadlines
-                    .add(DateTime.now().add(const Duration(days: 7)));
-              });
-            },
-            icon: const Icon(Icons.calendar_today),
-            label: const Text('Add Deadline'),
+            onPressed: _addTask,
+            icon: const Icon(Icons.add),
+            label: const Text('Add Task'),
           ),
           const SizedBox(height: 16),
-          if (_deadlines.isNotEmpty)
-            Expanded(
-              child: ListView.builder(
-                itemCount: _deadlines.length,
-                itemBuilder: (context, index) {
-                  return Card(
-                    child: ListTile(
-                      leading: const Icon(Icons.event,
-                          color: AppTheme.warningOrange),
-                      title: Text(
-                        _deadlineController.text.isEmpty
-                            ? 'Deadline ${index + 1}'
-                            : _deadlineController.text,
-                      ),
-                      subtitle: Text(
-                        '${_deadlines[index].month}/${_deadlines[index].day}/${_deadlines[index].year}',
-                      ),
-                      trailing: IconButton(
-                        icon: const Icon(Icons.close),
-                        onPressed: () {
-                          setState(() {
-                            _deadlines.removeAt(index);
-                          });
-                        },
-                      ),
-                    ),
-                  );
-                },
-              ),
+          if (_manualTasks.isNotEmpty)
+            Text(
+              'Tasks to add:',
+              style: TextStyle(fontWeight: FontWeight.w600, color: AppTheme.mediumGray),
             ),
+          Expanded(
+            child: ListView.builder(
+              itemCount: _manualTasks.length,
+              itemBuilder: (context, index) {
+                final t = _manualTasks[index];
+                return Card(
+                  child: ListTile(
+                    leading: const Icon(Icons.event, color: AppTheme.warningOrange),
+                    title: Text('${t.name} / ${t.courseName}'),
+                    subtitle: Text(DateFormat('MMM d, y').format(t.deadline)),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => _removeTask(index),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
         ],
       ),
     );
   }
 
-  // -------------------- STEP 3 --------------------
+  // ==================== STEP 3: STUDY TIMES ====================
   Widget _buildStudyTimesStep() {
     final times = [
-      'Morning (6-12)',
-      'Afternoon (12-6)',
-      'Evening (6-10)',
-      'Night (10-2)'
+      'Morning (6 AM – 12 PM)',
+      'Afternoon (12 PM – 6 PM)',
+      'Evening (6 PM – 10 PM)',
+      'Night (10 PM – 2 AM)',
     ];
-
     return Padding(
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -310,25 +431,20 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         children: [
           const Text(
             'Preferred Study Times',
-            style:
-                TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+            style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
           Text(
-            'When do you prefer to study? (You can select multiple)',
-            style: TextStyle(
-              fontSize: 16,
-              color: AppTheme.darkText.withOpacity(0.7),
-            ),
+            'When do you prefer to study? (optional)',
+            style: TextStyle(fontSize: 15, color: AppTheme.darkText.withOpacity(0.7)),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
           Expanded(
             child: ListView.builder(
               itemCount: times.length,
               itemBuilder: (context, index) {
                 final time = times[index];
-                final isSelected =
-                    _preferredTimes.contains(time);
+                final isSelected = _preferredTimes.contains(time);
                 return Card(
                   child: CheckboxListTile(
                     title: Text(time),
@@ -345,55 +461,22 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               },
             ),
           ),
-          const SizedBox(height: 16),
-
-          // ✅ FIXED: Google Classroom Card
-          InkWell(
-            borderRadius: BorderRadius.circular(12),
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text(
-                      'Google Classroom connection coming soon!'),
-                ),
-              );
-            },
-            child: Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    const Icon(Icons.class_,
-                        color: AppTheme.primaryBlue),
-                    const SizedBox(width: 16),
-                    const Expanded(
-                      child: Column(
-                        crossAxisAlignment:
-                            CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Connect Google Classroom',
-                            style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600),
-                          ),
-                          SizedBox(height: 4),
-                          Text(
-                            'Sync your assignments automatically',
-                            style: TextStyle(fontSize: 12),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Icon(Icons.arrow_forward_ios,
-                        size: 16),
-                  ],
-                ),
-              ),
-            ),
-          ),
         ],
       ),
     );
   }
+}
+
+class _ManualTask {
+  final String name;
+  final DateTime deadline;
+  final String courseId;
+  final String courseName;
+
+  _ManualTask({
+    required this.name,
+    required this.deadline,
+    required this.courseId,
+    required this.courseName,
+  });
 }

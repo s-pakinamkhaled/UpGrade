@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'dart:ui' as ui;
 import '../core/theme.dart';
 
 /// App Logo Widget with Staircase Icon

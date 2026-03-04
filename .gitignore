@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+.venv/
+.env
+.env.local
+*.egg-info/
+.eggs/
+
+# Firebase
+.firebase/
+.firebaserc
+*-debug.log
+*-debug.log.*
+
+# IDE / OS
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Secrets (do not commit)
+*.pem
+*credentials*.json
+serviceAccount*.json
+google-services.json
+GoogleService-Info.plist
+
+# Logs
+*.log
+npm-debug.log*

@@ -12,6 +12,7 @@ class AppConstants {
   // ================== ROUTES ==================
   static const String routeLogin = '/login';
   static const String routeRegister = '/register';
+  static const String routeForgotPassword = '/forgot-password';
   static const String routeGoogleClassroomSync =
       '/google-classroom-sync';
   static const String routeDevicePairing = '/device-pairing';
@@ -26,4 +27,8 @@ class AppConstants {
   static const String routeEndOfDay = '/end-of-day';
   static const String routeAIChatbot = '/ai-chatbot';
   static const String routeWeeklySchedule = '/weekly-schedule';
+  static const String routePastTasks = '/past-tasks';
+  static const String routeMissedTasks = '/missed-tasks';
+  static const String routeFirestoreExample = '/firestore-example';
+  static const String routeStudyPlan = '/study-plan';
 }

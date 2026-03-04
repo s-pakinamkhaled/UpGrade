@@ -1,11 +1,11 @@
 # 🎓 UpGrade AI Service
 
-AI-powered study planning service that generates personalized study plans using DeepSeek R1 LLM.
+AI-powered study planning service that generates personalized study plans using Llama 3.3 via Groq API.
 
 ## 🌟 Features
 
 - **Fake Data Generation**: Create realistic student profiles with courses, tasks, grades, and analytics
-- **DeepSeek R1 Integration**: Use advanced LLM to generate personalized study plans
+- **Llama 3.3 Integration**: Use advanced open-source LLM via Groq for fast, personalized study plans
 - **Risk Analysis**: Identify high-risk courses and tasks
 - **Schedule Optimization**: Match study plans to student availability and productivity patterns
 - **Priority Management**: Intelligently prioritize tasks based on urgency and importance
@@ -22,7 +22,7 @@ ai/
 │   ├── data_generator.py     # Fake student data generator
 │   └── sample_data.json      # Sample student data
 ├── planner_llm/
-│   ├── llm_client.py         # DeepSeek R1 API client
+│   ├── llm_client.py         # LLM API client (Groq/DeepSeek/OpenAI)
 │   ├── prompt.py             # Prompt templates
 │   └── formatter.py          # (if needed)
 └── output/                   # Generated study plans
@@ -47,7 +47,7 @@ Create a `.env` file (copy from `.env.example`):
 cp .env.example .env
 ```
 
-Edit `.env` and add your DeepSeek API key:
+Edit `.env` and add your Groq API key:
 
 ```env
 DEEPSEEK_API_KEY=your_actual_api_key_here

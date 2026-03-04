@@ -2,11 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../core/theme.dart';
 import '../models/study_group.dart';
-import '../widgets/gradient_card.dart';
 
 class GroupStudyScreen extends StatefulWidget {
-  const GroupStudyScreen({super.key});
-  
+  final VoidCallback? openDrawer;
+
+  const GroupStudyScreen({super.key, this.openDrawer});
+
   @override
   State<GroupStudyScreen> createState() => _GroupStudyScreenState();
 }
@@ -99,6 +100,13 @@ class _GroupStudyScreenState extends State<GroupStudyScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: widget.openDrawer != null
+            ? IconButton(
+                icon: const Icon(Icons.menu),
+                onPressed: widget.openDrawer,
+                tooltip: 'Open menu',
+              )
+            : null,
         title: const Text('Group Study'),
       ),
       body: Row(

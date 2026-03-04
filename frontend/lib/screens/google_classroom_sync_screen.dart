@@ -1,36 +1,72 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
 import '../core/theme.dart';
 import '../core/constants.dart';
 import '../widgets/app_logo.dart';
 import '../widgets/gradient_card.dart';
+import '../services/google_auth_service.dart';
+import '../providers/classroom_provider.dart';
 
 class GoogleClassroomSyncScreen extends StatefulWidget {
   const GoogleClassroomSyncScreen({super.key});
-  
+
   @override
-  State<GoogleClassroomSyncScreen> createState() => _GoogleClassroomSyncScreenState();
+  State<GoogleClassroomSyncScreen> createState() =>
+      _GoogleClassroomSyncScreenState();
 }
 
 class _GoogleClassroomSyncScreenState extends State<GoogleClassroomSyncScreen> {
-  bool _isSyncing = false;
-  
   Future<void> _handleSync() async {
-    setState(() {
-      _isSyncing = true;
-    });
-    
-    // Simulate Google Classroom sync process
-    await Future.delayed(const Duration(seconds: 2));
-    
-    if (mounted) {
-      setState(() {
-        _isSyncing = false;
-      });
-      
-      // Navigate to device pairing after successful sync
-      Navigator.of(context).pushReplacementNamed(AppConstants.routeDevicePairing);
+    final provider = context.read<ClassroomProvider>();
+    if (provider.isLoading) return;
+
+    try {
+      final accessToken = await GoogleAuthService.signInAndGetToken();
+      if (accessToken == null) {
+        throw Exception('Google sign-in cancelled');
+      }
+
+      await provider.syncClassroom(accessToken);
+
+      if (!mounted) return;
+      if (provider.error != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Sync failed: ${provider.error}')),
+        );
+        return;
+      }
+
+      final count = provider.tasks.length;
+      final coursesCount = provider.courses.length;
+      if (count > 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Synced $count assignments from $coursesCount courses'),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'No assignments found. Check the console for debug output. '
+              'If you previously signed in, try signing out of Google in device settings and sync again.',
+            ),
+            duration: Duration(seconds: 5),
+          ),
+        );
+      }
+      Navigator.of(context).pushReplacementNamed(
+        AppConstants.routeDevicePairing,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Sync failed: ${e.toString()}')),
+      );
     }
   }
+
   
   void _handleSkip() {
     // Navigate to device pairing without syncing
@@ -206,57 +242,66 @@ class _GoogleClassroomSyncScreenState extends State<GoogleClassroomSyncScreen> {
               const SizedBox(height: 40),
               
               // Sync Now Button
-              Container(
-                decoration: BoxDecoration(
-                  gradient: AppTheme.primaryGradient,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: AppTheme.mediumShadow,
-                ),
-                child: ElevatedButton.icon(
-                  onPressed: _isSyncing ? null : _handleSync,
-                  icon: _isSyncing
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(AppTheme.white),
-                          ),
-                        )
-                      : const Icon(Icons.sync, size: 20),
-                  label: Text(
-                    _isSyncing ? 'Syncing...' : 'Sync Now',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.transparent,
-                    shadowColor: Colors.transparent,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
+              Consumer<ClassroomProvider>(
+                builder: (context, provider, _) {
+                  final isLoading = provider.isLoading;
+                  return Container(
+                    decoration: BoxDecoration(
+                      gradient: AppTheme.primaryGradient,
                       borderRadius: BorderRadius.circular(12),
+                      boxShadow: AppTheme.mediumShadow,
                     ),
-                  ),
-                ),
+                    child: ElevatedButton.icon(
+                      onPressed: isLoading ? null : _handleSync,
+                      icon: isLoading
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(AppTheme.white),
+                              ),
+                            )
+                          : const Icon(Icons.sync, size: 20),
+                      label: Text(
+                        isLoading ? 'Syncing...' : 'Sync Now',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.transparent,
+                        shadowColor: Colors.transparent,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  );
+                },
               ),
-              
+
               const SizedBox(height: 16),
-              
+
               // Skip Button
-              TextButton(
-                onPressed: _isSyncing ? null : _handleSkip,
-                child: Text(
-                  'Skip for now',
-                  style: TextStyle(
-                    fontSize: 15,
-                    color: AppTheme.darkText.withOpacity(0.7),
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
+              Consumer<ClassroomProvider>(
+                builder: (context, provider, _) {
+                  return TextButton(
+                    onPressed: provider.isLoading ? null : _handleSkip,
+                    child: Text(
+                      'Skip for now',
+                      style: TextStyle(
+                        fontSize: 15,
+                        color: AppTheme.darkText.withOpacity(0.7),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  );
+                },
               ),
-              
+
               const SizedBox(height: 20),
               
               // Help Text

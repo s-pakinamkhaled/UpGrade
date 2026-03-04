@@ -84,7 +84,9 @@ class WeeklyScheduleScreen extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              task.title,
+              task.courseName.isNotEmpty
+                  ? '${task.title} / ${task.courseName}'
+                  : task.title,
               style: const TextStyle(fontWeight: FontWeight.w500),
             ),
           ),

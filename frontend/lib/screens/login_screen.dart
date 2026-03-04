@@ -1,49 +1,104 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 import '../core/theme.dart';
 import '../core/constants.dart';
 import '../widgets/app_logo.dart';
+import '../services/firebase_auth_service.dart';
+import '../services/api_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
-  
+
   @override
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
 class _LoginScreenState extends State<LoginScreen> {
+  final FirebaseAuthService _authService = FirebaseAuthService();
+
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+
   bool _obscurePassword = true;
   bool _isLoading = false;
-  
+  String? _error;
+
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
-  
+
+  // 🔥 Email / Password Login (Firebase Auth)
   Future<void> _handleLogin() async {
-    if (_formKey.currentState!.validate()) {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      final user = await _authService.loginWithEmail(
+        _emailController.text.trim(),
+        _passwordController.text.trim(),
+      );
+
+      if (user == null) {
+        throw Exception('Invalid email or password');
+      }
+
+      if (!mounted) return;
+
+      Navigator.of(context).pushReplacementNamed(
+        AppConstants.routeGoogleClassroomSync,
+      );
+    } catch (e) {
+      if (!mounted) return;
       setState(() {
-        _isLoading = true;
+        _error = e.toString().replaceAll('Exception:', '').trim();
       });
-      
-      // Simulate API call
-      await Future.delayed(const Duration(seconds: 1));
-      
+    } finally {
       if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-        
-        // Navigate to Google Classroom Sync page
-        Navigator.of(context).pushReplacementNamed(AppConstants.routeGoogleClassroomSync);
+        setState(() => _isLoading = false);
       }
     }
   }
-  
+
+  // 🔥 Google Sign In (Firebase Auth)
+  Future<void> _handleGoogleLogin() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      final user = await _authService.signInWithGoogle();
+
+      if (user == null) {
+        throw Exception('Google sign-in cancelled');
+      }
+
+      if (!mounted) return;
+
+      Navigator.of(context).pushReplacementNamed(
+        AppConstants.routeGoogleClassroomSync,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = 'Google Sign-In failed';
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -56,15 +111,11 @@ class _LoginScreenState extends State<LoginScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const SizedBox(height: 40),
-                
-                // Logo
-                const Center(
-                  child: AppLogo.large(),
-                ),
-                
+
+                const Center(child: AppLogo.large()),
+
                 const SizedBox(height: 40),
-                
-                // Welcome Text
+
                 const Text(
                   'Welcome Back!',
                   style: TextStyle(
@@ -74,7 +125,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   textAlign: TextAlign.center,
                 ),
+
                 const SizedBox(height: 8),
+
                 Text(
                   'Sign in to continue your learning journey',
                   style: TextStyle(
@@ -83,19 +136,25 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   textAlign: TextAlign.center,
                 ),
-                
-                const SizedBox(height: 48),
-                
-                // Email Field
+
+                const SizedBox(height: 32),
+
+                if (_error != null) ...[
+                  Text(
+                    _error!,
+                    style: const TextStyle(color: Colors.red),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16),
+                ],
+
+                // Email
                 TextFormField(
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
-                  decoration: InputDecoration(
+                  decoration: const InputDecoration(
                     labelText: 'Email',
-                    hintText: 'student@university.edu',
-                    prefixIcon: const Icon(Icons.email_outlined),
-                    filled: true,
-                    fillColor: AppTheme.white,
+                    prefixIcon: Icon(Icons.email_outlined),
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
@@ -107,16 +166,15 @@ class _LoginScreenState extends State<LoginScreen> {
                     return null;
                   },
                 ),
-                
+
                 const SizedBox(height: 20),
-                
-                // Password Field
+
+                // Password
                 TextFormField(
                   controller: _passwordController,
                   obscureText: _obscurePassword,
                   decoration: InputDecoration(
                     labelText: 'Password',
-                    hintText: 'Enter your password',
                     prefixIcon: const Icon(Icons.lock_outlined),
                     suffixIcon: IconButton(
                       icon: Icon(
@@ -130,8 +188,6 @@ class _LoginScreenState extends State<LoginScreen> {
                         });
                       },
                     ),
-                    filled: true,
-                    fillColor: AppTheme.white,
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
@@ -143,28 +199,39 @@ class _LoginScreenState extends State<LoginScreen> {
                     return null;
                   },
                 ),
-                
-                const SizedBox(height: 12),
-                
-                // Forgot Password
+
+                const SizedBox(height: 8),
+
+                // Forgot password (more visible when login failed)
                 Align(
                   alignment: Alignment.centerRight,
                   child: TextButton(
-                    onPressed: () {
-                      // Handle forgot password
-                    },
-                    child: const Text('Forgot Password?'),
+                    onPressed: _isLoading
+                        ? null
+                        : () {
+                            Navigator.of(context).pushNamed(
+                              AppConstants.routeForgotPassword,
+                            );
+                          },
+                    child: Text(
+                      'Forgot password?',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: _error != null
+                            ? Theme.of(context).colorScheme.error
+                            : AppTheme.primaryBlue,
+                      ),
+                    ),
                   ),
                 ),
-                
-                const SizedBox(height: 32),
-                
-                // Login Button
+
+                const SizedBox(height: 24),
+
+                // Email Login Button
                 Container(
                   decoration: BoxDecoration(
                     gradient: AppTheme.primaryGradient,
                     borderRadius: BorderRadius.circular(12),
-                    boxShadow: AppTheme.mediumShadow,
                   ),
                   child: ElevatedButton(
                     onPressed: _isLoading ? null : _handleLogin,
@@ -172,9 +239,6 @@ class _LoginScreenState extends State<LoginScreen> {
                       backgroundColor: Colors.transparent,
                       shadowColor: Colors.transparent,
                       padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
                     ),
                     child: _isLoading
                         ? const SizedBox(
@@ -182,7 +246,8 @@ class _LoginScreenState extends State<LoginScreen> {
                             width: 20,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(AppTheme.white),
+                              valueColor:
+                                  AlwaysStoppedAnimation<Color>(Colors.white),
                             ),
                           )
                         : const Text(
@@ -194,75 +259,134 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                   ),
                 ),
-                
+
                 const SizedBox(height: 24),
-                
-                // Divider
+
                 Row(
                   children: [
-                    Expanded(
-                      child: Divider(
-                        color: AppTheme.mediumGray.withOpacity(0.3),
-                      ),
-                    ),
+                    const Expanded(child: Divider()),
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
                       child: Text(
                         'OR',
                         style: TextStyle(
-                          fontSize: 12,
                           color: AppTheme.mediumGray,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
-                    Expanded(
-                      child: Divider(
-                        color: AppTheme.mediumGray.withOpacity(0.3),
-                      ),
-                    ),
+                    const Expanded(child: Divider()),
                   ],
                 ),
-                
+
                 const SizedBox(height: 24),
-                
+
                 // Google Sign In
                 OutlinedButton.icon(
-                  onPressed: () {
-                    // Handle Google sign in
-                  },
-                  icon: const Icon(Icons.g_mobiledata, size: 24),
+                  onPressed: _isLoading ? null : _handleGoogleLogin,
+                  icon: const Icon(Icons.g_mobiledata, size: 28),
                   label: const Text('Continue with Google'),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    side: BorderSide(
-                      color: AppTheme.mediumGray.withOpacity(0.3),
-                      width: 1.5,
-                    ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
                 ),
-                
+
                 const SizedBox(height: 32),
-                
-                // Sign Up Link
+
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
                       'Don\'t have an account? ',
                       style: TextStyle(
-                        fontSize: 14,
                         color: AppTheme.darkText.withOpacity(0.7),
                       ),
                     ),
                     TextButton(
                       onPressed: () {
-                        Navigator.of(context).pushNamed(AppConstants.routeRegister);
+                        Navigator.of(context)
+                            .pushNamed(AppConstants.routeRegister);
                       },
                       child: const Text('Sign Up'),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 32),
+
+                // Test Firestore & Backend (dev)
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    ElevatedButton(
+                      onPressed: () async {
+                        try {
+                          await FirebaseFirestore.instance
+                              .collection('test')
+                              .doc('check')
+                              .set({'connected': true});
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('✅ Firestore Connected'),
+                                backgroundColor: AppTheme.successGreen,
+                              ),
+                            );
+                          }
+                          print('✅ Firestore Connected');
+                        } catch (e) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('❌ Firestore: $e'),
+                                backgroundColor: AppTheme.errorRed,
+                              ),
+                            );
+                          }
+                          print('❌ Not Connected: $e');
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.secondaryPurple,
+                      ),
+                      child: const Text('Test DB'),
+                    ),
+                    const SizedBox(width: 12),
+                    ElevatedButton(
+                      onPressed: () async {
+                        try {
+                          final message = await ApiService().testConnection();
+                          if (!mounted) return;
+                          final ok = message != 'Backend connection failed';
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(ok ? '✅ $message' : '❌ $message'),
+                              backgroundColor: ok
+                                  ? AppTheme.successGreen
+                                  : AppTheme.errorRed,
+                              duration: const Duration(seconds: 3),
+                            ),
+                          );
+                          print(ok ? '✅ Backend: $message' : '❌ $message');
+                        } catch (e) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('❌ Backend: $e'),
+                                backgroundColor: AppTheme.errorRed,
+                              ),
+                            );
+                          }
+                          print('❌ Backend: $e');
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryBlue,
+                      ),
+                      child: const Text('Test Backend'),
                     ),
                   ],
                 ),

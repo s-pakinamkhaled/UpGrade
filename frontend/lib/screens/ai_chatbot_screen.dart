@@ -1,14 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../core/theme.dart';
 import '../core/constants.dart';
 import '../models/task.dart';
 import '../widgets/task_card.dart';
-import '../widgets/gradient_card.dart';
+import '../services/api_service.dart';
+import '../providers/classroom_provider.dart';
 
 class AIChatbotScreen extends StatefulWidget {
-  const AIChatbotScreen({super.key});
-  
+  final VoidCallback? openDrawer;
+
+  const AIChatbotScreen({super.key, this.openDrawer});
+
   @override
   State<AIChatbotScreen> createState() => _AIChatbotScreenState();
 }
@@ -19,44 +24,21 @@ class _AIChatbotScreenState extends State<AIChatbotScreen> with TickerProviderSt
   final List<ChatMessage> _messages = [];
   bool _isTyping = false;
   late AnimationController _typingAnimationController;
-  
-  // Mock data - in real app, this would come from a service
-  final List<Task> _todayTasks = [
-    Task(
-      id: '1',
-      title: 'Complete Math Assignment 5',
-      description: 'Chapters 3-4, problems 1-20',
-      deadline: DateTime.now().add(const Duration(hours: 5)),
-      courseId: 'math101',
-      courseName: 'Mathematics 101',
-      priority: TaskPriority.high,
-      status: TaskStatus.pending,
-      estimatedMinutes: 120,
-      scheduledTime: DateTime.now().add(const Duration(hours: 2)),
-    ),
-    Task(
-      id: '2',
-      title: 'Read History Chapter 8',
-      deadline: DateTime.now().add(const Duration(days: 2)),
-      courseId: 'hist201',
-      courseName: 'World History',
-      priority: TaskPriority.medium,
-      status: TaskStatus.pending,
-      estimatedMinutes: 60,
-      scheduledTime: DateTime.now().add(const Duration(hours: 4)),
-    ),
-    Task(
-      id: '3',
-      title: 'Prepare for Chemistry Quiz',
-      deadline: DateTime.now().add(const Duration(days: 1)),
-      courseId: 'chem101',
-      courseName: 'Chemistry',
-      priority: TaskPriority.urgent,
-      status: TaskStatus.pending,
-      estimatedMinutes: 90,
-      scheduledTime: DateTime.now().add(const Duration(hours: 6)),
-    ),
-  ];
+
+  /// Real tasks from Google Classroom (via ClassroomProvider).
+  List<Task> get _studentTasks {
+    try {
+      return context.read<ClassroomProvider>().tasks;
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// Student display name from Firebase Auth.
+  String get _studentName {
+    final user = FirebaseAuth.instance.currentUser;
+    return user?.displayName ?? user?.email?.split('@').first ?? 'Student';
+  }
   
   @override
   void initState() {
@@ -77,13 +59,26 @@ class _AIChatbotScreenState extends State<AIChatbotScreen> with TickerProviderSt
   }
   
   void _addWelcomeMessage() {
+    final tasks = _studentTasks;
+    final taskCount = tasks.length;
+    final urgentCount = tasks.where((t) =>
+        t.priority == TaskPriority.urgent || t.priority == TaskPriority.high).length;
+
+    final greeting = taskCount > 0
+        ? 'Hi $_studentName! I\'m your AI study assistant powered by Llama 3.3. '
+          'You have **$taskCount tasks** synced from Google Classroom'
+          '${urgentCount > 0 ? ' ($urgentCount urgent)' : ''}. '
+          'Ask me anything about your studies!'
+        : 'Hi $_studentName! I\'m your AI study assistant powered by Llama 3.3. '
+          'Sync your Google Classroom data so I can give you personalised advice!';
+
     _messages.add(ChatMessage(
-      text: 'Hi! I\'m your AI study assistant. I\'ve organized your day with 3 tasks. You can ask me to:\n\n• Reschedule tasks\n• Suggest what to study now\n• Get warnings about deadlines\n• Modify your schedule\n\nWhat would you like to do?',
+      text: greeting,
       isAI: true,
       timestamp: DateTime.now(),
       suggestions: [
         'What should I study now?',
-        'Reschedule my math assignment',
+        'Help me prioritize my tasks',
         'Show my schedule',
       ],
     ));
@@ -109,34 +104,99 @@ class _AIChatbotScreenState extends State<AIChatbotScreen> with TickerProviderSt
       _isTyping = true;
     });
     
-    // Simulate AI thinking
-    await Future.delayed(const Duration(milliseconds: 800));
-    
-    // Generate AI response based on user input
-    final response = _generateAIResponse(text);
-    
-    if (mounted) {
-      setState(() {
-        _isTyping = false;
-        _messages.add(response);
-      });
-      _scrollToBottom();
+    // Get AI response from backend (Llama 3.3)
+    try {
+      // Prepare conversation history (only user/assistant, skip welcome)
+      final history = _messages
+          .where((m) => m.text.isNotEmpty)
+          .map((msg) => <String, String>{
+                'role': msg.isAI ? 'assistant' : 'user',
+                'content': msg.text,
+              })
+          .toList();
+      // Remove last item (we already added the user message above)
+      if (history.isNotEmpty) history.removeLast();
+
+      // Build rich student context from real Classroom data
+      final tasks = _studentTasks;
+      final studentContext = <String, dynamic>{
+        'name': _studentName,
+        'tasks': tasks.map((task) => <String, dynamic>{
+              'title': task.title,
+              'courseName': task.courseName,
+              'priority': task.priority.name,
+              'status': task.status.name,
+              'deadline': task.deadline.toIso8601String(),
+              'estimatedMinutes': task.estimatedMinutes,
+              if (task.assignedGrade != null) 'assignedGrade': task.assignedGrade,
+              if (task.maxPoints != null) 'maxPoints': task.maxPoints,
+            }).toList(),
+      };
+
+      // Call API
+      final apiService = ApiService();
+      final response = await apiService.sendChatMessage(
+        message: text,
+        conversationHistory: history,
+        studentContext: studentContext,
+      );
+      
+      if (mounted) {
+        setState(() {
+          _isTyping = false;
+          
+          if (response != null && response['success'] == true) {
+            // Add AI response
+            _messages.add(ChatMessage(
+              text: response['message'] ?? 'Sorry, I couldn\'t generate a response.',
+              isAI: true,
+              timestamp: DateTime.now(),
+              suggestions: List<String>.from(response['suggestions'] ?? []),
+            ));
+          } else {
+            // Fallback to local response if API fails
+            _messages.add(_generateAIResponse(text));
+          }
+        });
+        _scrollToBottom();
+      }
+    } catch (e) {
+      print('Error calling AI API: $e');
+      // Fallback to local mock response
+      if (mounted) {
+        setState(() {
+          _isTyping = false;
+          _messages.add(_generateAIResponse(text));
+        });
+        _scrollToBottom();
+      }
     }
   }
   
   ChatMessage _generateAIResponse(String userInput) {
     final lowerInput = userInput.toLowerCase();
     
+    final tasks = _studentTasks;
     // Natural language processing simulation
     if (lowerInput.contains('study now') || lowerInput.contains('what should') || lowerInput.contains('next')) {
-      final nextTask = _todayTasks.firstWhere(
+      if (tasks.isEmpty) {
+        return ChatMessage(
+          text: 'You don\'t have any tasks right now. Sync your Google Classroom to get started!',
+          isAI: true,
+          timestamp: DateTime.now(),
+          suggestions: ['Show my schedule', 'Help'],
+        );
+      }
+      final nextTask = tasks.firstWhere(
         (task) => task.scheduledTime != null && 
                   task.scheduledTime!.isAfter(DateTime.now()),
-        orElse: () => _todayTasks.first,
+        orElse: () => tasks.first,
       );
-      
+      final timeInfo = nextTask.scheduledTime != null
+          ? 'It\'s scheduled for ${DateFormat('h:mm a').format(nextTask.scheduledTime!)} and will take about ${nextTask.estimatedMinutes} minutes. '
+          : 'It will take about ${nextTask.estimatedMinutes} minutes. ';
       return ChatMessage(
-        text: 'Based on your schedule, I recommend starting with **${nextTask.title}**.\n\nIt\'s scheduled for ${DateFormat('h:mm a').format(nextTask.scheduledTime!)} and will take about ${nextTask.estimatedMinutes} minutes. This is a ${nextTask.priority.label.toLowerCase()} priority task.\n\nWould you like me to start a focus session for this?',
+        text: 'Based on your schedule, I recommend starting with **${nextTask.title}**.\n\n${timeInfo}This is a ${nextTask.priority.label.toLowerCase()} priority task.\n\nWould you like me to start a focus session for this?',
         isAI: true,
         timestamp: DateTime.now(),
         relatedTask: nextTask,
@@ -150,8 +210,11 @@ class _AIChatbotScreenState extends State<AIChatbotScreen> with TickerProviderSt
       final task = _findTaskInInput(userInput);
       
       if (task != null) {
+        final currentTime = task.scheduledTime != null
+            ? 'Current time: ${DateFormat('h:mm a').format(task.scheduledTime!)}\n'
+            : '';
         return ChatMessage(
-          text: 'I can help you reschedule **${task.title}**.\n\nCurrent time: ${DateFormat('h:mm a').format(task.scheduledTime!)}\nEstimated duration: ${task.estimatedMinutes} minutes\n\nWhen would you like to move it to? You can say:\n• "Tomorrow at 2 PM"\n• "Later today"\n• "Next week"',
+          text: 'I can help you reschedule **${task.title}**.\n\n${currentTime}Estimated duration: ${task.estimatedMinutes} minutes\n\nWhen would you like to move it to? You can say:\n• "Tomorrow at 2 PM"\n• "Later today"\n• "Next week"',
           isAI: true,
           timestamp: DateTime.now(),
           relatedTask: task,
@@ -166,12 +229,12 @@ class _AIChatbotScreenState extends State<AIChatbotScreen> with TickerProviderSt
           text: 'I can help you reschedule tasks. Which task would you like to move?\n\nYou can say:\n• "Reschedule my math assignment"\n• "Move chemistry quiz"\n• "Change history reading"',
           isAI: true,
           timestamp: DateTime.now(),
-          suggestions: _todayTasks.map((t) => 'Reschedule ${t.title}').toList(),
+          suggestions: tasks.map((t) => 'Reschedule ${t.title}').toList(),
         );
       }
     } else if (lowerInput.contains('schedule') || lowerInput.contains('show') || lowerInput.contains('list')) {
       return ChatMessage(
-        text: 'Here\'s your schedule for today:\n\n${_formatSchedule()}\n\nYou have ${_todayTasks.length} tasks scheduled. Would you like me to help you optimize your schedule?',
+        text: 'Here\'s your schedule for today:\n\n${_formatSchedule()}\n\nYou have ${tasks.length} tasks scheduled. Would you like me to help you optimize your schedule?',
         isAI: true,
         timestamp: DateTime.now(),
         showTasks: true,
@@ -182,7 +245,7 @@ class _AIChatbotScreenState extends State<AIChatbotScreen> with TickerProviderSt
         ],
       );
     } else if (lowerInput.contains('warning') || lowerInput.contains('alert') || lowerInput.contains('deadline')) {
-      final urgentTasks = _todayTasks.where((t) => 
+      final urgentTasks = tasks.where((t) => 
         t.priority == TaskPriority.urgent || t.isOverdue
       ).toList();
       
@@ -233,7 +296,7 @@ class _AIChatbotScreenState extends State<AIChatbotScreen> with TickerProviderSt
   
   Task? _findTaskInInput(String input) {
     final lowerInput = input.toLowerCase();
-    for (var task in _todayTasks) {
+    for (var task in _studentTasks) {
       if (lowerInput.contains(task.title.toLowerCase()) ||
           lowerInput.contains(task.courseName.toLowerCase())) {
         return task;
@@ -243,7 +306,7 @@ class _AIChatbotScreenState extends State<AIChatbotScreen> with TickerProviderSt
   }
   
   String _formatSchedule() {
-    final sortedTasks = List<Task>.from(_todayTasks)
+    final sortedTasks = List<Task>.from(_studentTasks)
       ..sort((a, b) => (a.scheduledTime ?? DateTime.now())
           .compareTo(b.scheduledTime ?? DateTime.now()));
     
@@ -271,6 +334,13 @@ class _AIChatbotScreenState extends State<AIChatbotScreen> with TickerProviderSt
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: widget.openDrawer != null
+            ? IconButton(
+                icon: const Icon(Icons.menu),
+                onPressed: widget.openDrawer,
+                tooltip: 'Open menu',
+              )
+            : null,
         title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -319,7 +389,7 @@ class _AIChatbotScreenState extends State<AIChatbotScreen> with TickerProviderSt
             child: Row(
               children: [
                 _buildQuickStat(
-                  '${_todayTasks.length}',
+                  '${_studentTasks.length}',
                   'Tasks',
                   AppTheme.primaryBlue,
                 ),
@@ -330,7 +400,7 @@ class _AIChatbotScreenState extends State<AIChatbotScreen> with TickerProviderSt
                   margin: const EdgeInsets.symmetric(horizontal: 16),
                 ),
                 _buildQuickStat(
-                  '${_todayTasks.where((t) => t.priority == TaskPriority.urgent).length}',
+                  '${_studentTasks.where((t) => t.priority == TaskPriority.urgent).length}',
                   'Urgent',
                   AppTheme.errorRed,
                 ),
@@ -597,7 +667,7 @@ class _AIChatbotScreenState extends State<AIChatbotScreen> with TickerProviderSt
                   SizedBox(
                     width: MediaQuery.of(context).size.width * 0.75,
                     child: Column(
-                      children: _todayTasks.map((task) {
+                      children: _studentTasks.map((task) {
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 8),
                           child: TaskCard(

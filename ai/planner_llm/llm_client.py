@@ -261,6 +261,36 @@ class OpenAICompatibleClient(DeepSeekLLMClient):
         super().__init__(api_key, api_base_url, model, timeout)
 
 
+class GroqClient(DeepSeekLLMClient):
+    """
+    Groq API client for Llama models
+    Fast inference for open-source models like Llama 3.3
+    """
+    
+    def __init__(
+        self,
+        api_key: Optional[str] = None,
+        model: str = "llama-3.3-70b-versatile",
+        timeout: int = 60
+    ):
+        """
+        Initialize Groq client
+        
+        Args:
+            api_key: Groq API key (or set GROQ_API_KEY env var)
+            model: Model name (default: llama-3.3-70b-versatile)
+            timeout: Request timeout in seconds
+        """
+        groq_api_key = api_key or os.getenv("GROQ_API_KEY")
+        groq_base_url = os.getenv("GROQ_API_BASE", "https://api.groq.com/openai/v1")
+        groq_model = os.getenv("GROQ_MODEL", model)
+        
+        super().__init__(groq_api_key, groq_base_url, groq_model, timeout)
+        
+        if not self.api_key:
+            print("⚠️  Warning: No Groq API key provided. Set GROQ_API_KEY environment variable.")
+
+
 def test_client():
     """Test the LLM client"""
     client = DeepSeekLLMClient()

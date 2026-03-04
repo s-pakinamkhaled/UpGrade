@@ -1,88 +1,86 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 
 import '../core/theme.dart';
+import '../core/constants.dart';
 import '../models/task.dart';
 import '../models/focus_session.dart';
+import '../providers/classroom_provider.dart';
 import '../widgets/app_logo.dart';
 import 'weekly_schedule_screen.dart';
 
 class DailyPlannerScreen extends StatefulWidget {
-  const DailyPlannerScreen({super.key});
+  final VoidCallback? openDrawer;
+
+  const DailyPlannerScreen({super.key, this.openDrawer});
 
   @override
   State<DailyPlannerScreen> createState() => _DailyPlannerScreenState();
 }
 
 class _DailyPlannerScreenState extends State<DailyPlannerScreen> {
-  DateTime _selectedWeekStart = _getWeekStart(DateTime.now());
-  int _selectedDayIndex = DateTime.now().weekday - 1;
-
-  // ---------------- MOCK DATA ----------------
-
-  final Map<DateTime, List<Task>> _weeklyTasks = {
-    _dateOnly(DateTime.now()): [
-      Task(
-        id: '1',
-        title: 'Math Assignment',
-        description: 'Chapters 3–4',
-        deadline: DateTime.now().add(const Duration(hours: 6)),
-        courseId: 'math101',
-        courseName: 'Mathematics',
-        priority: TaskPriority.high,
-        status: TaskStatus.pending,
-        estimatedMinutes: 120,
-        scheduledTime: DateTime.now().copyWith(hour: 10, minute: 0),
-      ),
-      Task(
-        id: '2',
-        title: 'Chemistry Revision',
-        deadline: DateTime.now().add(const Duration(days: 1)),
-        courseId: 'chem101',
-        courseName: 'Chemistry',
-        priority: TaskPriority.urgent,
-        status: TaskStatus.pending,
-        estimatedMinutes: 90,
-        scheduledTime: DateTime.now().copyWith(hour: 15, minute: 30),
-      ),
-    ],
-  };
-
-  final List<FocusSession> _todayFocusSessions = [
-    FocusSession(
-      id: 'f1',
-      taskId: '1',
-      startTime: DateTime.now().copyWith(hour: 10, minute: 0),
-      endTime: DateTime.now().copyWith(hour: 11, minute: 30),
-      focusLevel: 8,
-      isCompleted: true,
-    ),
-  ];
-
-  final List<BreakSession> _todayBreaks = [
-    BreakSession(
-      id: 'b1',
-      startTime: DateTime.now().copyWith(hour: 12, minute: 0),
-      endTime: DateTime.now().copyWith(hour: 12, minute: 30),
-      type: BreakType.lunch,
-    ),
-  ];
-
-  // ---------------- HELPERS ----------------
-
-  static DateTime _getWeekStart(DateTime date) =>
-      date.subtract(Duration(days: date.weekday - 1));
-
   static DateTime _dateOnly(DateTime date) =>
       DateTime(date.year, date.month, date.day);
 
-  List<DateTime> get _weekDays =>
-      List.generate(7, (i) => _selectedWeekStart.add(Duration(days: i)));
+  DateTime get _today => _dateOnly(DateTime.now());
 
+  /// First day of the visible 7-day strip. Arrows/calendar change this.
+  late DateTime _weekStart;
+  List<DateTime> get _weekDays =>
+      List.generate(7, (i) => _weekStart.add(Duration(days: i)));
+
+  int _selectedDayIndex = 0;
+  int? _hoveredDayIndex;
   DateTime get _selectedDate => _weekDays[_selectedDayIndex];
 
-  List<Task> get _selectedDayTasks =>
-      _weeklyTasks[_dateOnly(_selectedDate)] ?? [];
+  void _scrollStripLeft() {
+    setState(() => _weekStart = _weekStart.subtract(const Duration(days: 7)));
+  }
+
+  void _scrollStripRight() {
+    setState(() => _weekStart = _weekStart.add(const Duration(days: 7)));
+  }
+
+  Future<void> _openCalendarPicker() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now().add(const Duration(days: 365 * 2)),
+    );
+    if (picked == null || !mounted) return;
+    final startOfWeek = picked.subtract(Duration(days: picked.weekday - 1));
+    setState(() {
+      _weekStart = _dateOnly(startOfWeek);
+      _selectedDayIndex = picked.weekday - 1;
+    });
+  }
+
+  // Focus/breaks are optional local data; main tasks come from Classroom
+  final List<BreakSession> _todayBreaks = [];
+  final List<FocusSession> _todayFocusSessions = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _weekStart = _dateOnly(DateTime.now());
+  }
+
+  /// Tasks with deadline on or after today (excludes past).
+  static List<Task> _upcomingTasksOnly(List<Task> tasks, DateTime today) {
+    return tasks.where((t) => !_dateOnly(t.deadline).isBefore(today)).toList();
+  }
+
+  /// Build map of date -> tasks from Classroom (grouped by deadline date).
+  static Map<DateTime, List<Task>> _weeklyTasksFromProvider(List<Task> tasks) {
+    final map = <DateTime, List<Task>>{};
+    for (final t in tasks) {
+      final d = _dateOnly(t.deadline);
+      map.putIfAbsent(d, () => []).add(t);
+    }
+    return map;
+  }
 
   bool _isSameDay(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month && a.day == b.day;
@@ -91,13 +89,39 @@ class _DailyPlannerScreenState extends State<DailyPlannerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final provider = context.watch<ClassroomProvider>();
+    final allTasks = provider.tasks;
+    final upcomingTasks = _upcomingTasksOnly(allTasks, _today);
+    // Use all tasks so past days show their (graded) assignments too
+    final weeklyTasks = _weeklyTasksFromProvider(allTasks);
+    final selectedDayTasks = weeklyTasks[_dateOnly(_selectedDate)] ?? [];
+
     return Scaffold(
       appBar: AppBar(
+        leading: widget.openDrawer != null
+            ? IconButton(
+                icon: const Icon(Icons.menu),
+                onPressed: widget.openDrawer,
+                tooltip: 'Open menu',
+              )
+            : null,
         title: Row(
-          children: const [
-            SizedBox(width: 36, height: 36, child: AppLogo.small()),
-            SizedBox(width: 10),
-            Text('UpGrade', style: TextStyle(fontWeight: FontWeight.bold)),
+          children: [
+            const SizedBox(width: 36, height: 36, child: AppLogo.small()),
+            const SizedBox(width: 10),
+            const Text('UpGrade', style: TextStyle(fontWeight: FontWeight.bold)),
+            if (provider.syncedAt != null) ...[
+              const SizedBox(width: 8),
+              Text(
+                selectedDayTasks.length == upcomingTasks.length
+                    ? '${upcomingTasks.length} tasks'
+                    : '${selectedDayTasks.length} here · ${upcomingTasks.length} total',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -105,17 +129,49 @@ class _DailyPlannerScreenState extends State<DailyPlannerScreen> {
         children: [
           _buildWeekHeader(),
           Expanded(
-            child: SingleChildScrollView(
-              child: Column(
-                children: [
-                  _buildDailySection(),
-                  _buildWeeklyNavigationCard(),
-                  const SizedBox(height: 24),
-                ],
-              ),
-            ),
+            child: allTasks.isEmpty
+                ? _buildEmptyState(provider.syncedAt == null)
+                : SingleChildScrollView(
+                    child: Column(
+                      children: [
+                        _buildDailySection(selectedDayTasks),
+                        _buildGeneratePlanButton(),
+                        _buildWeeklyNavigationCard(weeklyTasks),
+                        const SizedBox(height: 24),
+                      ],
+                    ),
+                  ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(bool neverSynced) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.assignment_outlined,
+              size: 64,
+              color: AppTheme.primaryBlue.withOpacity(0.5),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              neverSynced
+                  ? 'Sync Google Classroom to see your assignments and deadlines here.'
+                  : 'No assignments due this week.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 16,
+                color: AppTheme.darkText.withOpacity(0.8),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -124,90 +180,209 @@ class _DailyPlannerScreenState extends State<DailyPlannerScreen> {
 
   Widget _buildWeekHeader() {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
       decoration: BoxDecoration(
         color: AppTheme.white,
         boxShadow: AppTheme.softShadow,
       ),
       child: Row(
-        children: List.generate(7, (index) {
+        children: [
+          // Left arrow – previous 7 days
+          IconButton(
+            onPressed: _scrollStripLeft,
+            icon: const Icon(Icons.chevron_left),
+            style: IconButton.styleFrom(
+              backgroundColor: AppTheme.primaryBlue.withOpacity(0.1),
+            ),
+            tooltip: 'Previous week',
+          ),
+          const SizedBox(width: 4),
+          // 7-day strip
+          Expanded(
+            child: Row(
+              children: List.generate(7, (index) {
           final date = _weekDays[index];
           final isSelected = index == _selectedDayIndex;
           final isToday = _isSameDay(date, DateTime.now());
+          final isHovered = _hoveredDayIndex == index;
 
           return Expanded(
-            child: GestureDetector(
-              onTap: () => setState(() => _selectedDayIndex = index),
-              child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 4),
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                decoration: BoxDecoration(
-                  gradient: isSelected ? AppTheme.primaryGradient : null,
-                  borderRadius: BorderRadius.circular(12),
-                  border: isToday && !isSelected
-                      ? Border.all(color: AppTheme.primaryBlue, width: 2)
-                      : null,
-                ),
-                child: Column(
-                  children: [
-                    Text(
-                      DateFormat('E').format(date),
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: isSelected
-                            ? AppTheme.white
-                            : AppTheme.mediumGray,
+            child: MouseRegion(
+              cursor: SystemMouseCursors.click,
+              onEnter: (_) => setState(() => _hoveredDayIndex = index),
+              onExit: (_) => setState(() => _hoveredDayIndex = null),
+              child: GestureDetector(
+                onTap: () => setState(() => _selectedDayIndex = index),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  decoration: BoxDecoration(
+                    gradient: isSelected ? AppTheme.primaryGradient : null,
+                    color: !isSelected && isHovered
+                        ? AppTheme.primaryBlue.withOpacity(0.12)
+                        : null,
+                    borderRadius: BorderRadius.circular(12),
+                    border: isToday && !isSelected
+                        ? Border.all(color: AppTheme.primaryBlue, width: 2)
+                        : isHovered && !isSelected
+                            ? Border.all(
+                                color: AppTheme.primaryBlue.withOpacity(0.4),
+                                width: 1.5,
+                              )
+                            : null,
+                  ),
+                  child: Column(
+                    children: [
+                      Text(
+                        _isSameDay(date, _today)
+                            ? 'Today'
+                            : _isSameDay(date, _today.add(const Duration(days: 1)))
+                                ? 'Tomorrow'
+                                : DateFormat('E').format(date),
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: isSelected
+                              ? AppTheme.white
+                              : AppTheme.mediumGray,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      '${date.day}',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color:
-                            isSelected ? AppTheme.white : AppTheme.darkText,
+                      const SizedBox(height: 6),
+                      Text(
+                        '${date.day}',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color:
+                              isSelected ? AppTheme.white : AppTheme.darkText,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
           );
         }),
+            ),
+          ),
+          const SizedBox(width: 4),
+          // Calendar – pick any day
+          IconButton(
+            onPressed: _openCalendarPicker,
+            icon: const Icon(Icons.calendar_month),
+            style: IconButton.styleFrom(
+              backgroundColor: AppTheme.primaryBlue.withOpacity(0.1),
+            ),
+            tooltip: 'Pick a date',
+          ),
+          const SizedBox(width: 4),
+          // Right arrow – next 7 days
+          IconButton(
+            onPressed: _scrollStripRight,
+            icon: const Icon(Icons.chevron_right),
+            style: IconButton.styleFrom(
+              backgroundColor: AppTheme.primaryBlue.withOpacity(0.1),
+            ),
+            tooltip: 'Next week',
+          ),
+        ],
       ),
     );
   }
 
   // ---------------- DAILY SECTION ----------------
 
-  Widget _buildDailySection() {
+  Widget _buildDailySection(List<Task> selectedDayTasks) {
     return Column(
       children: [
         _sectionHeader(
           title: 'Daily Schedule',
-          subtitle:
-              '${_selectedDayTasks.length} tasks today',
+          subtitle: '${selectedDayTasks.length} tasks',
           icon: Icons.schedule,
         ),
         Padding(
           padding: const EdgeInsets.all(16),
-          child: Column(children: _buildTimelineItems()),
+          child: Column(children: _buildTimelineItems(selectedDayTasks)),
         ),
       ],
     );
   }
 
-  List<Widget> _buildTimelineItems() {
+  // ---------------- GENERATE PLAN BUTTON ----------------
+
+  Widget _buildGeneratePlanButton() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: AppTheme.primaryGradient,
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: AppTheme.mediumShadow,
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () =>
+                Navigator.of(context).pushNamed(AppConstants.routeStudyPlan),
+            borderRadius: BorderRadius.circular(14),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppTheme.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.auto_awesome,
+                        color: AppTheme.white, size: 22),
+                  ),
+                  const SizedBox(width: 14),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Generate Personalized Plan',
+                          style: TextStyle(
+                            color: AppTheme.white,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        SizedBox(height: 2),
+                        Text(
+                          'AI-powered study schedule via Llama 3.3',
+                          style: TextStyle(
+                            color: AppTheme.white,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.arrow_forward_ios,
+                      color: AppTheme.white, size: 16),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _buildTimelineItems(List<Task> selectedDayTasks) {
     final items = <TimelineItem>[];
 
-    for (final task in _selectedDayTasks) {
-      if (task.scheduledTime != null) {
-        items.add(TimelineItem(
-          time: task.scheduledTime!,
-          type: TimelineItemType.task,
-          task: task,
-        ));
-      }
+    for (final task in selectedDayTasks) {
+      final time = task.scheduledTime ?? task.deadline;
+      items.add(TimelineItem(
+        time: time,
+        type: TimelineItemType.task,
+        task: task,
+      ));
     }
 
     if (_isSameDay(_selectedDate, DateTime.now())) {
@@ -253,7 +428,7 @@ class _DailyPlannerScreenState extends State<DailyPlannerScreen> {
   Widget _buildTimelineContent(TimelineItem item) {
     switch (item.type) {
       case TimelineItemType.task:
-        return _simpleCard(item.task!.title);
+        return _taskCard(item.task!);
       case TimelineItemType.breakSession:
         return _simpleCard(
             item.breakSession!.type == BreakType.lunch
@@ -266,15 +441,15 @@ class _DailyPlannerScreenState extends State<DailyPlannerScreen> {
 
   // ---------------- WEEKLY NAVIGATION ----------------
 
-  Widget _buildWeeklyNavigationCard() {
+  Widget _buildWeeklyNavigationCard(Map<DateTime, List<Task>> weeklyTasks) {
     return InkWell(
       onTap: () {
         Navigator.push(
           context,
           MaterialPageRoute(
             builder: (_) => WeeklyScheduleScreen(
-              weekStart: _selectedWeekStart,
-              weeklyTasks: _weeklyTasks,
+              weekStart: _weekStart,
+              weeklyTasks: weeklyTasks,
             ),
           ),
         );
@@ -322,6 +497,48 @@ class _DailyPlannerScreenState extends State<DailyPlannerScreen> {
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _taskCard(Task task) {
+    final hasGrade = task.assignedGrade != null || task.maxPoints != null;
+    final gradeText = hasGrade
+        ? (task.maxPoints != null && task.assignedGrade != null
+            ? 'Grade: ${task.assignedGrade!.toStringAsFixed(0)} / ${task.maxPoints}'
+            : task.assignedGrade != null
+                ? 'Grade: ${task.assignedGrade!.toStringAsFixed(0)}'
+                : null)
+        : null;
+    return Card(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              task.courseName.isNotEmpty
+                  ? '${task.title} / ${task.courseName}'
+                  : task.title,
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+            if (gradeText != null) ...[
+              const SizedBox(height: 6),
+              Text(
+                gradeText,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: AppTheme.primaryBlue,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }

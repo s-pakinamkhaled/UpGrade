@@ -23,6 +23,7 @@ import 'screens/missed_tasks_screen.dart';
 
 import 'models/task.dart';
 import 'widgets/app_logo.dart';
+import 'services/firebase_auth_service.dart';
 
 class UpGradeApp extends StatelessWidget {
   const UpGradeApp({super.key});
@@ -310,6 +311,22 @@ class _MainNavigationScreenState
               Navigator.pop(context);
               Navigator.of(context)
                   .pushNamed(AppConstants.routeEndOfDay);
+            },
+          ),
+
+          const Divider(),
+
+          ListTile(
+            leading: const Icon(Icons.logout),
+            title: const Text('Logout'),
+            onTap: () async {
+              Navigator.pop(context);
+              await FirebaseAuthService().logout();
+              if (!context.mounted) return;
+              Navigator.of(context).pushNamedAndRemoveUntil(
+                AppConstants.routeLogin,
+                (route) => false,
+              );
             },
           ),
         ],

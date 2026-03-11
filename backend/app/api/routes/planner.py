@@ -1,8 +1,3 @@
-"""
-Study Plan Generator API Routes
-Generates personalized study plans using Llama 3.3 via Groq API
-"""
-
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
@@ -22,23 +17,23 @@ ai_env = os.path.join(project_root, 'ai', '.env')
 load_dotenv(backend_env)
 load_dotenv(ai_env)
 
-# Add AI service to path
-ai_path = os.path.join(project_root, 'ai')
+
+ai_path = os.path.join(project_root, 'ai') # ai_service 
 sys.path.insert(0, ai_path)
 
 try:
     from planner_llm.llm_client import GroqClient
     groq_client = GroqClient()
-    print("✅ Planner service initialized successfully")
+    print(" Planner service initialized successfully")
 except Exception as e:
-    print(f"⚠️  Warning: Could not initialize planner service: {e}")
-    print(f"   AI path attempted: {ai_path}")
+    print(f" Warning: Could not initialize planner service: {e}")
+    print(f" AI path attempted: {ai_path}")
     groq_client = None
 
 router = APIRouter(prefix="/plan", tags=["planner"])
 
 
-# ── Pydantic Models ──────────────────────────────────────────────
+# Pydantic Models
 
 class TaskInput(BaseModel):
     """Input task for plan generation"""
@@ -46,7 +41,7 @@ class TaskInput(BaseModel):
     title: str
     courseName: Optional[str] = ""
     deadline: Optional[str] = None
-    estimatedMinutes: Optional[int] = 60
+    estimatedMinutes: Optional[int] = 120
     priority: Optional[str] = "medium"
     status: Optional[str] = "pending"
     description: Optional[str] = None
@@ -55,13 +50,11 @@ class TaskInput(BaseModel):
 
 
 class PlanRequest(BaseModel):
-    """Request body for plan generation"""
     studentName: str = "Student"
     tasks: List[TaskInput]
 
 
 class PlanItem(BaseModel):
-    """Single item in the generated study plan"""
     taskTitle: str
     courseName: Optional[str] = ""
     suggestedDate: str
@@ -72,7 +65,6 @@ class PlanItem(BaseModel):
 
 
 class PlanResponse(BaseModel):
-    """Response from plan generation"""
     success: bool
     studentName: Optional[str] = None
     generatedAt: Optional[str] = None
@@ -80,8 +72,7 @@ class PlanResponse(BaseModel):
     summary: Optional[str] = None
     error: Optional[str] = None
 
-
-# ── Helper Functions ─────────────────────────────────────────────
+ # ranking the tasks 
 
 _PRIORITY_RANK = {"urgent": 0, "high": 1, "medium": 2, "low": 3}
 
@@ -148,7 +139,6 @@ def _build_prompt(req: PlanRequest) -> str:
     return "\n".join(lines)
 
 
-# ── Endpoints ────────────────────────────────────────────────────
 
 @router.post("/generate", response_model=PlanResponse)
 async def generate_plan(req: PlanRequest):

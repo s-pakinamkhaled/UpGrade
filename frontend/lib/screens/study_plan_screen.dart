@@ -1,3 +1,71 @@
+// ═══════════════════════════════════════════════════════════════════
+// SCREEN: AI Study Plan Generator
+// ═══════════════════════════════════════════════════════════════════
+//
+// DESCRIPTION
+// -----------
+// Generates and displays a personalised multi-day study plan created by
+// Llama 3.3 (70B) via Groq. The plan is based entirely on the student's
+// real Google Classroom assignments — deadlines, priorities, estimated
+// effort, grades, and course names are all sent to the AI so that every
+// time-slot suggestion is specific and actionable.
+//
+// HOW TO REACH THIS SCREEN
+// ------------------------
+// Daily Planner screen → tap the "Generate AI Plan" button
+// → Navigator.pushNamed(context, AppConstants.routeStudyPlan)
+// → this screen opens and immediately starts generating.
+//
+// WORKFLOW
+// --------
+// 1. INIT  →  initState() calls _generate() immediately on open.
+//
+// 2. DATA COLLECTION  →  _generate()
+//      a) Reads all tasks from ClassroomProvider
+//         (populated by Google Classroom sync).
+//      b) Filters to only pending / inProgress tasks — completed tasks
+//         are excluded so the plan stays relevant.
+//      c) Gets the student's display name from FirebaseAuth.
+//
+// 3. API CALL  →  ApiService().generateStudyPlan()
+//      POST /api/plan/generate  (60-second timeout)
+//      Payload:
+//        studentName  : string
+//        tasks[]      : [{id, title, courseName, deadline,
+//                        estimatedMinutes, priority, status,
+//                        description, assignedGrade, maxPoints}]
+//
+// 4. BACKEND PROCESSING  (backend/app/api/routes/planner.py)
+//      a) Filters completed tasks.
+//      b) Sorts by priority (urgent→high→medium→low) then by deadline.
+//      c) Trims to 15 most urgent tasks.
+//      d) Builds a detailed prompt listing each task with days-left,
+//         grade info, and time estimates.
+//      e) Calls Groq API (llama-3.3-70b-versatile, temp=0.4,
+//         max_tokens=3000) with strict JSON-only instruction.
+//      f) Parses and validates the JSON response into PlanItem objects.
+//
+// 5. RESPONSE  →  StudyPlan.fromJson(response)
+//      Deserialises into StudyPlan model containing:
+//        - studentName, generatedAt, summary
+//        - items[]{taskTitle, courseName, suggestedDate, suggestedTime,
+//                  hoursNeeded, priority, tip}
+//
+// 6. RENDERING
+//      _buildSummaryCard()   — gradient header with name, timestamp &
+//                              the AI's 2-3 sentence summary
+//      _buildPlanItemCard()  — one card per task, colour-coded border by
+//                              priority, info chips (date, time, hours,
+//                              course), and the AI-generated study tip
+//      Regenerate button     — calls _generate() again for a fresh plan
+//
+// STATES
+// ------
+// _loading=true  → shows spinner + "Llama 3.3 is analysing your tasks..."
+// _error≠null    → shows error message + retry button
+// _plan≠null     → shows full plan UI
+// ═══════════════════════════════════════════════════════════════════
+
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';

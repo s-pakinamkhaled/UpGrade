@@ -1,8 +1,3 @@
-"""
-Chat API Routes
-Handles AI chatbot interactions using Llama 3.3
-"""
-
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
@@ -10,9 +5,7 @@ import sys
 import os
 from dotenv import load_dotenv
 
-# Load environment variables from backend/.env and ai/.env
 current_dir = os.path.dirname(os.path.abspath(__file__))
-# current_dir = backend/app/api/routes → 4 dirname calls = project root (UpGrade/)
 project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_dir))))
 
 backend_env = os.path.join(project_root, 'backend', '.env')
@@ -27,9 +20,9 @@ sys.path.insert(0, ai_path)
 try:
     from chat_service import AIChatService
     chat_service = AIChatService()
-    print("✅ Chat service initialized successfully")
+    print("Chat service initialized successfully")
 except Exception as e:
-    print(f"⚠️  Warning: Could not initialize chat service: {e}")
+    print(f"Warning error, chat service is not initialized {e}")
     print(f"   AI path attempted: {ai_path}")
     chat_service = None
 

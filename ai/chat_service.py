@@ -1,8 +1,3 @@
-"""
-AI Chat Service for Real-time Student Assistance
-Uses Llama 3.3 via Groq API for conversational support
-"""
-
 import os
 from typing import List, Dict, Any, Optional
 from dotenv import load_dotenv
@@ -21,10 +16,10 @@ class AIChatService:
         
         if provider == "groq":
             self.client = GroqClient()
-            print("✅ AI Chat Service initialized with Llama 3.3 (Groq)")
+            print("AI Chat Service initialized with Llama 3.3 (Groq)")
         else:
             self.client = GroqClient()  # Default to Groq
-            print("✅ AI Chat Service initialized with Llama 3.3 (default)")
+            print("AI Chat Service initialized with Llama 3.3 (default)")
         
         self.system_prompt = self._get_system_prompt()
     
@@ -76,13 +71,13 @@ Remember: You're a study companion, not just a chatbot. Be personal and understa
             
             # Add conversation history
             if conversation_history:
-                messages.extend(conversation_history[-10:])  # Keep last 10 messages
+                messages.extend(conversation_history[-20:])  # Keep last 20 messages
             
             # Add current user message
             messages.append({"role": "user", "content": user_message})
             
             # Get AI response
-            print(f"💬 Processing chat message: {user_message[:50]}...")
+            print(f" Processing chat message: {user_message[:60]}...")
             response = self.client.chat_completion(
                 messages=messages,
                 temperature=0.7,
@@ -107,7 +102,7 @@ Remember: You're a study companion, not just a chatbot. Be personal and understa
                 }
                 
         except Exception as e:
-            print(f"❌ Error in chat service: {str(e)}")
+            print(f" Error in chat service: {str(e)}")
             return {
                 "success": False,
                 "error": str(e),
@@ -182,9 +177,7 @@ Remember: You're a study companion, not just a chatbot. Be personal and understa
 # Test function
 def test_chat_service():
     """Test the chat service"""
-    print("\n" + "="*60)
-    print("🧪 Testing AI Chat Service with Llama 3.3")
-    print("="*60 + "\n")
+    print("Testing AI Chat Service with Llama 3.3")
     
     service = AIChatService()
     

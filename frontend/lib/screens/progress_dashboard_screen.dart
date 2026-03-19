@@ -9,8 +9,13 @@ import '../widgets/gradient_card.dart';
 
 class ProgressDashboardScreen extends StatelessWidget {
   final VoidCallback? openDrawer;
+  final bool showAppBar;
 
-  const ProgressDashboardScreen({super.key, this.openDrawer});
+  const ProgressDashboardScreen({
+    super.key,
+    this.openDrawer,
+    this.showAppBar = true,
+  });
 
   static DateTime _dateOnly(DateTime d) =>
       DateTime(d.year, d.month, d.day);
@@ -23,71 +28,659 @@ class ProgressDashboardScreen extends StatelessWidget {
         final stats = _computeStats(tasks);
         final courseStats = _computeCourseStats(tasks);
         final last7Days = _computeLast7DaysTrend(tasks);
+        final studyHoursPerDay = _computeStudyHoursLast7Days(tasks);
+        final theme = Theme.of(context);
+        final isDark = theme.brightness == Brightness.dark;
 
         return Scaffold(
-          appBar: AppBar(
-            leading: openDrawer != null
-                ? IconButton(
-                    icon: const Icon(Icons.menu),
-                    onPressed: openDrawer,
-                    tooltip: 'Open menu',
-                  )
-                : null,
-            title: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    gradient: AppTheme.softGradient,
-                    borderRadius: BorderRadius.circular(8),
+          appBar: (showAppBar && openDrawer != null)
+              ? AppBar(
+                  leading: IconButton(
+                    icon: Icon(
+                      Navigator.canPop(context)
+                          ? Icons.arrow_back
+                          : Icons.menu,
+                    ),
+                    onPressed: () {
+                      if (Navigator.canPop(context)) {
+                        Navigator.maybePop(context);
+                      } else {
+                        openDrawer!();
+                      }
+                    },
+                    tooltip: Navigator.canPop(context) ? 'Back' : 'Open menu',
                   ),
-                  child: const Icon(
-                    Icons.dashboard,
-                    size: 18,
-                    color: AppTheme.primaryBlue,
+                  title: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          gradient: AppTheme.softGradient,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(
+                          Icons.dashboard,
+                          size: 18,
+                          color: AppTheme.primaryBlue,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      const Text(
+                        'Progress Dashboard',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: -0.5,
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-                const SizedBox(width: 12),
-                const Text(
-                  'Progress Dashboard',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.5,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          body: tasks.isEmpty
-              ? _buildEmptyState(context)
-              : SingleChildScrollView(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildSummaryCard(stats),
-                        const SizedBox(height: 16),
-                        _buildStatsGrid(stats),
-                        const SizedBox(height: 24),
-                        if (last7Days.isNotEmpty)
-                          _buildTrendChart(last7Days),
-                        if (last7Days.isNotEmpty) const SizedBox(height: 16),
-                        if (courseStats.isNotEmpty)
-                          _buildCourseChart(courseStats),
-                        if (courseStats.isNotEmpty) const SizedBox(height: 16),
-                        _buildAISummary(stats, courseStats),
-                      ],
+                )
+              : null,
+          body: Container(
+            color: isDark ? AppTheme.darkBackground : theme.scaffoldBackgroundColor,
+            child: tasks.isEmpty
+                ? _buildEmptyState(context)
+                : SingleChildScrollView(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildPageHeader(context, isDark),
+                          const SizedBox(height: 24),
+                          _buildSummaryCardsRow(
+                            context,
+                            stats,
+                            courseStats,
+                            isDark,
+                            studyHoursThisWeek: studyHoursPerDay.fold<double>(0, (a, b) => a + b),
+                          ),
+                          const SizedBox(height: 24),
+                          if (last7Days.isNotEmpty || studyHoursPerDay.isNotEmpty) ...[
+                            LayoutBuilder(
+                              builder: (context, constraints) {
+                                if (constraints.maxWidth < 600) {
+                                  return Column(
+                                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                                    children: [
+                                      _buildWeeklyStudyHoursChart(
+                                        context, studyHoursPerDay, isDark,
+                                      ),
+                                      const SizedBox(height: 20),
+                                      _buildDailyTaskCompletionChart(
+                                        context, last7Days, isDark,
+                                      ),
+                                    ],
+                                  );
+                                }
+                                return Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(
+                                      child: _buildWeeklyStudyHoursChart(
+                                        context, studyHoursPerDay, isDark,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 20),
+                                    Expanded(
+                                      child: _buildDailyTaskCompletionChart(
+                                        context, last7Days, isDark,
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              },
+                            ),
+                          ],
+                        ],
+                      ),
                     ),
                   ),
-                ),
+          ),
         );
       },
     );
   }
 
+  Widget _buildPageHeader(BuildContext context, bool isDark) {
+    final onSurface = Theme.of(context).colorScheme.onSurface;
+    final secondary = isDark ? const Color(0xFF9CA3AF) : AppTheme.mediumGray;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Progress Dashboard',
+          style: TextStyle(
+            fontSize: 28,
+            fontWeight: FontWeight.bold,
+            color: onSurface,
+            letterSpacing: -0.5,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Track your academic performance and study habits',
+          style: TextStyle(
+            fontSize: 14,
+            color: secondary,
+          ),
+        ),
+      ],
+    );
+  }
+
+  static const Color _cardSurfaceDark = Color(0xFF1E1E1E);
+
+  Widget _buildSummaryCardsRow(
+    BuildContext context,
+    _Stats stats,
+    List<_CourseStat> courseStats,
+    bool isDark, {
+    required double studyHoursThisWeek,
+  }) {
+    final cardBg = isDark ? _cardSurfaceDark : Theme.of(context).colorScheme.surface;
+    final onCard = isDark ? Colors.white : AppTheme.darkText;
+    final secondary = isDark ? const Color(0xFF9CA3AF) : AppTheme.mediumGray;
+
+    final studyHoursStr =
+        studyHoursThisWeek >= 1
+            ? '${studyHoursThisWeek.toStringAsFixed(1)}h'
+            : '${(studyHoursThisWeek * 60).toInt()}m';
+    final completedTotal = stats.total == 0 ? '0/0' : '${stats.completed}/${stats.total}';
+    final activeCourses = courseStats.length;
+    final overallScore = stats.averageGrade != null
+        ? '${stats.averageGrade!.toStringAsFixed(1)}%'
+        : (stats.total == 0 ? '—' : '${(stats.completionRate * 100).toStringAsFixed(1)}%');
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isWide = constraints.maxWidth > 700;
+        if (!isWide) {
+          return Column(
+            children: [
+              _dashboardStatCard(
+                context,
+                cardBg: cardBg,
+                onCard: onCard,
+                secondary: secondary,
+                icon: Icons.schedule,
+                iconColor: AppTheme.primaryBlue,
+                badge: 'This Week',
+                badgeColor: AppTheme.primaryBlue,
+                title: 'Study Hours',
+                value: studyHoursStr,
+                subtitle: '+12% from last week',
+              ),
+              const SizedBox(height: 12),
+              _dashboardStatCard(
+                context,
+                cardBg: cardBg,
+                onCard: onCard,
+                secondary: secondary,
+                icon: Icons.flag,
+                iconColor: AppTheme.successGreen,
+                badge: 'On Track',
+                badgeColor: AppTheme.successGreen,
+                title: 'Tasks Completed',
+                value: completedTotal,
+                progress: stats.total == 0 ? 0.0 : stats.completed / stats.total,
+              ),
+              const SizedBox(height: 12),
+              _dashboardStatCard(
+                context,
+                cardBg: cardBg,
+                onCard: onCard,
+                secondary: secondary,
+                icon: Icons.menu_book,
+                iconColor: AppTheme.secondaryPurple,
+                badge: 'Active',
+                badgeColor: AppTheme.secondaryPurple,
+                title: 'Active Courses',
+                value: '$activeCourses',
+                subtitle: 'All on schedule',
+              ),
+              const SizedBox(height: 12),
+              _dashboardStatCard(
+                context,
+                cardBg: cardBg,
+                onCard: onCard,
+                secondary: secondary,
+                icon: Icons.emoji_events,
+                iconColor: AppTheme.warningOrange,
+                badge: 'Average',
+                badgeColor: AppTheme.warningOrange,
+                title: 'Overall Score',
+                value: overallScore,
+                subtitle: '+4.2% improvement',
+              ),
+            ],
+          );
+        }
+        return Row(
+          children: [
+            Expanded(
+              child: _dashboardStatCard(
+                context,
+                cardBg: cardBg,
+                onCard: onCard,
+                secondary: secondary,
+                icon: Icons.schedule,
+                iconColor: AppTheme.primaryBlue,
+                badge: 'This Week',
+                badgeColor: AppTheme.primaryBlue,
+                title: 'Study Hours',
+                value: studyHoursStr,
+                subtitle: '+12% from last week',
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: _dashboardStatCard(
+                context,
+                cardBg: cardBg,
+                onCard: onCard,
+                secondary: secondary,
+                icon: Icons.flag,
+                iconColor: AppTheme.successGreen,
+                badge: 'On Track',
+                badgeColor: AppTheme.successGreen,
+                title: 'Tasks Completed',
+                value: completedTotal,
+                progress: stats.total == 0 ? 0.0 : stats.completed / stats.total,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: _dashboardStatCard(
+                context,
+                cardBg: cardBg,
+                onCard: onCard,
+                secondary: secondary,
+                icon: Icons.menu_book,
+                iconColor: AppTheme.secondaryPurple,
+                badge: 'Active',
+                badgeColor: AppTheme.secondaryPurple,
+                title: 'Active Courses',
+                value: '$activeCourses',
+                subtitle: 'All on schedule',
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: _dashboardStatCard(
+                context,
+                cardBg: cardBg,
+                onCard: onCard,
+                secondary: secondary,
+                icon: Icons.emoji_events,
+                iconColor: AppTheme.warningOrange,
+                badge: 'Average',
+                badgeColor: AppTheme.warningOrange,
+                title: 'Overall Score',
+                value: overallScore,
+                subtitle: '+4.2% improvement',
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _dashboardStatCard(
+    BuildContext context, {
+    required Color cardBg,
+    required Color onCard,
+    required Color secondary,
+    required IconData icon,
+    required Color iconColor,
+    required String badge,
+    required Color badgeColor,
+    required String title,
+    required String value,
+    String? subtitle,
+    double? progress,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: iconColor.withOpacity(0.2),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: iconColor, size: 22),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: badgeColor.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  badge,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: badgeColor,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 13,
+              color: secondary,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: onCard,
+              letterSpacing: -0.5,
+            ),
+          ),
+          if (subtitle != null) ...[
+            const SizedBox(height: 6),
+            Text(
+              subtitle,
+              style: TextStyle(
+                fontSize: 12,
+                color: secondary,
+              ),
+            ),
+          ],
+          if (progress != null) ...[
+            const SizedBox(height: 10),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: progress,
+                backgroundColor: secondary.withOpacity(0.3),
+                valueColor: AlwaysStoppedAnimation<Color>(iconColor),
+                minHeight: 8,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWeeklyStudyHoursChart(
+    BuildContext context,
+    List<double> studyHoursPerDay,
+    bool isDark,
+  ) {
+    final cardBg = isDark ? _cardSurfaceDark : Theme.of(context).colorScheme.surface;
+    final onCard = isDark ? Colors.white : AppTheme.darkText;
+    final secondary = isDark ? const Color(0xFF9CA3AF) : AppTheme.mediumGray;
+    final maxY = studyHoursPerDay.isEmpty
+        ? 1.0
+        : (studyHoursPerDay.reduce((a, b) => a > b ? a : b) + 1).clamp(1.0, 100.0);
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: AppTheme.primaryBlue.withOpacity(0.2),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Weekly Study Hours',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: onCard,
+            ),
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            height: 220,
+            child: studyHoursPerDay.isEmpty
+                ? Center(
+                    child: Text(
+                      'No study data this week',
+                      style: TextStyle(color: secondary, fontSize: 14),
+                    ),
+                  )
+                : LineChart(
+                    LineChartData(
+                      gridData: FlGridData(
+                        show: true,
+                        getDrawingHorizontalLine: (value) => FlLine(
+                          color: secondary.withOpacity(0.15),
+                          strokeWidth: 1,
+                        ),
+                        drawVerticalLine: false,
+                      ),
+                      titlesData: FlTitlesData(
+                        show: true,
+                        bottomTitles: AxisTitles(
+                          sideTitles: SideTitles(
+                            showTitles: true,
+                            reservedSize: 28,
+                            getTitlesWidget: (value, meta) {
+                              final i = value.toInt();
+                              if (i >= 0 && i < studyHoursPerDay.length) {
+                                const labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+                                return Padding(
+                                  padding: const EdgeInsets.only(top: 8),
+                                  child: Text(
+                                    i < labels.length ? labels[i] : '',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: secondary,
+                                    ),
+                                  ),
+                                );
+                              }
+                              return const SizedBox.shrink();
+                            },
+                          ),
+                        ),
+                        leftTitles: AxisTitles(
+                          sideTitles: SideTitles(
+                            showTitles: true,
+                            reservedSize: 28,
+                            getTitlesWidget: (value, meta) => Text(
+                              value.toInt().toString(),
+                              style: TextStyle(fontSize: 11, color: secondary),
+                            ),
+                          ),
+                        ),
+                        topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                        rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                      ),
+                      borderData: FlBorderData(show: false),
+                      lineBarsData: [
+                        LineChartBarData(
+                          spots: studyHoursPerDay
+                              .asMap()
+                              .entries
+                              .map((e) => FlSpot(e.key.toDouble(), e.value))
+                              .toList(),
+                          isCurved: true,
+                          color: AppTheme.primaryBlue,
+                          barWidth: 3,
+                          dotData: FlDotData(show: true),
+                          belowBarData: BarAreaData(
+                            show: true,
+                            color: AppTheme.primaryBlue.withOpacity(0.2),
+                          ),
+                        ),
+                      ],
+                      minX: 0,
+                      maxX: (studyHoursPerDay.length - 1).toDouble(),
+                      minY: 0,
+                      maxY: maxY,
+                    ),
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDailyTaskCompletionChart(
+    BuildContext context,
+    List<_DayPoint> last7Days,
+    bool isDark,
+  ) {
+    final cardBg = isDark ? _cardSurfaceDark : Theme.of(context).colorScheme.surface;
+    final onCard = isDark ? Colors.white : AppTheme.darkText;
+    final secondary = isDark ? const Color(0xFF9CA3AF) : AppTheme.mediumGray;
+    final maxY = last7Days.isEmpty
+        ? 1.0
+        : (last7Days.map((e) => e.completed).reduce((a, b) => a > b ? a : b) + 2).toDouble();
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: AppTheme.secondaryPurple.withOpacity(0.2),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Daily Task Completion',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: onCard,
+            ),
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            height: 220,
+            child: last7Days.isEmpty
+                ? Center(
+                    child: Text(
+                      'No task data',
+                      style: TextStyle(color: secondary, fontSize: 14),
+                    ),
+                  )
+                : BarChart(
+                    BarChartData(
+                      alignment: BarChartAlignment.spaceAround,
+                      maxY: maxY,
+                      barTouchData: BarTouchData(enabled: false),
+                      titlesData: FlTitlesData(
+                        show: true,
+                        bottomTitles: AxisTitles(
+                          sideTitles: SideTitles(
+                            showTitles: true,
+                            reservedSize: 32,
+                            getTitlesWidget: (value, meta) {
+                              final i = value.toInt();
+                              if (i >= 0 && i < last7Days.length) {
+                                return Padding(
+                                  padding: const EdgeInsets.only(top: 8),
+                                  child: Text(
+                                    last7Days[i].label,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: secondary,
+                                    ),
+                                  ),
+                                );
+                              }
+                              return const SizedBox.shrink();
+                            },
+                          ),
+                        ),
+                        leftTitles: AxisTitles(
+                          sideTitles: SideTitles(
+                            showTitles: true,
+                            reservedSize: 28,
+                            getTitlesWidget: (value, meta) => Text(
+                              value.toInt().toString(),
+                              style: TextStyle(fontSize: 11, color: secondary),
+                            ),
+                          ),
+                        ),
+                        topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                        rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                      ),
+                      gridData: FlGridData(
+                        show: true,
+                        getDrawingHorizontalLine: (value) => FlLine(
+                          color: secondary.withOpacity(0.15),
+                          strokeWidth: 1,
+                        ),
+                        drawVerticalLine: false,
+                      ),
+                      borderData: FlBorderData(show: false),
+                      barGroups: last7Days.asMap().entries.map((entry) {
+                        return BarChartGroupData(
+                          x: entry.key,
+                          barRods: [
+                            BarChartRodData(
+                              toY: entry.value.completed.toDouble(),
+                              color: AppTheme.secondaryPurple,
+                              width: 24,
+                              borderRadius: const BorderRadius.vertical(
+                                top: Radius.circular(6),
+                              ),
+                            ),
+                          ],
+                          showingTooltipIndicators: [0],
+                        );
+                      }).toList(),
+                    ),
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static List<double> _computeStudyHoursLast7Days(List<Task> tasks) {
+    final now = DateTime.now();
+    final today = _dateOnly(now);
+    final result = <double>[];
+    for (var i = 6; i >= 0; i--) {
+      final date = today.subtract(Duration(days: i));
+      final dayTasks = tasks.where((t) =>
+          t.status == TaskStatus.completed && _dateOnly(t.deadline) == date);
+      final minutes = dayTasks.fold<int>(
+          0, (sum, t) => sum + t.estimatedMinutes);
+      result.add(minutes / 60.0);
+    }
+    return result;
+  }
+
   Widget _buildEmptyState(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final onSurface = theme.colorScheme.onSurface;
+    final secondary = isDark ? const Color(0xFF9CA3AF) : AppTheme.mediumGray;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -105,7 +698,7 @@ class ProgressDashboardScreen extends StatelessWidget {
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
-                color: AppTheme.darkText.withOpacity(0.8),
+                color: onSurface.withOpacity(0.9),
               ),
             ),
             const SizedBox(height: 8),
@@ -114,7 +707,7 @@ class ProgressDashboardScreen extends StatelessWidget {
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 14,
-                color: AppTheme.mediumGray,
+                color: secondary,
               ),
             ),
           ],

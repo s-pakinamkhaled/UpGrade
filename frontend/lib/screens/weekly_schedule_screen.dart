@@ -24,6 +24,11 @@ class WeeklyScheduleScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.maybePop(context),
+          tooltip: 'Back',
+        ),
         title: const Text('Weekly Schedule'),
       ),
       body: ListView(

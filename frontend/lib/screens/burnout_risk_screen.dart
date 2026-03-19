@@ -30,6 +30,11 @@ class BurnoutRiskScreen extends StatelessWidget {
     
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.maybePop(context),
+          tooltip: 'Back',
+        ),
         title: const Text('Burnout & Workload Risk'),
       ),
       body: SingleChildScrollView(

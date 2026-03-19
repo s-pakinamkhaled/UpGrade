@@ -83,6 +83,27 @@
             margin-top: 25px;
         }
 
+        .qr-section {
+            margin-top: 40px;
+            padding: 24px;
+            background: rgba(255,255,255,0.15);
+            border-radius: 16px;
+        }
+        .qrcode-container {
+            display: inline-block;
+            padding: 16px;
+            background: white;
+            border-radius: 12px;
+            margin: 12px 0;
+        }
+        .qrcode-container canvas, .qrcode-container img {
+            display: block;
+        }
+        .qr-hint {
+            font-size: 0.95rem;
+            opacity: 0.9;
+            margin-top: 8px;
+        }
         @media (max-width: 500px) {
             h1 {
                 font-size: 2.5rem;
@@ -92,6 +113,7 @@
             }
         }
     </style>
+    <script src="https://cdn.jsdelivr.net/gh/davidshimjs/qrcodejs/qrcode.min.js"></script>
 </head>
 
 <body>
@@ -120,6 +142,14 @@
 
         <div class="links">
             <a href="/privacy.html">Privacy Policy</a>
+            <a href="studyplanner://open" class="btn-open-app">Open App</a>
+        </div>
+
+        <!-- QR لفتح التطبيق (Deep Link: studyplanner://open) -->
+        <div class="qr-section">
+            <p class="description">Scan to open UpGrade app on your phone</p>
+            <div id="qrcode" class="qrcode-container"></div>
+            <p class="qr-hint">Or tap "Open App" above if you're on mobile</p>
         </div>
 
         <!-- 🔴 Recommended for Google reviewers -->
@@ -127,5 +157,13 @@
             Contact: pakinamkhaled10@gmail.com
         </div>
     </div>
+    <script>
+        (function() {
+            var el = document.getElementById('qrcode');
+            if (el && typeof QRCode !== 'undefined') {
+                new QRCode(el, { text: 'studyplanner://open', width: 200, height: 200 });
+            }
+        })();
+    </script>
 </body>
 </html>

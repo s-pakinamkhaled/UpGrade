@@ -1,3 +1,56 @@
+// ═══════════════════════════════════════════════════════════════════
+// SCREEN: AI Chat  —  Real-time Study Assistant
+// ═══════════════════════════════════════════════════════════════════
+//
+// DESCRIPTION
+// -----------
+// Full-screen conversational chat UI powered by Llama 3.3 (70B) via
+// Groq. The assistant has access to the student's real Google Classroom
+// tasks and provides personalised study advice, scheduling help,
+// prioritisation guidance, and motivation.
+//
+// WORKFLOW
+// --------
+// 1. Screen opens  → _addWelcomeMessage()
+//      Reads tasks from ClassroomProvider (Google Classroom sync).
+//      Reads student name from FirebaseAuth.
+//      Displays a greeting with task count & urgent count.
+//
+// 2. Student sends a message  → _sendMessage(text)
+//      a) Adds the user message bubble to the list.
+//      b) Shows a typing indicator animation.
+//      c) Builds conversation_history from previous messages
+//         (List<Map<String,String>> with role/content pairs).
+//      d) Builds student_context with full task details:
+//             name, tasks[]{title, courseName, priority, status,
+//             deadline, estimatedMinutes, assignedGrade, maxPoints}
+//      e) Calls ApiService.sendChatMessage() → POST /api/chat/message
+//         (30-second timeout).
+//
+// 3. Backend calls AIChatService (ai/chat_service.py)
+//      - Injects student context as a system message (up to 20 tasks).
+//      - Appends last 10 conversation turns.
+//      - Calls Groq API  (llama-3.3-70b-versatile, temp=0.7,
+//        max_tokens=500).
+//      - Returns {success, message, model, suggestions, error}.
+//
+// 4. Response received
+//      - AI reply displayed in a chat bubble.
+//      - suggestion chips rendered beneath the bubble for quick replies.
+//      - If the API call fails or returns success=false,
+//        _generateAIResponse() provides a local keyword-matched
+//        fallback using the student's real task data.
+//
+// UI COMPONENTS
+// -------------
+// • AppBar          — title + help button
+// • Quick Stats Bar — live task count + urgent count from ClassroomProvider
+// • ListView        — chat bubbles (user right-aligned, AI left-aligned)
+//                     + typing indicator (3-dot animation)
+// • Suggestion Bar  — scrollable chips from last AI message
+// • Input Row       — TextField + send button
+// ═══════════════════════════════════════════════════════════════════
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';

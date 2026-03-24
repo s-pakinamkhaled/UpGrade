@@ -1,21 +1,49 @@
 import 'package:google_sign_in/google_sign_in.dart';
 
 class GoogleAuthService {
-  // Student scopes: view your own courses and coursework (assignments + grades).
-  // .students.readonly is for teachers; .me.readonly is for the signed-in student.
   static final GoogleSignIn _googleSignIn = GoogleSignIn(
     scopes: [
       'https://www.googleapis.com/auth/classroom.courses.readonly',
       'https://www.googleapis.com/auth/classroom.coursework.me.readonly',
+      'https://www.googleapis.com/auth/classroom.student-submissions.me.readonly',
     ],
   );
 
-  static Future<String?> signInAndGetToken() async {
-    final account = await _googleSignIn.signIn();
-    if (account == null) return null;
+  /// Access the underlying GoogleSignIn instance (for token refresh, etc.)
+  static GoogleSignIn get instance => _googleSignIn;
 
-    final auth = await account.authentication;
-    return auth.accessToken;
+  static Future<String?> signInAndGetToken() async {
+    try {
+      // On web, signIn() triggers the popup and returns the account
+      final account = await _googleSignIn.signIn();
+      if (account == null) {
+        print('[GoogleAuth] Sign-in cancelled by user');
+        return null;
+      }
+      print('[GoogleAuth] Signed in as: ${account.email}');
+
+      // Get the authentication tokens
+      final auth = await account.authentication;
+      final token = auth.accessToken;
+      final idToken = auth.idToken;
+      
+      print('[GoogleAuth] accessToken is ${token != null ? "present (${token.length} chars)" : "NULL"}');
+      print('[GoogleAuth] idToken is ${idToken != null ? "present" : "NULL"}');
+
+      if (token == null) {
+        print('[GoogleAuth] WARNING: accessToken is null — trying to refresh...');
+        // Force re-authentication to get a fresh token
+        final reAuth = await account.authentication;
+        final refreshedToken = reAuth.accessToken;
+        print('[GoogleAuth] After refresh: accessToken is ${refreshedToken != null ? "present" : "still NULL"}');
+        return refreshedToken;
+      }
+      
+      return token;
+    } catch (e) {
+      print('[GoogleAuth] Sign-in error: $e');
+      return null;
+    }
   }
 
   static Future<void> signOut() async {

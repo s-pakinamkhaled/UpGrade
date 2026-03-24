@@ -1,38 +1,37 @@
-"""
-LLM Client for DeepSeek R1 Integration
-Handles communication with DeepSeek R1 API for generating personalized study plans
-"""
-
 import os
 import json
+from pathlib import Path
 from typing import Dict, Any, Optional
 import requests
 from requests.exceptions import RequestException, Timeout
+from dotenv import load_dotenv
+
+load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 
-class DeepSeekLLMClient:
-    """Client for DeepSeek R1 LLM API"""
+class GroqLLMClient:
+    """Client for Groq LLM API"""
     
     def __init__(
         self,
         api_key: Optional[str] = None,
         api_base_url: Optional[str] = None,
-        model: str = "deepseek-reasoner",
+        model: str = "llama-3.3-70b-versatile",
         timeout: int = 60
     ):
         """
-        Initialize DeepSeek LLM Client
+        Initialize llama LLM Client
         
         Args:
-            api_key: DeepSeek API key (or set DEEPSEEK_API_KEY env var)
-            api_base_url: API base URL (defaults to DeepSeek's official endpoint)
+            api_key: llama API key (or set GROQ_API_KEY env var)
+            api_base_url: API base URL (defaults to Groq's official endpoint)
             model: Model name to use
             timeout: Request timeout in seconds
         """
-        self.api_key = api_key or os.getenv("DEEPSEEK_API_KEY")
+        self.api_key = api_key or os.getenv("GROQ_API_KEY")
         self.api_base_url = api_base_url or os.getenv(
-            "DEEPSEEK_API_BASE",
-            "https://api.deepseek.com/v1"
+            "GROQ_API_BASE",
+            "https://api.groq.com/openai/v1"
         )
         self.model = model
         self.timeout = timeout
@@ -48,7 +47,7 @@ class DeepSeekLLMClient:
         stream: bool = False
     ) -> Dict[str, Any]:
         """
-        Send chat completion request to DeepSeek API
+        Send chat completion request to Groq API
         
         Args:
             messages: List of message dictionaries with 'role' and 'content'
@@ -117,6 +116,7 @@ class DeepSeekLLMClient:
         ]
         
         print(f"Generating study plan for {student_data['student_profile']['name']}...")
+        print(f"Generating study plan for {student_data['student_profile']['name']}...")
         
         response = self.chat_completion(messages, temperature=0.7, max_tokens=4000)
         
@@ -157,9 +157,9 @@ class DeepSeekLLMClient:
         print("[WARN] Running in MOCK MODE (no API key)")
         
         mock_plan = """
-# 📅 Personalized Study Plan
+# Personalized Study Plan
 
-## 🎯 Priority Tasks (Next 48 Hours)
+##  Priority Tasks (Next 48 Hours)
 
 ### 1. Data Mining Quiz 1 – Classification
 - **Deadline**: TODAY or Tomorrow
@@ -243,44 +243,13 @@ class DeepSeekLLMClient:
             "error": error_message,
             "success": False
         }
-
-
-class OpenAICompatibleClient(DeepSeekLLMClient):
-    """
-    OpenAI-compatible client for use with other providers
-    (e.g., OpenAI, Together AI, Groq, etc.)
-    """
-    
-    def __init__(
-        self,
-        api_key: Optional[str] = None,
-        api_base_url: Optional[str] = "https://api.openai.com/v1",
-        model: str = "gpt-4",
-        timeout: int = 60
-    ):
-        super().__init__(api_key, api_base_url, model, timeout)
-
-
-class GroqClient(DeepSeekLLMClient):
-    """
-    Groq API client for Llama models
-    Fast inference for open-source models like Llama 3.3
-    """
-    
+class GroqClient(GroqLLMClient):   
     def __init__(
         self,
         api_key: Optional[str] = None,
         model: str = "llama-3.3-70b-versatile",
         timeout: int = 60
     ):
-        """
-        Initialize Groq client
-        
-        Args:
-            api_key: Groq API key (or set GROQ_API_KEY env var)
-            model: Model name (default: llama-3.3-70b-versatile)
-            timeout: Request timeout in seconds
-        """
         groq_api_key = api_key or os.getenv("GROQ_API_KEY")
         groq_base_url = os.getenv("GROQ_API_BASE", "https://api.groq.com/openai/v1")
         groq_model = os.getenv("GROQ_MODEL", model)
@@ -293,12 +262,12 @@ class GroqClient(DeepSeekLLMClient):
 
 def test_client():
     """Test the LLM client"""
-    client = DeepSeekLLMClient()
+    client = GroqLLMClient()
     
     # Simple test
     messages = [
         {"role": "system", "content": "You are a helpful study planning assistant."},
-        {"role": "user", "content": "Create a study plan for tomorrow."}
+        {"role": "user", "content": "Create a professional study plan for my tasks."}
     ]
     
     response = client.chat_completion(messages)

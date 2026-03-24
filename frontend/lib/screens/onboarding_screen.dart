@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 
 import '../core/theme.dart';
 import '../core/constants.dart';
-import '../widgets/app_logo.dart';
 import '../providers/classroom_provider.dart';
 import '../models/classroom_course.dart';
 
@@ -17,7 +16,6 @@ class OnboardingScreen extends StatefulWidget {
 
 class _OnboardingScreenState extends State<OnboardingScreen> {
   int _currentStep = 0;
-  final PageController _pageController = PageController();
 
   // Step 1: Courses
   final TextEditingController _courseController = TextEditingController();
@@ -45,7 +43,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   @override
   void dispose() {
-    _pageController.dispose();
     _courseController.dispose();
     _taskNameController.dispose();
     super.dispose();
@@ -118,10 +115,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   void _nextStep() {
     if (_currentStep < 2) {
-      _pageController.nextPage(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-      );
+      setState(() => _currentStep++);
     } else {
       _finishOnboarding();
     }
@@ -155,81 +149,313 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    final stepMeta = [
+      {
+        'icon': Icons.school_outlined,
+        'title': 'Smart Study Planning',
+        'subtitle': 'AI-powered schedules that adapt to your workload, deadlines, and study habits.',
+      },
+      {
+        'icon': Icons.assignment_outlined,
+        'title': 'Set Your Deadlines',
+        'subtitle': 'Add tasks with due dates so UpGrade can plan your day precisely.',
+      },
+      {
+        'icon': Icons.access_time_outlined,
+        'title': 'Choose Preferred Times',
+        'subtitle': 'Tell UpGrade when you study best to build the right focus sessions.',
+      },
+    ];
+
+    final meta = stepMeta[_currentStep];
+    final stepNumber = _currentStep + 1;
+    const stepTotal = 3;
+
+    final bgGradient = LinearGradient(
+      colors: isDark
+          ? [
+              AppTheme.primaryBlue.withOpacity(0.22),
+              AppTheme.secondaryPurple.withOpacity(0.22),
+            ]
+          : [AppTheme.primaryBlue, AppTheme.secondaryPurple],
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+    );
+
     return Scaffold(
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Progress Indicator
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Row(
-                children: List.generate(3, (index) {
-                  return Expanded(
-                    child: Container(
-                      height: 5,
-                      margin: EdgeInsets.only(right: index < 2 ? 10 : 0),
-                      decoration: BoxDecoration(
-                        gradient: index <= _currentStep ? AppTheme.primaryGradient : null,
-                        color: index <= _currentStep ? null : AppTheme.mediumGray.withOpacity(0.3),
-                        borderRadius: BorderRadius.circular(3),
-                        boxShadow: index <= _currentStep ? AppTheme.softShadow : null,
-                      ),
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.maybePop(context),
+          tooltip: 'Back',
+        ),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        iconTheme: IconThemeData(
+          color: isDark ? theme.colorScheme.onSurface : Colors.white,
+        ),
+      ),
+      body: Container(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: BoxDecoration(gradient: bgGradient),
+        child: SafeArea(
+          child: Center(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 820),
+                  child: Padding(
+                    padding: const EdgeInsets.all(18),
+                    child: Column(
+                      children: [
+                        // Top header (progress + icon + title/subtitle)
+                        Container(
+                          padding: const EdgeInsets.fromLTRB(20, 18, 20, 14),
+                          decoration: BoxDecoration(
+                            color: isDark
+                                ? theme.colorScheme.surface.withOpacity(0.55)
+                                : Colors.white.withOpacity(0.45),
+                            borderRadius: BorderRadius.circular(24),
+                          ),
+                          child: Column(
+                            children: [
+                              // Progress Indicator (3 steps)
+                              Row(
+                                children: List.generate(3, (index) {
+                                  final done = index <= _currentStep;
+                                  return Expanded(
+                                    child: AnimatedContainer(
+                                      duration:
+                                          const Duration(milliseconds: 250),
+                                      height: 6,
+                                      margin:
+                                          EdgeInsets.only(right: index < 2 ? 10 : 0),
+                                      decoration: BoxDecoration(
+                                        gradient: done ? AppTheme.primaryGradient : null,
+                                        color: done
+                                            ? null
+                                            : theme.colorScheme.onSurface.withOpacity(
+                                                isDark ? 0.12 : 0.28),
+                                        borderRadius: BorderRadius.circular(8),
+                                        boxShadow:
+                                            done ? AppTheme.softShadow : null,
+                                      ),
+                                    ),
+                                  );
+                                }),
+                              ),
+                              const SizedBox(height: 18),
+
+                              // Step Icon
+                              Container(
+                                width: 58,
+                                height: 58,
+                                decoration: BoxDecoration(
+                                  gradient: AppTheme.primaryGradient,
+                                  borderRadius: BorderRadius.circular(18),
+                                  boxShadow: AppTheme.mediumShadow,
+                                ),
+                                child: Icon(
+                                  meta['icon'] as IconData,
+                                  size: 28,
+                                  color: AppTheme.white,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+
+                              Text(
+                                meta['title'] as String,
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 28,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: -0.6,
+                                  color: theme.colorScheme.onSurface,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                meta['subtitle'] as String,
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: theme.colorScheme.onSurface.withOpacity(0.7),
+                                  height: 1.4,
+                                ),
+                              ),
+
+                              const SizedBox(height: 14),
+                              // Premium bullets (subtle)
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.check_circle,
+                                      size: 18,
+                                      color: AppTheme.successGreen),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Adaptive & personalized',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: theme.colorScheme.onSurface
+                                          .withOpacity(0.85),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        const SizedBox(height: 16),
+
+                        // Card (step content)
+                        Expanded(
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(18),
+                            decoration: BoxDecoration(
+                              color: isDark
+                                  ? theme.colorScheme.surface
+                                  : Colors.white.withOpacity(0.96),
+                              borderRadius: BorderRadius.circular(28),
+                              boxShadow: AppTheme.mediumShadow,
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Expanded(
+                                  child: AnimatedSwitcher(
+                                    duration: const Duration(milliseconds: 320),
+                                    switchInCurve: Curves.easeOutCubic,
+                                    switchOutCurve: Curves.easeInCubic,
+                                    transitionBuilder:
+                                        (Widget child, Animation<double> animation) {
+                                      final curved = CurvedAnimation(
+                                        parent: animation,
+                                        curve: Curves.easeOutCubic,
+                                      );
+                                      return FadeTransition(
+                                        opacity: curved,
+                                        child: ScaleTransition(
+                                          scale: Tween<double>(begin: 0.98, end: 1)
+                                              .animate(curved),
+                                          child: child,
+                                        ),
+                                      );
+                                    },
+                                    child: KeyedSubtree(
+                                      key: ValueKey<int>(_currentStep),
+                                      child: _currentStep == 0
+                                          ? _buildCoursesStep()
+                                          : _currentStep == 1
+                                              ? _buildDeadlinesStep()
+                                              : _buildStudyTimesStep(),
+                                    ),
+                                  ),
+                                ),
+
+                                // Footer navigation
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(8, 10, 8, 4),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          if (_currentStep > 0)
+                                            TextButton.icon(
+                                              onPressed: () {
+                                                setState(() => _currentStep--);
+                                              },
+                                              icon: const Icon(Icons.arrow_back),
+                                              label: const Text('Back'),
+                                            )
+                                          else
+                                            const SizedBox(width: 72),
+                                          Expanded(
+                                            child: Center(
+                                              child: TextButton(
+                                                onPressed: _finishOnboarding,
+                                                child: const Text('Skip'),
+                                              ),
+                                            ),
+                                          ),
+                                          _buildGradientNextButton(
+                                            onPressed: _nextStep,
+                                            label: _currentStep < 2
+                                                ? 'Next'
+                                                : 'Get Started',
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        'Step $stepNumber of $stepTotal',
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: theme.colorScheme.onSurface.withOpacity(0.6),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  );
-                }),
-              ),
-            ),
-
-            // Logo
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 24),
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  gradient: AppTheme.softGradient,
-                  shape: BoxShape.circle,
-                ),
-                child: const AppLogo.small(),
-              ),
-            ),
-
-            // Content
-            Expanded(
-              child: PageView(
-                controller: _pageController,
-                onPageChanged: (index) => setState(() => _currentStep = index),
-                children: [
-                  _buildCoursesStep(),
-                  _buildDeadlinesStep(),
-                  _buildStudyTimesStep(),
-                ],
-              ),
-            ),
-
-            // Navigation Buttons
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  if (_currentStep > 0)
-                    TextButton(
-                      onPressed: () {
-                        _pageController.previousPage(
-                          duration: const Duration(milliseconds: 300),
-                          curve: Curves.easeInOut,
-                        );
-                      },
-                      child: const Text('Back'),
-                    ),
-                  const Spacer(),
-                  ElevatedButton(
-                    onPressed: _nextStep,
-                    child: Text(_currentStep < 2 ? 'Next' : 'Get Started'),
                   ),
-                ],
-              ),
+                );
+              },
             ),
-          ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGradientNextButton({
+    required VoidCallback onPressed,
+    required String label,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: AppTheme.primaryGradient,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: AppTheme.mediumShadow,
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: onPressed,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    color: AppTheme.white,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                const Icon(Icons.arrow_forward, color: AppTheme.white, size: 18),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -239,21 +465,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   Widget _buildCoursesStep() {
     final syncedCourses = context.watch<ClassroomProvider>().courses;
     return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      child: ListView(
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        physics: const AlwaysScrollableScrollPhysics(),
         children: [
-          const Text(
-            'Add Your Courses',
-            style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Add any extra courses not synced from Google Classroom',
-            style: TextStyle(fontSize: 15, color: AppTheme.darkText.withOpacity(0.7)),
-          ),
-          const SizedBox(height: 20),
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
                 child: TextField(
@@ -285,12 +503,17 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               style: TextStyle(fontWeight: FontWeight.w600, color: AppTheme.mediumGray),
             ),
             const SizedBox(height: 8),
-            ...syncedCourses.map((c) => Card(
+            ...syncedCourses.map(
+              (c) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Card(
                   child: ListTile(
                     leading: const Icon(Icons.cloud_done, color: AppTheme.successGreen),
                     title: Text(c.name),
                   ),
-                )),
+                ),
+              ),
+            ),
             const SizedBox(height: 16),
           ],
           if (_manualCourses.isNotEmpty) ...[
@@ -299,24 +522,23 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               style: TextStyle(fontWeight: FontWeight.w600, color: AppTheme.mediumGray),
             ),
             const SizedBox(height: 8),
-          ],
-          Expanded(
-            child: ListView.builder(
-              itemCount: _manualCourses.length,
-              itemBuilder: (context, index) {
-                return Card(
-                  child: ListTile(
-                    leading: const Icon(Icons.book, color: AppTheme.primaryBlue),
-                    title: Text(_manualCourses[index]),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.close),
-                      onPressed: () => _removeCourse(index),
+            ..._manualCourses.asMap().entries.map(
+                  (e) => Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Card(
+                      child: ListTile(
+                        leading: const Icon(Icons.book, color: AppTheme.primaryBlue),
+                        title: Text(e.value),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () => _removeCourse(e.key),
+                        ),
+                      ),
                     ),
                   ),
-                );
-              },
-            ),
-          ),
+                ),
+          ],
+          const SizedBox(height: 12),
         ],
       ),
     );
@@ -326,21 +548,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   Widget _buildDeadlinesStep() {
     final courses = _allCourses;
     return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      child: ListView(
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        physics: const AlwaysScrollableScrollPhysics(),
         children: [
-          const Text(
-            'Add Deadlines',
-            style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Add tasks/assignments with deadlines',
-            style: TextStyle(fontSize: 15, color: AppTheme.darkText.withOpacity(0.7)),
-          ),
-          const SizedBox(height: 20),
-          // Task name
           TextField(
             controller: _taskNameController,
             decoration: const InputDecoration(
@@ -349,7 +561,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             ),
           ),
           const SizedBox(height: 12),
-          // Course dropdown
           DropdownButtonFormField<String>(
             initialValue: _selectedCourseId,
             decoration: const InputDecoration(
@@ -362,7 +573,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             onChanged: (v) => setState(() => _selectedCourseId = v),
           ),
           const SizedBox(height: 12),
-          // Date picker
           InkWell(
             onTap: _pickDeadline,
             child: InputDecorator(
@@ -375,7 +585,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     ? DateFormat('EEE, MMM d, y').format(_selectedDeadline!)
                     : 'Tap to pick deadline',
                 style: TextStyle(
-                  color: _selectedDeadline != null ? AppTheme.darkText : AppTheme.mediumGray,
+                  color: _selectedDeadline != null
+                      ? Theme.of(context).colorScheme.onSurface
+                      : Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
                 ),
               ),
             ),
@@ -387,30 +599,34 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             label: const Text('Add Task'),
           ),
           const SizedBox(height: 16),
-          if (_manualTasks.isNotEmpty)
+          if (_manualTasks.isNotEmpty) ...[
             Text(
               'Tasks to add:',
               style: TextStyle(fontWeight: FontWeight.w600, color: AppTheme.mediumGray),
             ),
-          Expanded(
-            child: ListView.builder(
-              itemCount: _manualTasks.length,
-              itemBuilder: (context, index) {
-                final t = _manualTasks[index];
-                return Card(
-                  child: ListTile(
-                    leading: const Icon(Icons.event, color: AppTheme.warningOrange),
-                    title: Text('${t.name} / ${t.courseName}'),
-                    subtitle: Text(DateFormat('MMM d, y').format(t.deadline)),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.close),
-                      onPressed: () => _removeTask(index),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
+            const SizedBox(height: 8),
+            ..._manualTasks.asMap().entries.map(
+                  (e) {
+                    final t = e.value;
+                    final index = e.key;
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Card(
+                        child: ListTile(
+                          leading: const Icon(Icons.event, color: AppTheme.warningOrange),
+                          title: Text('${t.name} / ${t.courseName}'),
+                          subtitle: Text(DateFormat('MMM d, y').format(t.deadline)),
+                          trailing: IconButton(
+                            icon: const Icon(Icons.close),
+                            onPressed: () => _removeTask(index),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+          ],
+          const SizedBox(height: 12),
         ],
       ),
     );
@@ -425,42 +641,30 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       'Night (10 PM – 2 AM)',
     ];
     return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      child: ListView(
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        physics: const AlwaysScrollableScrollPhysics(),
         children: [
-          const Text(
-            'Preferred Study Times',
-            style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'When do you prefer to study? (optional)',
-            style: TextStyle(fontSize: 15, color: AppTheme.darkText.withOpacity(0.7)),
-          ),
-          const SizedBox(height: 20),
-          Expanded(
-            child: ListView.builder(
-              itemCount: times.length,
-              itemBuilder: (context, index) {
-                final time = times[index];
-                final isSelected = _preferredTimes.contains(time);
-                return Card(
-                  child: CheckboxListTile(
-                    title: Text(time),
-                    value: isSelected,
-                    onChanged: (value) {
-                      setState(() {
-                        value == true
-                            ? _preferredTimes.add(time)
-                            : _preferredTimes.remove(time);
-                      });
-                    },
-                  ),
-                );
-              },
+          for (var index = 0; index < times.length; index++)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Card(
+                child: CheckboxListTile(
+                  title: Text(times[index]),
+                  value: _preferredTimes.contains(times[index]),
+                  onChanged: (value) {
+                    setState(() {
+                      final time = times[index];
+                      value == true
+                          ? _preferredTimes.add(time)
+                          : _preferredTimes.remove(time);
+                    });
+                  },
+                ),
+              ),
             ),
-          ),
+          const SizedBox(height: 12),
         ],
       ),
     );

@@ -44,6 +44,11 @@ class _FirestoreExampleScreenState extends State<FirestoreExampleScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.maybePop(context),
+          tooltip: 'Back',
+        ),
         title: const Text('Firestore Example'),
         backgroundColor: AppTheme.white,
         foregroundColor: AppTheme.darkText,

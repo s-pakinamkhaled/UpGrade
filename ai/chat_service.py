@@ -16,10 +16,10 @@ class AIChatService:
         
         if provider == "groq":
             self.client = GroqClient()
-            print("AI Chat Service initialized with Llama 3.3 (Groq)")
+            print("[OK] AI Chat Service initialized with Llama 3.3 (Groq)")
         else:
             self.client = GroqClient()  # Default to Groq
-            print("AI Chat Service initialized with Llama 3.3 (default)")
+            print("[OK] AI Chat Service initialized with Llama 3.3 (default)")
         
         self.system_prompt = self._get_system_prompt()
     
@@ -208,7 +208,7 @@ def test_chat_service():
     print("Suggestions:", suggestions)
     
     print("\n" + "="*60)
-    print("✅ Chat service test completed!")
+    print("[OK] Chat service test completed!")
     print("="*60 + "\n")
 
 

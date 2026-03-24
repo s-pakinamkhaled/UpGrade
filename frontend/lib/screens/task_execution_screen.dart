@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../core/theme.dart';
 import '../models/task.dart';
-import '../models/focus_session.dart';
 
 class TaskExecutionScreen extends StatefulWidget {
   final Task task;
@@ -19,16 +18,10 @@ class _TaskExecutionScreenState extends State<TaskExecutionScreen> {
   Duration _elapsed = Duration.zero;
   Timer? _timer;
   int _focusLevel = 5;
-  FocusSession? _currentSession;
-  
+
   @override
   void initState() {
     super.initState();
-    _currentSession = FocusSession(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      taskId: widget.task.id,
-      startTime: DateTime.now(),
-    );
   }
   
   @override
@@ -108,6 +101,11 @@ class _TaskExecutionScreenState extends State<TaskExecutionScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.maybePop(context),
+          tooltip: 'Back',
+        ),
         title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [

@@ -387,13 +387,23 @@ class _AIChatbotScreenState extends State<AIChatbotScreen> with TickerProviderSt
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        leading: widget.openDrawer != null
-            ? IconButton(
-                icon: const Icon(Icons.menu),
-                onPressed: widget.openDrawer,
-                tooltip: 'Open menu',
-              )
-            : null,
+        leading: IconButton(
+          icon: Icon(
+            Navigator.canPop(context)
+                ? Icons.arrow_back
+                : (widget.openDrawer != null ? Icons.menu : Icons.arrow_back),
+          ),
+          onPressed: () {
+            if (Navigator.canPop(context)) {
+              Navigator.maybePop(context);
+            } else if (widget.openDrawer != null) {
+              widget.openDrawer!();
+            } else {
+              Navigator.maybePop(context);
+            }
+          },
+          tooltip: Navigator.canPop(context) ? 'Back' : 'Open menu',
+        ),
         title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [

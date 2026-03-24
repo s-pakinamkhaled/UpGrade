@@ -20,9 +20,9 @@ sys.path.insert(0, ai_path)
 try:
     from chat_service import AIChatService
     chat_service = AIChatService()
-    print("Chat service initialized successfully")
+    print("[OK] Chat service initialized successfully")
 except Exception as e:
-    print(f"Warning error, chat service is not initialized {e}")
+    print(f"[WARN] Could not initialize chat service: {e}")
     print(f"   AI path attempted: {ai_path}")
     chat_service = None
 

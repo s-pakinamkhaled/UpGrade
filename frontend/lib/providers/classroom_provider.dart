@@ -31,16 +31,22 @@ class ClassroomProvider extends ChangeNotifier {
   }
 
   /// Sync with Google Classroom and persist data locally.
+  /// Keeps courses and tasks that were added manually (ids starting with `manual_`).
   Future<void> syncClassroom(String accessToken) async {
     _setLoading(true);
     _error = null;
 
     try {
+      final manualCourses =
+          _courses.where((c) => c.id.startsWith('manual_')).toList();
+      final manualTasks =
+          _tasks.where((t) => t.id.startsWith('manual_')).toList();
+
       final rawData = await ClassroomSyncService.syncAll(accessToken);
       final result = ClassroomMapperService.mapFromRawResponse(rawData);
 
-      _courses = result.courses;
-      _tasks = result.tasks;
+      _courses = [...manualCourses, ...result.courses];
+      _tasks = [...manualTasks, ...result.tasks];
       _syncedAt = DateTime.tryParse(
         rawData['syncedAt'] as String? ?? '',
       ) ?? DateTime.now();
@@ -68,11 +74,23 @@ class ClassroomProvider extends ChangeNotifier {
 
   /// Add a manual course (not from Classroom sync).
   Future<void> addManualCourse(String name) async {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return;
     final id = 'manual_${DateTime.now().millisecondsSinceEpoch}';
     _courses = [
       ..._courses,
-      ClassroomCourse(id: id, name: name),
+      ClassroomCourse(id: id, name: trimmed),
     ];
+    _syncedAt ??= DateTime.now();
+    await _saveToStorage();
+    notifyListeners();
+  }
+
+  /// Remove a manual course and tasks that belong to it.
+  Future<void> removeManualCourse(String courseId) async {
+    if (!courseId.startsWith('manual_')) return;
+    _courses = _courses.where((c) => c.id != courseId).toList();
+    _tasks = _tasks.where((t) => t.courseId != courseId).toList();
     await _saveToStorage();
     notifyListeners();
   }
@@ -99,6 +117,14 @@ class ClassroomProvider extends ChangeNotifier {
       ),
     ];
     _syncedAt ??= DateTime.now();
+    await _saveToStorage();
+    notifyListeners();
+  }
+
+  /// Remove a task that was added manually (id starts with `manual_`).
+  Future<void> removeManualTask(String taskId) async {
+    if (!taskId.startsWith('manual_')) return;
+    _tasks = _tasks.where((t) => t.id != taskId).toList();
     await _saveToStorage();
     notifyListeners();
   }

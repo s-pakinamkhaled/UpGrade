@@ -37,7 +37,7 @@ class GroqLLMClient:
         self.timeout = timeout
         
         if not self.api_key:
-            print(" api not found. Set GROQ_API_KEY environment variable.")
+            print("[WARN] No API key provided. Set DEEPSEEK_API_KEY environment variable.")
     
     def chat_completion(
         self,
@@ -86,11 +86,11 @@ class GroqLLMClient:
             return response.json()
             
         except Timeout:
-            print(" Request timed out")
+            print("[ERROR] Request timed out")
             return self._error_response("Request timed out")
             
         except RequestException as e:
-            print(f" API request failed: {str(e)}")
+            print(f"[ERROR] API request failed: {str(e)}")
             return self._error_response(str(e))
     
     def generate_study_plan(
@@ -116,11 +116,12 @@ class GroqLLMClient:
         ]
         
         print(f"Generating study plan for {student_data['student_profile']['name']}...")
+        print(f"Generating study plan for {student_data['student_profile']['name']}...")
         
         response = self.chat_completion(messages, temperature=0.7, max_tokens=4000)
         
         if "error" in response:
-            print(f" Error generating plan: {response['error']}")
+            print(f"[ERROR] Error generating plan: {response['error']}")
             return response
         
         return self._parse_study_plan_response(response)
@@ -153,7 +154,7 @@ class GroqLLMClient:
     
     def _mock_response(self, messages: list) -> Dict[str, Any]:
         """Generate mock response when no API key is provided"""
-        print(" Running in MOCK MODE (no API key)")
+        print("[WARN] Running in MOCK MODE (no API key)")
         
         mock_plan = """
 # Personalized Study Plan
@@ -256,7 +257,7 @@ class GroqClient(GroqLLMClient):
         super().__init__(groq_api_key, groq_base_url, groq_model, timeout)
         
         if not self.api_key:
-            print(" api not found. Set GROQ_API_KEY environment variable.")
+            print("[WARN] No Groq API key provided. Set GROQ_API_KEY environment variable.")
 
 
 def test_client():

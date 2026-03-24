@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:app_links/app_links.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:provider/provider.dart';
 
 import 'core/theme.dart';
 import 'core/constants.dart';
 
 import 'screens/login_screen.dart';
+import 'screens/qr_scanner_screen.dart';
 import 'screens/register_screen.dart';
 import 'screens/forgot_password_screen.dart';
 import 'screens/google_classroom_sync_screen.dart';
@@ -22,19 +27,85 @@ import 'screens/past_tasks_screen.dart';
 import 'screens/missed_tasks_screen.dart';
 import 'screens/firestore_example_screen.dart';
 import 'screens/study_plan_screen.dart';
+import 'screens/profile_screen.dart';
+import 'screens/privacy_settings_screen.dart';
+import 'screens/edit_profile_screen.dart';
+import 'screens/end_session_screen.dart';
+import 'screens/manual_courses_screen.dart';
 
 import 'models/task.dart';
 import 'widgets/app_logo.dart';
+import 'widgets/dashboard_shell_row.dart';
+import 'providers/dashboard_shell_provider.dart';
+import 'providers/settings_provider.dart';
 
-class UpGradeApp extends StatelessWidget {
+class UpGradeApp extends StatefulWidget {
   const UpGradeApp({super.key});
+
+  static final GlobalKey<NavigatorState> navigatorKey =
+      GlobalKey<NavigatorState>();
+
+  /// يستدعى عند استقبال Deep Link (studyplanner://open) لفتح الشاشة الرئيسية.
+  static void navigateToHome() {
+    navigatorKey.currentState?.pushNamedAndRemoveUntil(
+      AppConstants.routeHome,
+      (route) => false,
+    );
+  }
+
+  @override
+  State<UpGradeApp> createState() => _UpGradeAppState();
+}
+
+class _UpGradeAppState extends State<UpGradeApp> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _initDeepLinks());
+  }
+
+  Future<void> _handleUri(Uri? uri) async {
+    if (uri == null) return;
+    // upgrade://pair?session=xxx → الموبايل يحدّث Firestore والويب يكتشف ويظهر Connected
+    if (uri.scheme == 'upgrade' && uri.host == 'pair') {
+      final sessionId = uri.queryParameters['session'];
+      if (sessionId != null && sessionId.isNotEmpty) {
+        try {
+          await FirebaseFirestore.instance
+              .collection('pairing_sessions')
+              .doc(sessionId)
+              .update({'paired': true, 'device': 'Mobile device'});
+        } catch (_) {}
+      }
+      UpGradeApp.navigateToHome();
+      return;
+    }
+    if (uri.toString().startsWith('${AppConstants.deepLinkScheme}://')) {
+      UpGradeApp.navigateToHome();
+    }
+  }
+
+  Future<void> _initDeepLinks() async {
+    final appLinks = AppLinks();
+    try {
+      final uri = await appLinks.getInitialLink();
+      await _handleUri(uri);
+    } catch (_) {}
+    appLinks.uriLinkStream.listen((Uri? uri) async {
+      await _handleUri(uri);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
+    final settings = Provider.of<SettingsProvider>(context);
     return MaterialApp(
+      navigatorKey: UpGradeApp.navigatorKey,
       title: AppConstants.appName,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
+      themeMode: settings.themeMode,
       initialRoute: AppConstants.routeLogin,
       routes: {
         AppConstants.routeLogin: (context) => const LoginScreen(),
@@ -99,8 +170,17 @@ class UpGradeApp extends StatelessWidget {
             const MissedTasksScreen(),
         AppConstants.routeFirestoreExample: (context) =>
             const FirestoreExampleScreen(),
+        AppConstants.routeProfile: (context) => const ProfileScreen(),
+        AppConstants.routePrivacySettings: (context) =>
+            const PrivacySettingsScreen(),
+        AppConstants.routeEditProfile: (context) =>
+            const EditProfileScreen(),
         AppConstants.routeStudyPlan: (context) =>
             const StudyPlanScreen(),
+        AppConstants.routeQrScanner: (context) =>
+            const QrScannerScreen(),
+        AppConstants.routeManualCourses: (context) =>
+            const ManualCoursesScreen(),
       },
     );
   }
@@ -120,101 +200,149 @@ class MainNavigationScreen extends StatefulWidget {
 
 class _MainNavigationScreenState
     extends State<MainNavigationScreen> {
-  int _currentIndex = 0;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   void _openDrawer() => _scaffoldKey.currentState?.openDrawer();
 
+  Future<void> _performSignOut() async {
+    await FirebaseAuth.instance.signOut();
+    if (!mounted) return;
+    context.read<DashboardShellProvider>().resetForNewSession();
+    if (!mounted) return;
+    Navigator.of(context).pushNamedAndRemoveUntil(
+      AppConstants.routeLogin,
+      (route) => false,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final shell = context.watch<DashboardShellProvider>();
+    final useSidebarLayout = MediaQuery.sizeOf(context).width >= 700;
+
+    if (useSidebarLayout) {
+      return Scaffold(
+        body: DashboardShellRow(
+          body: IndexedStack(
+            index: shell.currentIndex,
+            children: [
+              DailyPlannerScreen(openDrawer: null),
+              AIChatbotScreen(openDrawer: null),
+              const ProgressDashboardScreen(showAppBar: false),
+              GroupStudyScreen(openDrawer: null),
+              EndSessionScreen(
+                onContinue: () {
+                  context
+                      .read<DashboardShellProvider>()
+                      .exitEndSessionContinue();
+                },
+                onEndAndSignOut: _performSignOut,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       key: _scaffoldKey,
       body: IndexedStack(
-        index: _currentIndex,
+        index: shell.currentIndex,
         children: [
           DailyPlannerScreen(openDrawer: _openDrawer),
           AIChatbotScreen(openDrawer: _openDrawer),
           ProgressDashboardScreen(openDrawer: _openDrawer),
           GroupStudyScreen(openDrawer: _openDrawer),
-        ],
-      ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _currentIndex,
-        onDestinationSelected: (index) {
-          setState(() {
-            _currentIndex = index;
-          });
-        },
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.calendar_today_outlined),
-            selectedIcon: Icon(Icons.calendar_today),
-            label: 'Planner',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.auto_awesome_outlined),
-            selectedIcon: Icon(Icons.auto_awesome),
-            label: 'AI Chat',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.dashboard_outlined),
-            selectedIcon: Icon(Icons.dashboard),
-            label: 'Progress',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.groups_outlined),
-            selectedIcon: Icon(Icons.groups),
-            label: 'Groups',
+          EndSessionScreen(
+            onContinue: () {
+              context
+                  .read<DashboardShellProvider>()
+                  .exitEndSessionContinue();
+            },
+            onEndAndSignOut: _performSignOut,
           ),
         ],
       ),
+      bottomNavigationBar: shell.currentIndex == 4
+          ? null
+          : NavigationBar(
+              selectedIndex: shell.currentIndex,
+              onDestinationSelected: (index) {
+                context.read<DashboardShellProvider>().selectTab(index);
+              },
+              destinations: const [
+                NavigationDestination(
+                  icon: Icon(Icons.calendar_today_outlined),
+                  selectedIcon: Icon(Icons.calendar_today),
+                  label: 'Planner',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.auto_awesome_outlined),
+                  selectedIcon: Icon(Icons.auto_awesome),
+                  label: 'AI Chat',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.dashboard_outlined),
+                  selectedIcon: Icon(Icons.dashboard),
+                  label: 'Progress',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.groups_outlined),
+                  selectedIcon: Icon(Icons.groups),
+                  label: 'Groups',
+                ),
+              ],
+            ),
       floatingActionButton: Container(
-        decoration: BoxDecoration(
-          gradient: AppTheme.primaryGradient,
-          shape: BoxShape.circle,
-          boxShadow: AppTheme.mediumShadow,
-        ),
-        child: FloatingActionButton(
-          onPressed: () {
-            Navigator.of(context)
-                .pushNamed(AppConstants.routeWarnings);
-          },
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          child: Stack(
-            children: [
-              const Icon(
-                Icons.notifications_rounded,
-                color: AppTheme.white,
-                size: 24,
+        decoration: shell.currentIndex == 4
+            ? null
+            : BoxDecoration(
+                gradient: AppTheme.primaryGradient,
+                shape: BoxShape.circle,
+                boxShadow: AppTheme.mediumShadow,
               ),
-              Positioned(
-                right: 0,
-                top: 0,
-                child: Container(
-                  padding: const EdgeInsets.all(5),
-                  decoration: const BoxDecoration(
-                    color: AppTheme.errorRed,
-                    shape: BoxShape.circle,
-                  ),
-                  constraints: const BoxConstraints(
-                    minWidth: 18,
-                    minHeight: 18,
-                  ),
-                  child: const Text(
-                    '3',
-                    style: TextStyle(
+        child: shell.currentIndex == 4
+            ? const SizedBox.shrink()
+            : FloatingActionButton(
+                onPressed: () {
+                  Navigator.of(context).pushNamed(AppConstants.routeWarnings);
+                },
+                backgroundColor: Colors.transparent,
+                elevation: 0,
+                child: Stack(
+                  children: [
+                    const Icon(
+                      Icons.notifications_rounded,
                       color: AppTheme.white,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
+                      size: 24,
                     ),
-                    textAlign: TextAlign.center,
-                  ),
+                    Positioned(
+                      right: 0,
+                      top: 0,
+                      child: Container(
+                        padding: const EdgeInsets.all(5),
+                        decoration: const BoxDecoration(
+                          color: AppTheme.errorRed,
+                          shape: BoxShape.circle,
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 18,
+                          minHeight: 18,
+                        ),
+                        child: const Text(
+                          '3',
+                          style: TextStyle(
+                            color: AppTheme.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ],
-          ),
-        ),
       ),
       drawer: _buildDrawer(context),
     );
@@ -262,6 +390,35 @@ class _MainNavigationScreenState
           ),
 
           ListTile(
+            leading: const Icon(Icons.person_outline),
+            title: const Text('Profile'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.of(context).pushNamed(AppConstants.routeProfile);
+            },
+          ),
+
+          ListTile(
+            leading: const Icon(Icons.playlist_add_outlined),
+            title: const Text('My courses'),
+            subtitle: const Text('Add classes not in Classroom'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.of(context)
+                  .pushNamed(AppConstants.routeManualCourses);
+            },
+          ),
+
+          ListTile(
+            leading: const Icon(Icons.qr_code_scanner),
+            title: const Text('Connect Desktop'),
+            subtitle: const Text('Scan QR on laptop'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.of(context).pushNamed(AppConstants.routeQrScanner);
+            },
+          ),
+          ListTile(
             leading: const Icon(Icons.auto_awesome),
             title: const Text('AI Assistant'),
             onTap: () {
@@ -286,7 +443,7 @@ class _MainNavigationScreenState
             title: const Text('Progress Dashboard'),
             onTap: () {
               Navigator.pop(context);
-              setState(() => _currentIndex = 2);
+              context.read<DashboardShellProvider>().selectTab(2);
             },
           ),
 
@@ -305,7 +462,7 @@ class _MainNavigationScreenState
             title: const Text('Group Study'),
             onTap: () {
               Navigator.pop(context);
-              setState(() => _currentIndex = 3);
+              context.read<DashboardShellProvider>().selectTab(3);
             },
           ),
 

@@ -24,10 +24,10 @@ sys.path.insert(0, ai_path)
 try:
     from planner_llm.llm_client import GroqClient
     groq_client = GroqClient()
-    print(" Planner service initialized successfully")
+    print("[OK] Planner service initialized successfully")
 except Exception as e:
-    print(f" Warning: Could not initialize planner service: {e}")
-    print(f" AI path attempted: {ai_path}")
+    print(f"[WARN] Could not initialize planner service: {e}")
+    print(f"   AI path attempted: {ai_path}")
     groq_client = None
 
 router = APIRouter(prefix="/plan", tags=["planner"])

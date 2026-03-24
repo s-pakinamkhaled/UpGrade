@@ -1,5 +1,6 @@
 # Python
 __pycache__/
+*.pyc
 *.py[cod]
 *$py.class
 *.so
@@ -9,6 +10,7 @@ env/
 .venv/
 .env
 .env.local
+ai/.env
 *.egg-info/
 .eggs/
 
@@ -36,3 +38,8 @@ GoogleService-Info.plist
 # Logs
 *.log
 npm-debug.log*
+
+# Flutter / Android build outputs
+frontend/android/build/
+frontend/android/.gradle/
+frontend/.dart_tool/

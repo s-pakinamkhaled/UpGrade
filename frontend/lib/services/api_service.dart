@@ -4,9 +4,9 @@ import 'package:http/http.dart' as http;
 
 /// API Service for connecting to the UpGrade backend
 class ApiService {
-  // Backend API base URL (run backend with: uvicorn app.main:app --reload)
-  // Use 127.0.0.1:8000 for web/desktop. For Android emulator use 10.0.2.2:8000
-  static const String baseUrl = 'http://127.0.0.1:8000';
+  // Backend API base URL — must match backend port (run: run-backend.ps1 or uvicorn on 8001)
+  // Web/desktop: 127.0.0.1:8001. Android emulator: 10.0.2.2:8001
+  static const String baseUrl = 'http://127.0.0.1:8001';
   
   // Singleton pattern
   static final ApiService _instance = ApiService._internal();

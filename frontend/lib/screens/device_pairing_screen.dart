@@ -1,10 +1,12 @@
-import 'dart:math';
+import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:qr_flutter/qr_flutter.dart';
+
 import '../core/theme.dart';
 import '../core/constants.dart';
-import '../widgets/app_logo.dart';
 import '../widgets/gradient_card.dart';
+import '../widgets/upgrade_page_shell.dart';
 
 class DevicePairingScreen extends StatefulWidget {
   final bool isFromSettings;
@@ -20,151 +22,182 @@ class DevicePairingScreen extends StatefulWidget {
 
 class _DevicePairingScreenState extends State<DevicePairingScreen> {
   bool _isPaired = false;
-  bool _isConnecting = false;
-  String _pairingCode = '';
+  String? sessionId;
   String _deviceName = 'Desktop - Chrome';
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _pairingSubscription;
 
   @override
   void initState() {
     super.initState();
-    _generatePairingCode();
-    _simulatePairing();
+    createSession();
   }
 
-  void _generatePairingCode() {
-    final random = Random();
-    _pairingCode = (100000 + random.nextInt(900000)).toString();
+  @override
+  void dispose() {
+    _pairingSubscription?.cancel();
+    super.dispose();
   }
 
-  Future<void> _simulatePairing() async {
-    await Future.delayed(const Duration(seconds: 3));
+  Future<void> createSession() async {
+    _pairingSubscription?.cancel();
+    _pairingSubscription = null;
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('pairing_sessions')
+          .add({
+        'paired': false,
+        'device': null,
+      });
+      if (!mounted) return;
+      setState(() => sessionId = doc.id);
+      listenForPairing();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to create session: $e'),
+            backgroundColor: AppTheme.errorRed,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
 
-    if (!mounted) return;
-
-    setState(() => _isConnecting = true);
-
-    await Future.delayed(const Duration(seconds: 2));
-
-    if (!mounted) return;
-
-    setState(() {
-      _isPaired = true;
-      _isConnecting = false;
+  void listenForPairing() {
+    if (sessionId == null) return;
+    _pairingSubscription = FirebaseFirestore.instance
+        .collection('pairing_sessions')
+        .doc(sessionId)
+        .snapshots()
+        .listen((doc) {
+      if (!mounted) return;
+      final data = doc.data();
+      if (data != null && data['paired'] == true) {
+        setState(() {
+          _isPaired = true;
+          _deviceName = data['device'] ?? 'Mobile device';
+        });
+        // Laptop website unlocks: open dashboard when mobile confirms pairing
+        if (!widget.isFromSettings) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+            Navigator.of(context).pushReplacementNamed(
+              AppConstants.routeOnboarding,
+            );
+          });
+        }
+      }
     });
   }
 
-  void _handleDisconnect() {
+  void _skipPairing() {
+    if (widget.isFromSettings) {
+      Navigator.of(context).pop();
+    } else {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      Navigator.of(context).pushReplacementNamed(
+        AppConstants.routeOnboarding,
+      );
+    }
+  }
+
+  Future<void> _handleDisconnect() async {
+    if (sessionId != null) {
+      await FirebaseFirestore.instance
+          .collection('pairing_sessions')
+          .doc(sessionId)
+          .delete();
+    }
+    _pairingSubscription?.cancel();
+    _pairingSubscription = null;
     setState(() {
       _isPaired = false;
-      _pairingCode = '';
+      sessionId = null;
     });
-    _generatePairingCode();
-    _simulatePairing();
-  }
-
-  void _copyPairingCode() {
-    Clipboard.setData(ClipboardData(text: _pairingCode));
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('Pairing code copied to clipboard'),
-        backgroundColor: AppTheme.successGreen,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
-      ),
-    );
+    createSession();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: widget.isFromSettings
-          ? AppBar(title: const Text('Device Pairing'))
-          : null,
-      body: SafeArea(
-        child: SingleChildScrollView(
+    if (widget.isFromSettings) {
+      // داخل الإعدادات: نستخدم الشكل العادي مع AppBar للحفاظ على تجربة المستخدم
+      return Scaffold(
+        appBar: AppBar(
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () => Navigator.maybePop(context),
+            tooltip: 'Back',
+          ),
+          title: const Text('Device Pairing'),
+        ),
+        body: Padding(
           padding: const EdgeInsets.all(24),
+          child: _buildBody(),
+        ),
+      );
+    }
+
+    // أثناء الـ onboarding / فتح الويب: نستخدم الـ shell الجديد
+    return UpGradePageShell(
+      title: 'Connect Desktop',
+      subtitle: 'Scan this QR from your UpGrade mobile app',
+      child: _buildBody(),
+    );
+  }
+
+  Widget _buildBody() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        GradientCard(
+          padding: const EdgeInsets.all(32),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              if (!widget.isFromSettings) ...[
-                const SizedBox(height: 20),
-                const Center(child: AppLogo.large()),
-                const SizedBox(height: 40),
-              ],
-
-              const Text(
-                'Pair Your Devices',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: -1,
+              Container(
+                width: 260,
+                height: 260,
+                decoration: BoxDecoration(
+                  color: AppTheme.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: AppTheme.primaryBlue.withOpacity(0.2),
+                    width: 2,
+                  ),
+                  boxShadow: AppTheme.softShadow,
                 ),
+                child: _isPaired
+                    ? _buildPairedView()
+                    : sessionId == null
+                        ? _buildLoadingView()
+                        : _buildQRCodeView(),
               ),
-
-              const SizedBox(height: 12),
-
-              Text(
-                'Connect mobile and desktop for seamless focus tracking',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 16,
-                  color: AppTheme.darkText.withOpacity(0.7),
-                ),
-              ),
-
-              const SizedBox(height: 48),
-
-              /// 🔥 QR CONTAINER (المشكلة كانت هنا واتصلحت)
-              GradientCard(
-                padding: const EdgeInsets.all(32),
-                child: Column(
-                  children: [
-                    Container(
-                      width: 240,
-                      height: 240,
-                      decoration: BoxDecoration(
-                        color: AppTheme.white,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: AppTheme.primaryBlue.withOpacity(0.2),
-                          width: 2,
-                        ),
-                        boxShadow: AppTheme.softShadow,
-                      ),
-                      child: _isPaired
-                          ? _buildPairedView()
-                          : _isConnecting
-                              ? _buildConnectingView()
-                              : _buildQRCodeView(),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 32),
-
-              if (_isPaired) _buildPairedStatus(),
-
-              if (!_isPaired && !_isConnecting) _buildGenerateButton(),
-
-              if (!widget.isFromSettings && _isPaired)
-                TextButton(
-                  onPressed: () {
-                    // Remove any SnackBar (e.g. "Pairing code copied") so onboarding opens clean
-                    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                    Navigator.of(context).pushReplacementNamed(
-                      AppConstants.routeOnboarding,
-                    );
-                  },
-                  child: const Text('Continue to Setup'),
-                ),
             ],
           ),
         ),
-      ),
+        const SizedBox(height: 32),
+        if (_isPaired) _buildPairedStatus(),
+        if (!_isPaired && sessionId != null) ...[
+          _buildNewSessionButton(),
+          const SizedBox(height: 12),
+          TextButton.icon(
+            onPressed: _skipPairing,
+            icon: const Icon(Icons.skip_next, size: 20),
+            label: const Text('Skip'),
+          ),
+        ],
+        if (!widget.isFromSettings && _isPaired)
+          TextButton(
+            onPressed: () {
+              ScaffoldMessenger.of(context).hideCurrentSnackBar();
+              Navigator.of(context).pushReplacementNamed(
+                AppConstants.routeOnboarding,
+              );
+            },
+            child: const Text('Continue to Setup'),
+          ),
+      ],
     );
   }
 
@@ -184,37 +217,44 @@ class _DevicePairingScreenState extends State<DevicePairingScreen> {
     );
   }
 
-  Widget _buildConnectingView() {
-    return Column(
+  Widget _buildLoadingView() {
+    return const Column(
       mainAxisAlignment: MainAxisAlignment.center,
-      children: const [
+      children: [
         CircularProgressIndicator(),
         SizedBox(height: 12),
-        Text('Connecting...'),
+        Text('Creating session...'),
       ],
     );
   }
 
   Widget _buildQRCodeView() {
+    final link = 'upgrade://pair?session=$sessionId';
+
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisSize: MainAxisSize.min,
       children: [
-        CustomPaint(
-          size: const Size(200, 200),
-          painter: QRCodePainter(_pairingCode),
+        QrImageView(
+          data: link,
+          size: 180,
+          backgroundColor: AppTheme.white,
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
         Text(
-          _pairingCode,
-          style: const TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 4,
+          'In UpGrade app: Menu → Connect Desktop',
+          style: TextStyle(
+            fontSize: 12,
+            color: AppTheme.darkText.withOpacity(0.7),
           ),
         ),
-        IconButton(
-          onPressed: _copyPairingCode,
-          icon: const Icon(Icons.copy),
+        const SizedBox(height: 4),
+        Text(
+          'Then scan this QR with your phone',
+          style: TextStyle(
+            fontSize: 11,
+            color: AppTheme.darkText.withOpacity(0.6),
+          ),
         ),
       ],
     );
@@ -243,42 +283,11 @@ class _DevicePairingScreenState extends State<DevicePairingScreen> {
     );
   }
 
-  Widget _buildGenerateButton() {
+  Widget _buildNewSessionButton() {
     return ElevatedButton.icon(
-      onPressed: () {
-        _generatePairingCode();
-        _simulatePairing();
-      },
+      onPressed: sessionId == null ? null : () => _handleDisconnect(),
       icon: const Icon(Icons.refresh),
-      label: const Text('Generate New Code'),
+      label: const Text('New session'),
     );
   }
-}
-
-/// ================= QR Painter =================
-
-class QRCodePainter extends CustomPainter {
-  final String code;
-
-  QRCodePainter(this.code);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = AppTheme.darkText;
-    final cell = size.width / 25;
-
-    for (int i = 0; i < 25; i++) {
-      for (int j = 0; j < 25; j++) {
-        if ((i * j + code.hashCode) % 3 == 0) {
-          canvas.drawRect(
-            Rect.fromLTWH(i * cell, j * cell, cell, cell),
-            paint,
-          );
-        }
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(CustomPainter oldDelegate) => false;
 }

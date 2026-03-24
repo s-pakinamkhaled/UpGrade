@@ -15,6 +15,7 @@ class AppConstants {
   static const String routeForgotPassword = '/forgot-password';
   static const String routeGoogleClassroomSync =
       '/google-classroom-sync';
+  static const String routeManualCourses = '/manual-courses';
   static const String routeDevicePairing = '/device-pairing';
   static const String routeOnboarding = '/onboarding';
   static const String routeHome = '/home';
@@ -31,4 +32,12 @@ class AppConstants {
   static const String routeMissedTasks = '/missed-tasks';
   static const String routeFirestoreExample = '/firestore-example';
   static const String routeStudyPlan = '/study-plan';
+  static const String routeQrScanner = '/qr-scanner';
+  static const String routeProfile = '/profile';
+  static const String routePrivacySettings = '/privacy-settings';
+  static const String routeEditProfile = '/edit-profile';
+
+  // Deep link (لما الويب يعرض QR أو زر Open App → يفتح التطبيق)
+  static const String deepLinkScheme = 'studyplanner';
+  static const String deepLinkOpen = 'studyplanner://open';
 }

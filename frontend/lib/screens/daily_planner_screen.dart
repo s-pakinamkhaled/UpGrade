@@ -98,13 +98,23 @@ class _DailyPlannerScreenState extends State<DailyPlannerScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        leading: widget.openDrawer != null
-            ? IconButton(
-                icon: const Icon(Icons.menu),
-                onPressed: widget.openDrawer,
-                tooltip: 'Open menu',
-              )
-            : null,
+        leading: IconButton(
+          icon: Icon(
+            Navigator.canPop(context)
+                ? Icons.arrow_back
+                : (widget.openDrawer != null ? Icons.menu : Icons.arrow_back),
+          ),
+          onPressed: () {
+            if (Navigator.canPop(context)) {
+              Navigator.maybePop(context);
+            } else if (widget.openDrawer != null) {
+              widget.openDrawer!();
+            } else {
+              Navigator.maybePop(context);
+            }
+          },
+          tooltip: Navigator.canPop(context) ? 'Back' : 'Open menu',
+        ),
         title: Row(
           children: [
             const SizedBox(width: 36, height: 36, child: AppLogo.small()),
@@ -112,13 +122,17 @@ class _DailyPlannerScreenState extends State<DailyPlannerScreen> {
             const Text('UpGrade', style: TextStyle(fontWeight: FontWeight.bold)),
             if (provider.syncedAt != null) ...[
               const SizedBox(width: 8),
-              Text(
-                selectedDayTasks.length == upcomingTasks.length
-                    ? '${upcomingTasks.length} tasks'
-                    : '${selectedDayTasks.length} here · ${upcomingTasks.length} total',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+              Flexible(
+                child: Text(
+                  selectedDayTasks.length == upcomingTasks.length
+                      ? '${upcomingTasks.length} tasks'
+                      : '${selectedDayTasks.length} here · ${upcomingTasks.length} total',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
@@ -151,26 +165,111 @@ class _DailyPlannerScreenState extends State<DailyPlannerScreen> {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.assignment_outlined,
-              size: 64,
-              color: AppTheme.primaryBlue.withOpacity(0.5),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              neverSynced
-                  ? 'Sync Google Classroom to see your assignments and deadlines here.'
-                  : 'No assignments due this week.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 16,
-                color: AppTheme.darkText.withOpacity(0.8),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 480),
+          child: AnimatedScale(
+            duration: const Duration(milliseconds: 260),
+            scale: 1.0,
+            child: AnimatedOpacity(
+              duration: const Duration(milliseconds: 260),
+              opacity: 1.0,
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+                decoration: BoxDecoration(
+                  color: AppTheme.white,
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: AppTheme.strongShadow,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        gradient: AppTheme.primaryGradient,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Icon(
+                        Icons.assignment_turned_in_outlined,
+                        size: 32,
+                        color: AppTheme.white,
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    Text(
+                      neverSynced ? 'Connect Google Classroom' : 'You\'re all set!',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.4,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      neverSynced
+                          ? 'Sync your courses and assignments so UpGrade can build your daily plan.'
+                          : 'No assignments due this week. Take a breath or review past material.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: AppTheme.darkText.withOpacity(0.7),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    if (neverSynced)
+                      SizedBox(
+                        width: double.infinity,
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: AppTheme.primaryGradient,
+                            borderRadius: BorderRadius.circular(18),
+                            boxShadow: AppTheme.mediumShadow,
+                          ),
+                          child: ElevatedButton(
+                            onPressed: () {
+                              Navigator.of(context).pushNamed(
+                                AppConstants.routeGoogleClassroomSync,
+                              );
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.transparent,
+                              shadowColor: Colors.transparent,
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 14,
+                                horizontal: 16,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(18),
+                              ),
+                            ),
+                            child: const Text(
+                              'Connect Google Classroom',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    if (neverSynced) ...[
+                      const SizedBox(height: 10),
+                      Text(
+                        'UpGrade will automatically fetch your courses and deadlines.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppTheme.darkText.withOpacity(0.6),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
               ),
             ),
-          ],
+          ),
         ),
       ),
     );

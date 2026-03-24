@@ -1,0 +1,261 @@
+{
+  "student_profile": {
+    "student_id": "S-2026-656",
+    "name": "Omar Ali",
+    "email": "omar.ali@student.edu",
+    "university": "Faculty of Business",
+    "major": "Information Systems",
+    "academic_year": 3,
+    "semester": "Spring 2026",
+    "timezone": "Africa/Cairo",
+    "goals": [
+      "Avoid missing deadlines",
+      "Improve GPA",
+      "Prepare for exams"
+    ]
+  },
+  "courses": [
+    {
+      "course_id": "DB301",
+      "course_name": "Database Systems",
+      "instructor": "Dr. Fatima Said",
+      "credit_hours": 3,
+      "difficulty_level": 3,
+      "importance_weight": 0.72
+    },
+    {
+      "course_id": "WEB201",
+      "course_name": "Web Development",
+      "instructor": "Dr. Sara Ahmed",
+      "credit_hours": 3,
+      "difficulty_level": 2,
+      "importance_weight": 0.81
+    },
+    {
+      "course_id": "DS312",
+      "course_name": "Data Mining",
+      "instructor": "Dr. Fatima Said",
+      "credit_hours": 3,
+      "difficulty_level": 4,
+      "importance_weight": 0.76
+    },
+    {
+      "course_id": "ML501",
+      "course_name": "Machine Learning",
+      "instructor": "Dr. Fatima Said",
+      "credit_hours": 4,
+      "difficulty_level": 5,
+      "importance_weight": 0.61
+    }
+  ],
+  "tasks": [
+    {
+      "task_id": "T-DB301-03",
+      "course_id": "DB301",
+      "course_name": "Database Systems",
+      "task_title": "Homework 3 – Database Systems",
+      "task_type": "homework",
+      "deadline": "2026-02-04",
+      "estimated_duration_minutes": 90,
+      "current_progress_percentage": 33,
+      "priority": "high",
+      "is_completed": false
+    },
+    {
+      "task_id": "T-DB301-02",
+      "course_id": "DB301",
+      "course_name": "Database Systems",
+      "task_title": "Quiz 2 – Database Systems",
+      "task_type": "quiz",
+      "deadline": "2026-02-09",
+      "estimated_duration_minutes": 60,
+      "current_progress_percentage": 44,
+      "priority": "medium",
+      "is_completed": false
+    },
+    {
+      "task_id": "T-DB301-01",
+      "course_id": "DB301",
+      "course_name": "Database Systems",
+      "task_title": "Project 1 – Database Systems",
+      "task_type": "project",
+      "deadline": "2026-02-10",
+      "estimated_duration_minutes": 90,
+      "current_progress_percentage": 58,
+      "priority": "medium",
+      "is_completed": false
+    },
+    {
+      "task_id": "T-ML501-04",
+      "course_id": "ML501",
+      "course_name": "Machine Learning",
+      "task_title": "Project 4 – Machine Learning",
+      "task_type": "project",
+      "deadline": "2026-02-16",
+      "estimated_duration_minutes": 240,
+      "current_progress_percentage": 35,
+      "priority": "low",
+      "is_completed": false
+    }
+  ],
+  "grades": [
+    {
+      "course_id": "DB301",
+      "assessment_type": "quiz",
+      "assessment_name": "Quiz 1",
+      "score": 28,
+      "max_score": 30,
+      "date": "2026-01-05",
+      "weight_percentage": 30
+    },
+    {
+      "course_id": "DB301",
+      "assessment_type": "midterm",
+      "assessment_name": "Midterm 2",
+      "score": 30,
+      "max_score": 30,
+      "date": "2026-01-26",
+      "weight_percentage": 10
+    },
+    {
+      "course_id": "DB301",
+      "assessment_type": "project",
+      "assessment_name": "Project 3",
+      "score": 12,
+      "max_score": 20,
+      "date": "2026-01-17",
+      "weight_percentage": 30
+    },
+    {
+      "course_id": "WEB201",
+      "assessment_type": "assignment",
+      "assessment_name": "Assignment 1",
+      "score": 27,
+      "max_score": 50,
+      "date": "2026-01-24",
+      "weight_percentage": 10
+    },
+    {
+      "course_id": "DS312",
+      "assessment_type": "quiz",
+      "assessment_name": "Quiz 1",
+      "score": 8,
+      "max_score": 10,
+      "date": "2026-01-07",
+      "weight_percentage": 20
+    },
+    {
+      "course_id": "ML501",
+      "assessment_type": "midterm",
+      "assessment_name": "Midterm 1",
+      "score": 9,
+      "max_score": 10,
+      "date": "2026-01-28",
+      "weight_percentage": 10
+    }
+  ],
+  "attendance": {
+    "DB301": 68,
+    "WEB201": 65,
+    "DS312": 74,
+    "ML501": 87
+  },
+  "availability": {
+    "weekly_schedule": {
+      "Saturday": [
+        {
+          "start": "15:00",
+          "end": "20:00"
+        }
+      ],
+      "Sunday": [],
+      "Monday": [
+        {
+          "start": "14:00",
+          "end": "17:00"
+        },
+        {
+          "start": "17:00",
+          "end": "22:00"
+        }
+      ],
+      "Tuesday": [
+        {
+          "start": "15:00",
+          "end": "18:00"
+        },
+        {
+          "start": "15:00",
+          "end": "17:00"
+        }
+      ],
+      "Wednesday": [
+        {
+          "start": "17:00",
+          "end": "22:00"
+        },
+        {
+          "start": "17:00",
+          "end": "22:00"
+        }
+      ],
+      "Thursday": [],
+      "Friday": []
+    },
+    "max_daily_study_hours": 4
+  },
+  "productivity_pattern": {
+    "preferred_study_days": [
+      "Saturday",
+      "Monday",
+      "Tuesday",
+      "Wednesday"
+    ],
+    "peak_focus_hours": [
+      "18:00-22:00"
+    ],
+    "average_focus_session_minutes": 45,
+    "average_break_minutes": 10,
+    "total_study_hours_last_week": 17,
+    "productivity_score": 65
+  },
+  "historical_behavior": {
+    "missed_deadlines_count": 0,
+    "late_submission_rate": 0.33,
+    "average_daily_study_minutes": 86,
+    "most_delayed_course": "Data Mining"
+  },
+  "computed_analytics": {
+    "risk_per_course": [
+      {
+        "course_id": "DB301",
+        "risk_score": 43,
+        "risk_level": "low",
+        "reason": "Good progress and manageable workload"
+      },
+      {
+        "course_id": "WEB201",
+        "risk_score": 51,
+        "risk_level": "medium",
+        "reason": "Moderate performance and upcoming assessments"
+      },
+      {
+        "course_id": "DS312",
+        "risk_score": 61,
+        "risk_level": "medium",
+        "reason": "Moderate performance and upcoming assessments"
+      },
+      {
+        "course_id": "ML501",
+        "risk_score": 42,
+        "risk_level": "low",
+        "reason": "Good progress and manageable workload"
+      }
+    ],
+    "workload_forecast": {
+      "current_week_load_hours": 4,
+      "next_week_load_hours": 4,
+      "overload_risk": false
+    }
+  }
+}

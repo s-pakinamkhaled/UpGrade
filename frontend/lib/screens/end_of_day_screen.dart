@@ -13,7 +13,7 @@ class EndOfDayScreen extends StatelessWidget {
   final int _totalFocusMinutes = 240; // 4 hours
   final double _productivityScore = 8.5;
   
-  List<Task> _completed = [
+  final List<Task> _completed = [
     Task(
       id: '1',
       title: 'Math Assignment 5',
@@ -36,7 +36,7 @@ class EndOfDayScreen extends StatelessWidget {
     ),
   ];
   
-  List<Task> _pending = [
+  final List<Task> _pending = [
     Task(
       id: '3',
       title: 'Chemistry Lab Report',

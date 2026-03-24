@@ -4,7 +4,6 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../core/theme.dart';
-import '../core/constants.dart';
 
 /// الموبايل يقرأ QR → يأخذ اللينك → يفتحه في المتصفح.
 /// إذا القيمة مش URL يعرض "Invalid QR".

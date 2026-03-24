@@ -7,6 +7,9 @@ import '../models/task.dart';
 import '../providers/classroom_provider.dart';
 import '../widgets/gradient_card.dart';
 
+// Legacy chart helpers kept for future dashboard layouts.
+// ignore_for_file: unused_element
+
 class ProgressDashboardScreen extends StatelessWidget {
   final VoidCallback? openDrawer;
   final bool showAppBar;

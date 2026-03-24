@@ -67,7 +67,6 @@ class EndSessionScreen extends StatelessWidget {
 
         final theme = Theme.of(context);
         final isDark = theme.brightness == Brightness.dark;
-        final bg = isDark ? theme.scaffoldBackgroundColor : Colors.white;
         final card = isDark ? theme.colorScheme.surface : Colors.white;
         final secondary = isDark ? const Color(0xFF9CA3AF) : AppTheme.mediumGray;
         final onSurface = theme.colorScheme.onSurface;

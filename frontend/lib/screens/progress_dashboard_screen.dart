@@ -1,16 +1,17 @@
-import 'package:flutter/material.dart';
+import 'dart:math' as math;
+
 import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../core/theme.dart';
+import '../models/dashboard_stats.dart';
 import '../models/task.dart';
 import '../providers/classroom_provider.dart';
-import '../widgets/gradient_card.dart';
+import '../services/dashboard_metrics_service.dart';
 
-// Legacy chart helpers kept for future dashboard layouts.
-// ignore_for_file: unused_element
-
-class ProgressDashboardScreen extends StatelessWidget {
+class ProgressDashboardScreen extends StatefulWidget {
   final VoidCallback? openDrawer;
   final bool showAppBar;
 
@@ -20,124 +21,119 @@ class ProgressDashboardScreen extends StatelessWidget {
     this.showAppBar = true,
   });
 
-  static DateTime _dateOnly(DateTime d) =>
-      DateTime(d.year, d.month, d.day);
+  @override
+  State<ProgressDashboardScreen> createState() =>
+      _ProgressDashboardScreenState();
+}
+
+class _ProgressDashboardScreenState extends State<ProgressDashboardScreen> {
+  static const String _allCoursesLabel = 'All courses';
+
+  DashboardRange _selectedRange = DashboardRange.last7Days;
+  String _selectedCourse = _allCoursesLabel;
 
   @override
   Widget build(BuildContext context) {
     return Consumer<ClassroomProvider>(
       builder: (context, provider, _) {
-        final tasks = provider.tasks;
-        final stats = _computeStats(tasks);
-        final courseStats = _computeCourseStats(tasks);
-        final last7Days = _computeLast7DaysTrend(tasks);
-        final studyHoursPerDay = _computeStudyHoursLast7Days(tasks);
+        final allTasks = provider.tasks;
+        final courses = _buildCourseOptions(allTasks);
+        final effectiveCourse = courses.contains(_selectedCourse)
+            ? _selectedCourse
+            : _allCoursesLabel;
+        final selectedCourseFilter =
+            effectiveCourse == _allCoursesLabel ? null : effectiveCourse;
+
+        final stats = DashboardMetricsService.build(
+          tasks: allTasks,
+          range: _selectedRange,
+          selectedCourse: selectedCourseFilter,
+        );
+
+        final visibleTasks = selectedCourseFilter == null
+            ? allTasks
+            : allTasks
+                .where((t) => _normalizedCourseName(t) == selectedCourseFilter)
+                .toList();
+
         final theme = Theme.of(context);
         final isDark = theme.brightness == Brightness.dark;
 
         return Scaffold(
-          appBar: (showAppBar && openDrawer != null)
-              ? AppBar(
-                  leading: IconButton(
-                    icon: Icon(
-                      Navigator.canPop(context)
-                          ? Icons.arrow_back
-                          : Icons.menu,
-                    ),
-                    onPressed: () {
-                      if (Navigator.canPop(context)) {
-                        Navigator.maybePop(context);
-                      } else {
-                        openDrawer!();
-                      }
-                    },
-                    tooltip: Navigator.canPop(context) ? 'Back' : 'Open menu',
-                  ),
-                  title: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          gradient: AppTheme.softGradient,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Icon(
-                          Icons.dashboard,
-                          size: 18,
-                          color: AppTheme.primaryBlue,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      const Text(
-                        'Progress Dashboard',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: -0.5,
-                        ),
-                      ),
-                    ],
-                  ),
-                )
+          appBar: (widget.showAppBar && widget.openDrawer != null)
+              ? _buildTopAppBar(context)
               : null,
           body: Container(
-            color: isDark ? AppTheme.darkBackground : theme.scaffoldBackgroundColor,
-            child: tasks.isEmpty
+            color: isDark
+                ? AppTheme.darkBackground
+                : theme.scaffoldBackgroundColor,
+            child: allTasks.isEmpty
                 ? _buildEmptyState(context)
                 : SingleChildScrollView(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildPageHeader(context, isDark),
-                          const SizedBox(height: 24),
-                          _buildSummaryCardsRow(
-                            context,
-                            stats,
-                            courseStats,
-                            isDark,
-                            studyHoursThisWeek: studyHoursPerDay.fold<double>(0, (a, b) => a + b),
-                          ),
-                          const SizedBox(height: 24),
-                          if (last7Days.isNotEmpty || studyHoursPerDay.isNotEmpty) ...[
-                            LayoutBuilder(
-                              builder: (context, constraints) {
-                                if (constraints.maxWidth < 600) {
-                                  return Column(
-                                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                                    children: [
-                                      _buildWeeklyStudyHoursChart(
-                                        context, studyHoursPerDay, isDark,
-                                      ),
-                                      const SizedBox(height: 20),
-                                      _buildDailyTaskCompletionChart(
-                                        context, last7Days, isDark,
-                                      ),
-                                    ],
-                                  );
-                                }
-                                return Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Expanded(
-                                      child: _buildWeeklyStudyHoursChart(
-                                        context, studyHoursPerDay, isDark,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 20),
-                                    Expanded(
-                                      child: _buildDailyTaskCompletionChart(
-                                        context, last7Days, isDark,
-                                      ),
-                                    ),
-                                  ],
-                                );
-                              },
-                            ),
-                          ],
-                        ],
-                      ),
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildHeader(context, provider, stats, isDark),
+                        const SizedBox(height: 18),
+                        _buildFilters(
+                            context, courses, effectiveCourse, isDark),
+                        const SizedBox(height: 18),
+                        _buildSummaryCards(context, stats, isDark),
+                        const SizedBox(height: 18),
+                        _buildProgressionCard(context, stats, isDark),
+                        const SizedBox(height: 18),
+                        LayoutBuilder(
+                          builder: (context, constraints) {
+                            if (constraints.maxWidth < 760) {
+                              return Column(
+                                children: [
+                                  _buildStudyHoursChart(
+                                    context,
+                                    stats,
+                                    visibleTasks,
+                                    isDark,
+                                  ),
+                                  const SizedBox(height: 18),
+                                  _buildDailyOutcomeChart(
+                                    context,
+                                    stats,
+                                    visibleTasks,
+                                    isDark,
+                                  ),
+                                ],
+                              );
+                            }
+                            return Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(
+                                  child: _buildStudyHoursChart(
+                                    context,
+                                    stats,
+                                    visibleTasks,
+                                    isDark,
+                                  ),
+                                ),
+                                const SizedBox(width: 18),
+                                Expanded(
+                                  child: _buildDailyOutcomeChart(
+                                    context,
+                                    stats,
+                                    visibleTasks,
+                                    isDark,
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 18),
+                        _buildCoursePerformanceChart(context, stats, isDark),
+                        const SizedBox(height: 18),
+                        _buildSimpleInsightsCard(context, stats, isDark),
+                        const SizedBox(height: 30),
+                      ],
                     ),
                   ),
           ),
@@ -146,213 +142,79 @@ class ProgressDashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildPageHeader(BuildContext context, bool isDark) {
+  AppBar _buildTopAppBar(BuildContext context) {
+    return AppBar(
+      leading: IconButton(
+        icon: Icon(
+          Navigator.canPop(context) ? Icons.arrow_back : Icons.menu,
+        ),
+        onPressed: () {
+          if (Navigator.canPop(context)) {
+            Navigator.maybePop(context);
+          } else {
+            widget.openDrawer?.call();
+          }
+        },
+        tooltip: Navigator.canPop(context) ? 'Back' : 'Open menu',
+      ),
+      title: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              gradient: AppTheme.softGradient,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(
+              Icons.insights,
+              size: 18,
+              color: AppTheme.primaryBlue,
+            ),
+          ),
+          const SizedBox(width: 12),
+          const Text(
+            'Progress Dashboard',
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeader(
+    BuildContext context,
+    ClassroomProvider provider,
+    DashboardStats stats,
+    bool isDark,
+  ) {
     final onSurface = Theme.of(context).colorScheme.onSurface;
     final secondary = isDark ? const Color(0xFF9CA3AF) : AppTheme.mediumGray;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Progress Dashboard',
-          style: TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.bold,
-            color: onSurface,
-            letterSpacing: -0.5,
-          ),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          'Track your academic performance and study habits',
-          style: TextStyle(
-            fontSize: 14,
-            color: secondary,
-          ),
-        ),
-      ],
-    );
-  }
+    final statusColor = _statusColor(stats.performanceLabel);
 
-  static const Color _cardSurfaceDark = Color(0xFF1E1E1E);
+    final syncedText = provider.syncedAt == null
+        ? 'Not synced yet'
+        : DateFormat('EEE, MMM d • h:mm a')
+            .format(provider.syncedAt!.toLocal());
 
-  Widget _buildSummaryCardsRow(
-    BuildContext context,
-    _Stats stats,
-    List<_CourseStat> courseStats,
-    bool isDark, {
-    required double studyHoursThisWeek,
-  }) {
-    final cardBg = isDark ? _cardSurfaceDark : Theme.of(context).colorScheme.surface;
-    final onCard = isDark ? Colors.white : AppTheme.darkText;
-    final secondary = isDark ? const Color(0xFF9CA3AF) : AppTheme.mediumGray;
-
-    final studyHoursStr =
-        studyHoursThisWeek >= 1
-            ? '${studyHoursThisWeek.toStringAsFixed(1)}h'
-            : '${(studyHoursThisWeek * 60).toInt()}m';
-    final completedTotal = stats.total == 0 ? '0/0' : '${stats.completed}/${stats.total}';
-    final activeCourses = courseStats.length;
-    final overallScore = stats.averageGrade != null
-        ? '${stats.averageGrade!.toStringAsFixed(1)}%'
-        : (stats.total == 0 ? '—' : '${(stats.completionRate * 100).toStringAsFixed(1)}%');
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isWide = constraints.maxWidth > 700;
-        if (!isWide) {
-          return Column(
-            children: [
-              _dashboardStatCard(
-                context,
-                cardBg: cardBg,
-                onCard: onCard,
-                secondary: secondary,
-                icon: Icons.schedule,
-                iconColor: AppTheme.primaryBlue,
-                badge: 'This Week',
-                badgeColor: AppTheme.primaryBlue,
-                title: 'Study Hours',
-                value: studyHoursStr,
-                subtitle: '+12% from last week',
-              ),
-              const SizedBox(height: 12),
-              _dashboardStatCard(
-                context,
-                cardBg: cardBg,
-                onCard: onCard,
-                secondary: secondary,
-                icon: Icons.flag,
-                iconColor: AppTheme.successGreen,
-                badge: 'On Track',
-                badgeColor: AppTheme.successGreen,
-                title: 'Tasks Completed',
-                value: completedTotal,
-                progress: stats.total == 0 ? 0.0 : stats.completed / stats.total,
-              ),
-              const SizedBox(height: 12),
-              _dashboardStatCard(
-                context,
-                cardBg: cardBg,
-                onCard: onCard,
-                secondary: secondary,
-                icon: Icons.menu_book,
-                iconColor: AppTheme.secondaryPurple,
-                badge: 'Active',
-                badgeColor: AppTheme.secondaryPurple,
-                title: 'Active Courses',
-                value: '$activeCourses',
-                subtitle: 'All on schedule',
-              ),
-              const SizedBox(height: 12),
-              _dashboardStatCard(
-                context,
-                cardBg: cardBg,
-                onCard: onCard,
-                secondary: secondary,
-                icon: Icons.emoji_events,
-                iconColor: AppTheme.warningOrange,
-                badge: 'Average',
-                badgeColor: AppTheme.warningOrange,
-                title: 'Overall Score',
-                value: overallScore,
-                subtitle: '+4.2% improvement',
-              ),
-            ],
-          );
-        }
-        return Row(
-          children: [
-            Expanded(
-              child: _dashboardStatCard(
-                context,
-                cardBg: cardBg,
-                onCard: onCard,
-                secondary: secondary,
-                icon: Icons.schedule,
-                iconColor: AppTheme.primaryBlue,
-                badge: 'This Week',
-                badgeColor: AppTheme.primaryBlue,
-                title: 'Study Hours',
-                value: studyHoursStr,
-                subtitle: '+12% from last week',
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: _dashboardStatCard(
-                context,
-                cardBg: cardBg,
-                onCard: onCard,
-                secondary: secondary,
-                icon: Icons.flag,
-                iconColor: AppTheme.successGreen,
-                badge: 'On Track',
-                badgeColor: AppTheme.successGreen,
-                title: 'Tasks Completed',
-                value: completedTotal,
-                progress: stats.total == 0 ? 0.0 : stats.completed / stats.total,
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: _dashboardStatCard(
-                context,
-                cardBg: cardBg,
-                onCard: onCard,
-                secondary: secondary,
-                icon: Icons.menu_book,
-                iconColor: AppTheme.secondaryPurple,
-                badge: 'Active',
-                badgeColor: AppTheme.secondaryPurple,
-                title: 'Active Courses',
-                value: '$activeCourses',
-                subtitle: 'All on schedule',
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: _dashboardStatCard(
-                context,
-                cardBg: cardBg,
-                onCard: onCard,
-                secondary: secondary,
-                icon: Icons.emoji_events,
-                iconColor: AppTheme.warningOrange,
-                badge: 'Average',
-                badgeColor: AppTheme.warningOrange,
-                title: 'Overall Score',
-                value: overallScore,
-                subtitle: '+4.2% improvement',
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _dashboardStatCard(
-    BuildContext context, {
-    required Color cardBg,
-    required Color onCard,
-    required Color secondary,
-    required IconData icon,
-    required Color iconColor,
-    required String badge,
-    required Color badgeColor,
-    required String title,
-    required String value,
-    String? subtitle,
-    double? progress,
-  }) {
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: cardBg,
-        borderRadius: BorderRadius.circular(16),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppTheme.primaryBlue.withOpacity(isDark ? 0.28 : 0.16),
+            AppTheme.secondaryPurple.withOpacity(isDark ? 0.24 : 0.12),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: iconColor.withOpacity(0.2),
-          width: 1,
+          color: AppTheme.primaryBlue.withOpacity(0.22),
         ),
       ),
       child: Column(
@@ -360,300 +222,1034 @@ class ProgressDashboardScreen extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(icon, color: iconColor, size: 22),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: badgeColor.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(8),
-                ),
+              Expanded(
                 child: Text(
-                  badge,
+                  'Progress Dashboard',
                   style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: badgeColor,
+                    fontSize: 28,
+                    fontWeight: FontWeight.w800,
+                    color: onSurface,
+                    letterSpacing: -0.6,
                   ),
+                ),
+              ),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                decoration: BoxDecoration(
+                  color: statusColor.withOpacity(0.16),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: statusColor.withOpacity(0.45)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.circle, size: 9, color: statusColor),
+                    const SizedBox(width: 6),
+                    Text(
+                      stats.performanceLabel,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: statusColor,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Simple, real-time insights from your synced classroom data',
+            style: TextStyle(
+              color: secondary,
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              _headerChip(
+                icon: Icons.update_rounded,
+                text: 'Synced: $syncedText',
+                isDark: isDark,
+              ),
+              _headerChip(
+                icon: Icons.calendar_today_outlined,
+                text: 'Window: ${_selectedRange.label}',
+                isDark: isDark,
+              ),
+              _headerChip(
+                icon: Icons.flag_outlined,
+                text: 'Focus course: ${stats.focusCourse}',
+                isDark: isDark,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _headerChip({
+    required IconData icon,
+    required String text,
+    required bool isDark,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: isDark
+            ? Colors.white.withOpacity(0.06)
+            : Colors.white.withOpacity(0.8),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: AppTheme.primaryBlue.withOpacity(0.18),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 15, color: AppTheme.primaryBlue),
+          const SizedBox(width: 6),
+          Text(
+            text,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilters(
+    BuildContext context,
+    List<String> courses,
+    String selectedCourse,
+    bool isDark,
+  ) {
+    final surface = isDark
+        ? const Color(0xFF1E1E1E)
+        : Theme.of(context).colorScheme.surface;
+    final secondary = isDark ? const Color(0xFF9CA3AF) : AppTheme.mediumGray;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: AppTheme.primaryBlue.withOpacity(0.2),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.tune, size: 18, color: AppTheme.primaryBlue),
+              const SizedBox(width: 8),
+              Text(
+                'View Filters',
+                style: TextStyle(
+                  fontSize: 15,
+                  color: secondary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: DashboardRange.values.map((range) {
+              final selected = _selectedRange == range;
+              return ChoiceChip(
+                selected: selected,
+                label: Text(_rangeLabel(range)),
+                labelStyle: TextStyle(
+                  color: selected ? AppTheme.white : null,
+                  fontWeight: FontWeight.w600,
+                ),
+                selectedColor: AppTheme.primaryBlue,
+                backgroundColor: AppTheme.primaryBlue.withOpacity(0.1),
+                side: BorderSide(
+                  color: selected
+                      ? AppTheme.primaryBlue
+                      : AppTheme.primaryBlue.withOpacity(0.2),
+                ),
+                onSelected: (value) {
+                  if (!value) return;
+                  setState(() {
+                    _selectedRange = range;
+                  });
+                },
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 12),
+          DropdownButtonFormField<String>(
+            value: selectedCourse,
+            borderRadius: BorderRadius.circular(12),
+            decoration: const InputDecoration(
+              labelText: 'Course filter',
+              prefixIcon: Icon(Icons.menu_book_outlined),
+            ),
+            items: courses
+                .map(
+                  (course) => DropdownMenuItem<String>(
+                    value: course,
+                    child: Text(course),
+                  ),
+                )
+                .toList(),
+            onChanged: (value) {
+              if (value == null) return;
+              setState(() {
+                _selectedCourse = value;
+              });
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSummaryCards(
+    BuildContext context,
+    DashboardStats stats,
+    bool isDark,
+  ) {
+    final cards = [
+      _MetricCardData(
+        title: 'Completed',
+        value: '${stats.completedTasks}',
+        subtitle: 'out of ${stats.totalTasks} total tasks',
+        icon: Icons.check_circle_rounded,
+        color: AppTheme.successGreen,
+        progress: stats.completionRate,
+      ),
+      _MetricCardData(
+        title: 'Pending',
+        value: '${stats.pendingTasks}',
+        subtitle: '${stats.upcoming48Hours} due in next 48h',
+        icon: Icons.schedule_rounded,
+        color: AppTheme.warningOrange,
+        progress:
+            stats.totalTasks == 0 ? 0 : stats.pendingTasks / stats.totalTasks,
+      ),
+      _MetricCardData(
+        title: 'Missed',
+        value: '${stats.missedTasks}',
+        subtitle: stats.missedTasks == 0
+            ? 'Excellent, no missed tasks'
+            : 'Time to recover these tasks',
+        icon: Icons.error_outline_rounded,
+        color: AppTheme.errorRed,
+        progress:
+            stats.totalTasks == 0 ? 0 : stats.missedTasks / stats.totalTasks,
+      ),
+      _MetricCardData(
+        title: 'Productivity',
+        value: '${(stats.completionRateThisRange * 100).toStringAsFixed(0)}%',
+        subtitle:
+            '${_signed(stats.completionRateChangePct)} vs previous ${_selectedRange.label}',
+        icon: Icons.trending_up_rounded,
+        color: AppTheme.primaryBlue,
+        progress: stats.completionRateThisRange,
+      ),
+    ];
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 760) {
+          return Column(
+            children: cards
+                .map(
+                  (card) => Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _buildMetricCard(context, card, isDark),
+                  ),
+                )
+                .toList(),
+          );
+        }
+
+        return Row(
+          children: cards
+              .asMap()
+              .entries
+              .map(
+                (entry) => Expanded(
+                  child: Padding(
+                    padding: EdgeInsets.only(
+                        right: entry.key == cards.length - 1 ? 0 : 12),
+                    child: _buildMetricCard(context, entry.value, isDark),
+                  ),
+                ),
+              )
+              .toList(),
+        );
+      },
+    );
+  }
+
+  Widget _buildMetricCard(
+    BuildContext context,
+    _MetricCardData data,
+    bool isDark,
+  ) {
+    final surface = isDark
+        ? const Color(0xFF1E1E1E)
+        : Theme.of(context).colorScheme.surface;
+    final secondary = isDark ? const Color(0xFF9CA3AF) : AppTheme.mediumGray;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: data.color.withOpacity(0.25)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: data.color.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(data.icon, color: data.color, size: 18),
+              ),
+              const Spacer(),
+              Text(
+                data.title,
+                style: TextStyle(
+                  color: secondary,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12,
                 ),
               ),
             ],
           ),
           const SizedBox(height: 14),
           Text(
-            title,
-            style: TextStyle(
-              fontSize: 13,
-              color: secondary,
-              fontWeight: FontWeight.w500,
+            data.value,
+            style: const TextStyle(
+              fontSize: 26,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.6,
             ),
           ),
           const SizedBox(height: 6),
           Text(
-            value,
+            data.subtitle,
             style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: onCard,
-              letterSpacing: -0.5,
+              color: secondary,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
             ),
           ),
-          if (subtitle != null) ...[
-            const SizedBox(height: 6),
-            Text(
-              subtitle,
-              style: TextStyle(
-                fontSize: 12,
-                color: secondary,
-              ),
+          const SizedBox(height: 10),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: LinearProgressIndicator(
+              value: data.progress.clamp(0.0, 1.0),
+              minHeight: 7,
+              backgroundColor: secondary.withOpacity(0.24),
+              valueColor: AlwaysStoppedAnimation<Color>(data.color),
             ),
-          ],
-          if (progress != null) ...[
-            const SizedBox(height: 10),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: LinearProgressIndicator(
-                value: progress,
-                backgroundColor: secondary.withOpacity(0.3),
-                valueColor: AlwaysStoppedAnimation<Color>(iconColor),
-                minHeight: 8,
-              ),
-            ),
-          ],
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildWeeklyStudyHoursChart(
+  Widget _buildProgressionCard(
     BuildContext context,
-    List<double> studyHoursPerDay,
+    DashboardStats stats,
     bool isDark,
   ) {
-    final cardBg = isDark ? _cardSurfaceDark : Theme.of(context).colorScheme.surface;
-    final onCard = isDark ? Colors.white : AppTheme.darkText;
+    final surface = isDark
+        ? const Color(0xFF1E1E1E)
+        : Theme.of(context).colorScheme.surface;
     final secondary = isDark ? const Color(0xFF9CA3AF) : AppTheme.mediumGray;
-    final maxY = studyHoursPerDay.isEmpty
-        ? 1.0
-        : (studyHoursPerDay.reduce((a, b) => a > b ? a : b) + 1).clamp(1.0, 100.0);
+
+    final total = math.max(stats.totalTasks, 1);
+    final completedPart = stats.completedTasks / total;
+    final pendingPart = stats.pendingTasks / total;
+    final missedPart = stats.missedTasks / total;
 
     return Container(
-      padding: const EdgeInsets.all(20),
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: cardBg,
+        color: surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: AppTheme.primaryBlue.withOpacity(0.2),
-          width: 1,
-        ),
+        border: Border.all(color: AppTheme.secondaryPurple.withOpacity(0.25)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Weekly Study Hours',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: onCard,
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppTheme.secondaryPurple.withOpacity(0.14),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.timeline,
+                  color: AppTheme.secondaryPurple,
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: 10),
+              const Text(
+                'Your Progression',
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: SizedBox(
+              height: 12,
+              child: Row(
+                children: [
+                  Expanded(
+                    flex: (completedPart * 1000).round().clamp(1, 1000),
+                    child: Container(color: AppTheme.successGreen),
+                  ),
+                  Expanded(
+                    flex: (pendingPart * 1000).round().clamp(1, 1000),
+                    child: Container(color: AppTheme.warningOrange),
+                  ),
+                  Expanded(
+                    flex: (missedPart * 1000).round().clamp(1, 1000),
+                    child: Container(color: AppTheme.errorRed),
+                  ),
+                ],
+              ),
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 12,
+            runSpacing: 8,
+            children: [
+              _progressLegend(
+                color: AppTheme.successGreen,
+                text: 'Finished ${stats.completedTasks}',
+                secondary: secondary,
+              ),
+              _progressLegend(
+                color: AppTheme.warningOrange,
+                text: 'Pending ${stats.pendingTasks}',
+                secondary: secondary,
+              ),
+              _progressLegend(
+                color: AppTheme.errorRed,
+                text: 'Missed ${stats.missedTasks}',
+                secondary: secondary,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            stats.totalTasks == 0
+                ? 'No tasks available yet. Sync data to unlock progression insights.'
+                : 'You are at ${(stats.completionRate * 100).toStringAsFixed(0)}% completion. '
+                    'Complete ${_tasksNeededForTarget(stats, 80)} more task(s) to reach 80%.',
+            style: TextStyle(
+              color: secondary,
+              fontSize: 13,
+              height: 1.4,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _progressLegend({
+    required Color color,
+    required String text,
+    required Color secondary,
+  }) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 10,
+          height: 10,
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+          ),
+        ),
+        const SizedBox(width: 6),
+        Text(
+          text,
+          style: TextStyle(
+            color: secondary,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStudyHoursChart(
+    BuildContext context,
+    DashboardStats stats,
+    List<Task> visibleTasks,
+    bool isDark,
+  ) {
+    final surface = isDark
+        ? const Color(0xFF1E1E1E)
+        : Theme.of(context).colorScheme.surface;
+    final secondary = isDark ? const Color(0xFF9CA3AF) : AppTheme.mediumGray;
+
+    final hours = stats.dailyPoints
+        .map((p) => p.completedMinutes / 60.0)
+        .toList(growable: false);
+    final maxHour =
+        hours.isEmpty ? 1.0 : math.max(1.0, hours.reduce(math.max) + 1.0);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.primaryBlue.withOpacity(0.24)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.show_chart_rounded, color: AppTheme.primaryBlue),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'Study Hours Trend',
+                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+                ),
+              ),
+              Text(
+                '${stats.studyHoursThisRange.toStringAsFixed(1)}h total',
+                style: TextStyle(
+                  color: secondary,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
           SizedBox(
-            height: 220,
-            child: studyHoursPerDay.isEmpty
-                ? Center(
-                    child: Text(
-                      'No study data this week',
-                      style: TextStyle(color: secondary, fontSize: 14),
-                    ),
-                  )
-                : LineChart(
-                    LineChartData(
-                      gridData: FlGridData(
-                        show: true,
-                        getDrawingHorizontalLine: (value) => FlLine(
-                          color: secondary.withOpacity(0.15),
-                          strokeWidth: 1,
-                        ),
-                        drawVerticalLine: false,
+            height: 230,
+            child: LineChart(
+              LineChartData(
+                minX: 0,
+                maxX: (stats.dailyPoints.length - 1).toDouble(),
+                minY: 0,
+                maxY: maxHour,
+                gridData: FlGridData(
+                  show: true,
+                  drawVerticalLine: false,
+                  getDrawingHorizontalLine: (value) => FlLine(
+                    color: secondary.withOpacity(0.16),
+                    strokeWidth: 1,
+                  ),
+                ),
+                borderData: FlBorderData(show: false),
+                titlesData: FlTitlesData(
+                  topTitles:
+                      AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  rightTitles:
+                      AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  leftTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 30,
+                      getTitlesWidget: (value, meta) => Text(
+                        value.toStringAsFixed(0),
+                        style: TextStyle(fontSize: 11, color: secondary),
                       ),
-                      titlesData: FlTitlesData(
-                        show: true,
-                        bottomTitles: AxisTitles(
-                          sideTitles: SideTitles(
-                            showTitles: true,
-                            reservedSize: 28,
-                            getTitlesWidget: (value, meta) {
-                              final i = value.toInt();
-                              if (i >= 0 && i < studyHoursPerDay.length) {
-                                const labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-                                return Padding(
-                                  padding: const EdgeInsets.only(top: 8),
-                                  child: Text(
-                                    i < labels.length ? labels[i] : '',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: secondary,
-                                    ),
-                                  ),
-                                );
-                              }
-                              return const SizedBox.shrink();
-                            },
-                          ),
-                        ),
-                        leftTitles: AxisTitles(
-                          sideTitles: SideTitles(
-                            showTitles: true,
-                            reservedSize: 28,
-                            getTitlesWidget: (value, meta) => Text(
-                              value.toInt().toString(),
-                              style: TextStyle(fontSize: 11, color: secondary),
-                            ),
-                          ),
-                        ),
-                        topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                        rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                      ),
-                      borderData: FlBorderData(show: false),
-                      lineBarsData: [
-                        LineChartBarData(
-                          spots: studyHoursPerDay
-                              .asMap()
-                              .entries
-                              .map((e) => FlSpot(e.key.toDouble(), e.value))
-                              .toList(),
-                          isCurved: true,
-                          color: AppTheme.primaryBlue,
-                          barWidth: 3,
-                          dotData: FlDotData(show: true),
-                          belowBarData: BarAreaData(
-                            show: true,
-                            color: AppTheme.primaryBlue.withOpacity(0.2),
-                          ),
-                        ),
-                      ],
-                      minX: 0,
-                      maxX: (studyHoursPerDay.length - 1).toDouble(),
-                      minY: 0,
-                      maxY: maxY,
                     ),
                   ),
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 30,
+                      getTitlesWidget: (value, meta) {
+                        final index = value.toInt();
+                        if (index < 0 || index >= stats.dailyPoints.length) {
+                          return const SizedBox.shrink();
+                        }
+                        if (_hideDenseLabel(index, stats.dailyPoints.length)) {
+                          return const SizedBox.shrink();
+                        }
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Text(
+                            _dayLabel(stats.dailyPoints[index].date,
+                                compact: true),
+                            style: TextStyle(fontSize: 11, color: secondary),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+                lineTouchData: LineTouchData(
+                  enabled: true,
+                  handleBuiltInTouches: true,
+                  touchTooltipData: LineTouchTooltipData(
+                    tooltipBgColor: AppTheme.primaryBlue.withOpacity(0.92),
+                    getTooltipItems: (spots) {
+                      return spots.map((spot) {
+                        final index = spot.x.toInt();
+                        final point = stats.dailyPoints[index];
+                        return LineTooltipItem(
+                          '${DateFormat('EEE, MMM d').format(point.date)}\n'
+                          '${spot.y.toStringAsFixed(1)}h completed',
+                          const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 12,
+                          ),
+                        );
+                      }).toList();
+                    },
+                  ),
+                  touchCallback: (event, response) {
+                    if (event is! FlTapUpEvent) return;
+                    final spots = response?.lineBarSpots;
+                    if (spots == null || spots.isEmpty) return;
+                    final index = spots.first.x.toInt();
+                    final point = stats.dailyPoints[index];
+                    _showDayBreakdown(
+                      context: context,
+                      point: point,
+                      visibleTasks: visibleTasks,
+                    );
+                  },
+                ),
+                lineBarsData: [
+                  LineChartBarData(
+                    spots: hours
+                        .asMap()
+                        .entries
+                        .map((entry) =>
+                            FlSpot(entry.key.toDouble(), entry.value))
+                        .toList(),
+                    isCurved: true,
+                    color: AppTheme.primaryBlue,
+                    barWidth: 3,
+                    dotData: FlDotData(show: true),
+                    belowBarData: BarAreaData(
+                      show: true,
+                      color: AppTheme.primaryBlue.withOpacity(0.2),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildDailyTaskCompletionChart(
+  Widget _buildDailyOutcomeChart(
     BuildContext context,
-    List<_DayPoint> last7Days,
+    DashboardStats stats,
+    List<Task> visibleTasks,
     bool isDark,
   ) {
-    final cardBg = isDark ? _cardSurfaceDark : Theme.of(context).colorScheme.surface;
-    final onCard = isDark ? Colors.white : AppTheme.darkText;
+    final surface = isDark
+        ? const Color(0xFF1E1E1E)
+        : Theme.of(context).colorScheme.surface;
     final secondary = isDark ? const Color(0xFF9CA3AF) : AppTheme.mediumGray;
-    final maxY = last7Days.isEmpty
+
+    final maxDue = stats.dailyPoints.isEmpty
         ? 1.0
-        : (last7Days.map((e) => e.completed).reduce((a, b) => a > b ? a : b) + 2).toDouble();
+        : math.max(
+            1.0,
+            stats.dailyPoints
+                    .map((p) => p.dueTasks)
+                    .reduce(math.max)
+                    .toDouble() +
+                1.0,
+          );
 
     return Container(
-      padding: const EdgeInsets.all(20),
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: cardBg,
+        color: surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: AppTheme.secondaryPurple.withOpacity(0.2),
-          width: 1,
-        ),
+        border: Border.all(color: AppTheme.secondaryPurple.withOpacity(0.24)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Daily Task Completion',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: onCard,
+          const Row(
+            children: [
+              Icon(Icons.bar_chart_rounded, color: AppTheme.secondaryPurple),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Daily Outcome Breakdown',
+                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            height: 230,
+            child: BarChart(
+              BarChartData(
+                alignment: BarChartAlignment.spaceAround,
+                maxY: maxDue,
+                gridData: FlGridData(
+                  show: true,
+                  drawVerticalLine: false,
+                  getDrawingHorizontalLine: (value) => FlLine(
+                    color: secondary.withOpacity(0.16),
+                    strokeWidth: 1,
+                  ),
+                ),
+                borderData: FlBorderData(show: false),
+                titlesData: FlTitlesData(
+                  topTitles:
+                      AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  rightTitles:
+                      AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  leftTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 28,
+                      getTitlesWidget: (value, meta) => Text(
+                        value.toStringAsFixed(0),
+                        style: TextStyle(fontSize: 11, color: secondary),
+                      ),
+                    ),
+                  ),
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 30,
+                      getTitlesWidget: (value, meta) {
+                        final index = value.toInt();
+                        if (index < 0 || index >= stats.dailyPoints.length) {
+                          return const SizedBox.shrink();
+                        }
+                        if (_hideDenseLabel(index, stats.dailyPoints.length)) {
+                          return const SizedBox.shrink();
+                        }
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Text(
+                            _dayLabel(stats.dailyPoints[index].date,
+                                compact: true),
+                            style: TextStyle(fontSize: 11, color: secondary),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+                barTouchData: BarTouchData(
+                  enabled: true,
+                  handleBuiltInTouches: true,
+                  touchTooltipData: BarTouchTooltipData(
+                    tooltipBgColor: AppTheme.secondaryPurple.withOpacity(0.92),
+                    getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                      final point = stats.dailyPoints[group.x.toInt()];
+                      return BarTooltipItem(
+                        '${DateFormat('EEE, MMM d').format(point.date)}\n'
+                        'Done: ${point.dueCompleted}\n'
+                        'Pending: ${point.duePending}\n'
+                        'Missed: ${point.dueMissed}',
+                        const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 12,
+                        ),
+                      );
+                    },
+                  ),
+                  touchCallback: (event, response) {
+                    if (event is! FlTapUpEvent) return;
+                    final spot = response?.spot;
+                    if (spot == null) return;
+                    final index = spot.touchedBarGroupIndex;
+                    if (index < 0 || index >= stats.dailyPoints.length) return;
+                    _showDayBreakdown(
+                      context: context,
+                      point: stats.dailyPoints[index],
+                      visibleTasks: visibleTasks,
+                    );
+                  },
+                ),
+                barGroups: stats.dailyPoints.asMap().entries.map((entry) {
+                  final point = entry.value;
+                  final completed = point.dueCompleted.toDouble();
+                  final pending = point.duePending.toDouble();
+                  final missed = point.dueMissed.toDouble();
+                  final total = (completed + pending + missed);
+
+                  if (total == 0) {
+                    return BarChartGroupData(
+                      x: entry.key,
+                      barRods: [
+                        BarChartRodData(
+                          toY: 0.05,
+                          width: 16,
+                          color: secondary.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                      ],
+                    );
+                  }
+
+                  return BarChartGroupData(
+                    x: entry.key,
+                    barRods: [
+                      BarChartRodData(
+                        toY: total,
+                        width: 16,
+                        borderRadius: BorderRadius.circular(6),
+                        color: secondary.withOpacity(0.15),
+                        rodStackItems: [
+                          BarChartRodStackItem(
+                              0, completed, AppTheme.successGreen),
+                          BarChartRodStackItem(
+                            completed,
+                            completed + pending,
+                            AppTheme.warningOrange,
+                          ),
+                          BarChartRodStackItem(
+                            completed + pending,
+                            total,
+                            AppTheme.errorRed,
+                          ),
+                        ],
+                      ),
+                    ],
+                  );
+                }).toList(),
+              ),
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 12,
+            runSpacing: 8,
+            children: [
+              _progressLegend(
+                color: AppTheme.successGreen,
+                text: 'Finished',
+                secondary: secondary,
+              ),
+              _progressLegend(
+                color: AppTheme.warningOrange,
+                text: 'Pending',
+                secondary: secondary,
+              ),
+              _progressLegend(
+                color: AppTheme.errorRed,
+                text: 'Missed',
+                secondary: secondary,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCoursePerformanceChart(
+    BuildContext context,
+    DashboardStats stats,
+    bool isDark,
+  ) {
+    final surface = isDark
+        ? const Color(0xFF1E1E1E)
+        : Theme.of(context).colorScheme.surface;
+    final secondary = isDark ? const Color(0xFF9CA3AF) : AppTheme.mediumGray;
+
+    final courseStats = stats.courseProgress.take(8).toList();
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.successGreen.withOpacity(0.24)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.school_outlined, color: AppTheme.successGreen),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'Course Completion',
+                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+                ),
+              ),
+              if (_selectedCourse != _allCoursesLabel)
+                TextButton.icon(
+                  onPressed: () {
+                    setState(() {
+                      _selectedCourse = _allCoursesLabel;
+                    });
+                  },
+                  icon: const Icon(Icons.clear, size: 16),
+                  label: const Text('Clear filter'),
+                ),
+            ],
+          ),
+          const SizedBox(height: 14),
           SizedBox(
-            height: 220,
-            child: last7Days.isEmpty
+            height: 240,
+            child: courseStats.isEmpty
                 ? Center(
                     child: Text(
-                      'No task data',
-                      style: TextStyle(color: secondary, fontSize: 14),
+                      'No course data available',
+                      style: TextStyle(color: secondary),
                     ),
                   )
                 : BarChart(
                     BarChartData(
                       alignment: BarChartAlignment.spaceAround,
-                      maxY: maxY,
-                      barTouchData: BarTouchData(enabled: false),
-                      titlesData: FlTitlesData(
+                      maxY: 100,
+                      borderData: FlBorderData(show: false),
+                      gridData: FlGridData(
                         show: true,
-                        bottomTitles: AxisTitles(
-                          sideTitles: SideTitles(
-                            showTitles: true,
-                            reservedSize: 32,
-                            getTitlesWidget: (value, meta) {
-                              final i = value.toInt();
-                              if (i >= 0 && i < last7Days.length) {
-                                return Padding(
-                                  padding: const EdgeInsets.only(top: 8),
-                                  child: Text(
-                                    last7Days[i].label,
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: secondary,
-                                    ),
-                                  ),
-                                );
-                              }
-                              return const SizedBox.shrink();
-                            },
-                          ),
+                        drawVerticalLine: false,
+                        getDrawingHorizontalLine: (value) => FlLine(
+                          color: secondary.withOpacity(0.16),
+                          strokeWidth: 1,
                         ),
+                      ),
+                      titlesData: FlTitlesData(
+                        topTitles: AxisTitles(
+                            sideTitles: SideTitles(showTitles: false)),
+                        rightTitles: AxisTitles(
+                            sideTitles: SideTitles(showTitles: false)),
                         leftTitles: AxisTitles(
                           sideTitles: SideTitles(
                             showTitles: true,
-                            reservedSize: 28,
+                            reservedSize: 30,
                             getTitlesWidget: (value, meta) => Text(
-                              value.toInt().toString(),
+                              '${value.toStringAsFixed(0)}%',
                               style: TextStyle(fontSize: 11, color: secondary),
                             ),
                           ),
                         ),
-                        topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                        rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                      ),
-                      gridData: FlGridData(
-                        show: true,
-                        getDrawingHorizontalLine: (value) => FlLine(
-                          color: secondary.withOpacity(0.15),
-                          strokeWidth: 1,
+                        bottomTitles: AxisTitles(
+                          sideTitles: SideTitles(
+                            showTitles: true,
+                            reservedSize: 38,
+                            getTitlesWidget: (value, meta) {
+                              final index = value.toInt();
+                              if (index < 0 || index >= courseStats.length) {
+                                return const SizedBox.shrink();
+                              }
+                              final name = courseStats[index].courseName;
+                              final short = name.length > 10
+                                  ? '${name.substring(0, 10)}..'
+                                  : name;
+                              return Padding(
+                                padding: const EdgeInsets.only(top: 8),
+                                child: Text(
+                                  short,
+                                  style:
+                                      TextStyle(fontSize: 11, color: secondary),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              );
+                            },
+                          ),
                         ),
-                        drawVerticalLine: false,
                       ),
-                      borderData: FlBorderData(show: false),
-                      barGroups: last7Days.asMap().entries.map((entry) {
+                      barTouchData: BarTouchData(
+                        enabled: true,
+                        handleBuiltInTouches: true,
+                        touchTooltipData: BarTouchTooltipData(
+                          tooltipBgColor:
+                              AppTheme.successGreen.withOpacity(0.92),
+                          getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                            final course = courseStats[group.x.toInt()];
+                            return BarTooltipItem(
+                              '${course.courseName}\n'
+                              'Completion: ${(course.completionRate * 100).toStringAsFixed(0)}%\n'
+                              'Done ${course.completed}/${course.total}',
+                              const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 12,
+                              ),
+                            );
+                          },
+                        ),
+                        touchCallback: (event, response) {
+                          if (event is! FlTapUpEvent) return;
+                          final spot = response?.spot;
+                          if (spot == null) return;
+                          final index = spot.touchedBarGroupIndex;
+                          if (index < 0 || index >= courseStats.length) return;
+                          setState(() {
+                            _selectedCourse = courseStats[index].courseName;
+                          });
+                        },
+                      ),
+                      barGroups: courseStats.asMap().entries.map((entry) {
+                        final course = entry.value;
+                        final selected = _selectedCourse == course.courseName;
                         return BarChartGroupData(
                           x: entry.key,
                           barRods: [
                             BarChartRodData(
-                              toY: entry.value.completed.toDouble(),
-                              color: AppTheme.secondaryPurple,
-                              width: 24,
+                              toY: (course.completionRate * 100).clamp(0, 100),
+                              width: 18,
+                              color: selected
+                                  ? AppTheme.primaryBlue
+                                  : AppTheme.successGreen,
                               borderRadius: const BorderRadius.vertical(
                                 top: Radius.circular(6),
                               ),
                             ),
                           ],
-                          showingTooltipIndicators: [0],
                         );
                       }).toList(),
                     ),
@@ -664,93 +1260,87 @@ class ProgressDashboardScreen extends StatelessWidget {
     );
   }
 
-  static List<double> _computeStudyHoursLast7Days(List<Task> tasks) {
-    final now = DateTime.now();
-    final today = _dateOnly(now);
-    final result = <double>[];
-    for (var i = 6; i >= 0; i--) {
-      final date = today.subtract(Duration(days: i));
-      final dayTasks = tasks.where((t) =>
-          t.status == TaskStatus.completed && _dateOnly(t.deadline) == date);
-      final minutes = dayTasks.fold<int>(
-          0, (sum, t) => sum + t.estimatedMinutes);
-      result.add(minutes / 60.0);
-    }
-    return result;
-  }
-
-  Widget _buildEmptyState(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final onSurface = theme.colorScheme.onSurface;
+  Widget _buildSimpleInsightsCard(
+    BuildContext context,
+    DashboardStats stats,
+    bool isDark,
+  ) {
+    final surface = isDark
+        ? const Color(0xFF1E1E1E)
+        : Theme.of(context).colorScheme.surface;
     final secondary = isDark ? const Color(0xFF9CA3AF) : AppTheme.mediumGray;
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.analytics_outlined,
-              size: 64,
-              color: AppTheme.primaryBlue.withOpacity(0.5),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'No assignment data yet',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: onSurface.withOpacity(0.9),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Sync Google Classroom or add courses in onboarding to see your progress here.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 14,
-                color: secondary,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
-  Widget _buildSummaryCard(_Stats stats) {
-    final rate = stats.total == 0 ? 0.0 : stats.completed / stats.total;
-    return GradientCard(
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.warningOrange.withOpacity(0.24)),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Assignment progress',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  gradient: AppTheme.primaryGradient,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.auto_awesome,
+                  color: AppTheme.white,
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: 10),
+              const Text(
+                'Simple Insights',
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          ...stats.insights.map(
+            (insight) => Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.only(top: 2),
+                    child: Icon(
+                      Icons.bolt,
+                      color: AppTheme.warningOrange,
+                      size: 16,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      insight,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: secondary,
+                        fontWeight: FontWeight.w600,
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-          const SizedBox(height: 16),
-          Text(
-            stats.total == 0
-                ? 'No assignments yet'
-                : '${(rate * 100).toInt()}% of assignments completed (${stats.completed} of ${stats.total})',
-            style: TextStyle(
-              fontSize: 16,
-              color: AppTheme.darkText.withOpacity(0.7),
-            ),
-          ),
-          if (stats.total > 0) ...[
-            const SizedBox(height: 8),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(6),
-              child: LinearProgressIndicator(
-                value: rate,
-                backgroundColor: AppTheme.lightGray,
-                valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.primaryBlue),
-                minHeight: 10,
+          if (stats.averageGradePct != null) ...[
+            const SizedBox(height: 6),
+            Text(
+              'Average grade: ${stats.averageGradePct!.toStringAsFixed(1)}%',
+              style: TextStyle(
+                color: AppTheme.primaryBlue,
+                fontWeight: FontWeight.w700,
+                fontSize: 13,
               ),
             ),
           ],
@@ -759,542 +1349,344 @@ class ProgressDashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildStatsGrid(_Stats stats) {
-    final completedTotal = stats.total == 0 ? '0/0' : '${stats.completed}/${stats.total}';
-    final estMinutes = stats.estimatedMinutesCompleted;
-    final estDisplay = estMinutes >= 60
-        ? '${(estMinutes / 60).toStringAsFixed(1)}h'
-        : '${estMinutes}m';
-    final productivity = stats.total == 0
-        ? '—'
-        : '${(stats.completionRate * 10).toStringAsFixed(1)}/10';
-    final onTime = stats.pastDueTotal == 0
-        ? '—'
-        : '${stats.pastDueCompleted}/${stats.pastDueTotal}';
+  Widget _buildEmptyState(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final secondary = isDark ? const Color(0xFF9CA3AF) : AppTheme.mediumGray;
 
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: AppTheme.softGradient,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const Icon(
+                Icons.analytics_outlined,
+                size: 48,
+                color: AppTheme.primaryBlue,
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'No student data yet',
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Sync Google Classroom or add manual courses to unlock interactive insights.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 14, color: secondary),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showDayBreakdown({
+    required BuildContext context,
+    required DashboardDayPoint point,
+    required List<Task> visibleTasks,
+  }) {
+    final day = _dateOnly(point.date);
+
+    final dueTasks = visibleTasks
+        .where((task) => _dateOnly(task.deadline) == day)
+        .toList()
+      ..sort((a, b) => a.deadline.compareTo(b.deadline));
+
+    final completedOnDay = visibleTasks
+        .where((task) => task.status == TaskStatus.completed)
+        .where((task) => _completionDate(task) == day)
+        .toList();
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        final secondary = Theme.of(context).brightness == Brightness.dark
+            ? const Color(0xFF9CA3AF)
+            : AppTheme.mediumGray;
+
+        return SafeArea(
+          child: Padding(
+            padding: EdgeInsets.only(
+              left: 20,
+              right: 20,
+              top: 18,
+              bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.calendar_today,
+                          color: AppTheme.primaryBlue),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          DateFormat('EEEE, MMM d').format(day),
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: [
+                      _sheetStatChip(
+                        label: 'Done',
+                        value: '${point.dueCompleted}',
+                        color: AppTheme.successGreen,
+                      ),
+                      _sheetStatChip(
+                        label: 'Pending',
+                        value: '${point.duePending}',
+                        color: AppTheme.warningOrange,
+                      ),
+                      _sheetStatChip(
+                        label: 'Missed',
+                        value: '${point.dueMissed}',
+                        color: AppTheme.errorRed,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  _taskSection(
+                    title: 'Tasks due this day',
+                    tasks: dueTasks,
+                    empty: 'No tasks due on this day.',
+                    secondary: secondary,
+                  ),
+                  const SizedBox(height: 14),
+                  _taskSection(
+                    title: 'Tasks completed this day',
+                    tasks: completedOnDay,
+                    empty: 'No completions recorded on this day.',
+                    secondary: secondary,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _sheetStatChip({
+    required String label,
+    required String value,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.35)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontWeight: FontWeight.w700,
+              fontSize: 12,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            value,
+            style: const TextStyle(fontWeight: FontWeight.w700),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _taskSection({
+    required String title,
+    required List<Task> tasks,
+    required String empty,
+    required Color secondary,
+  }) {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: _buildStatCard(
-                'Completed',
-                completedTotal,
-                Icons.check_circle,
-                AppTheme.successGreen,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildStatCard(
-                'Est. study (done)',
-                estDisplay,
-                Icons.timer,
-                AppTheme.primaryBlue,
-              ),
-            ),
-          ],
+        Text(
+          title,
+          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
         ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: _buildStatCard(
-                'Completion score',
-                productivity,
-                Icons.trending_up,
-                AppTheme.secondaryPurple,
+        const SizedBox(height: 8),
+        if (tasks.isEmpty)
+          Text(
+            empty,
+            style: TextStyle(color: secondary, fontSize: 13),
+          )
+        else
+          ...tasks.take(8).map(
+                (task) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryBlue.withOpacity(0.06),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: AppTheme.primaryBlue.withOpacity(0.16),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          task.title,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 13,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${_normalizedCourseName(task)} • ${_taskStatusLabel(task)}',
+                          style: TextStyle(
+                            color: secondary,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildStatCard(
-                'On-time (past due)',
-                onTime,
-                Icons.schedule,
-                AppTheme.warningOrange,
-              ),
-            ),
-          ],
-        ),
       ],
     );
   }
 
-  Widget _buildTrendChart(List<_DayPoint> last7Days) {
-    final maxCompleted = last7Days.map((e) => e.completed).reduce((a, b) => a > b ? a : b);
-    final maxTotal = last7Days.map((e) => e.total).reduce((a, b) => a > b ? a : b);
-    final maxVal = (maxCompleted > maxTotal ? maxCompleted : maxTotal);
-    final maxY = (maxVal > 0 ? maxVal : 1).toDouble();
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Tasks due & completed (last 7 days)',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 16),
-            SizedBox(
-              height: 200,
-              child: LineChart(
-                LineChartData(
-                  gridData: FlGridData(show: false),
-                  titlesData: FlTitlesData(
-                    show: true,
-                    bottomTitles: AxisTitles(
-                      sideTitles: SideTitles(
-                        showTitles: true,
-                        getTitlesWidget: (value, meta) {
-                          final i = value.toInt();
-                          if (i >= 0 && i < last7Days.length) {
-                            return Padding(
-                              padding: const EdgeInsets.only(top: 8),
-                              child: Text(
-                                last7Days[i].label,
-                                style: const TextStyle(fontSize: 11),
-                              ),
-                            );
-                          }
-                          return const Text('');
-                        },
-                      ),
-                    ),
-                    leftTitles: AxisTitles(
-                      sideTitles: SideTitles(
-                        showTitles: true,
-                        reservedSize: 28,
-                        getTitlesWidget: (value, meta) => Text(
-                          value.toInt().toString(),
-                          style: const TextStyle(fontSize: 11),
-                        ),
-                      ),
-                    ),
-                    topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                    rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  ),
-                  borderData: FlBorderData(show: false),
-                  lineBarsData: [
-                    LineChartBarData(
-                      spots: last7Days
-                          .asMap()
-                          .entries
-                          .map((e) => FlSpot(e.key.toDouble(), e.value.completed.toDouble()))
-                          .toList(),
-                      isCurved: true,
-                      color: AppTheme.successGreen,
-                      barWidth: 3,
-                      dotData: FlDotData(show: true),
-                      belowBarData: BarAreaData(
-                        show: true,
-                        color: AppTheme.successGreen.withOpacity(0.15),
-                      ),
-                    ),
-                    LineChartBarData(
-                      spots: last7Days
-                          .asMap()
-                          .entries
-                          .map((e) => FlSpot(e.key.toDouble(), e.value.total.toDouble()))
-                          .toList(),
-                      isCurved: true,
-                      color: AppTheme.primaryBlue,
-                      barWidth: 2,
-                      dotData: FlDotData(show: true),
-                      dashArray: [4, 2],
-                    ),
-                  ],
-                  minX: 0,
-                  maxX: (last7Days.length - 1).toDouble(),
-                  minY: 0,
-                  maxY: maxY,
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Icon(Icons.circle, size: 10, color: AppTheme.successGreen),
-                const SizedBox(width: 6),
-                const Text('Completed', style: TextStyle(fontSize: 12)),
-                const SizedBox(width: 16),
-                Icon(Icons.circle, size: 10, color: AppTheme.primaryBlue),
-                const SizedBox(width: 6),
-                const Text('Due', style: TextStyle(fontSize: 12)),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
+  List<String> _buildCourseOptions(List<Task> tasks) {
+    final names = tasks.map(_normalizedCourseName).toSet().toList()
+      ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    return [_allCoursesLabel, ...names];
   }
 
-  Widget _buildCourseChart(List<_CourseStat> courseStats) {
-    final maxY = courseStats
-        .map((e) => e.total)
-        .reduce((a, b) => a > b ? a : b);
-    final maxVal = (maxY > 0 ? maxY : 1).toDouble();
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Task completion by course',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 16),
-            SizedBox(
-              height: 200,
-              child: BarChart(
-                BarChartData(
-                  alignment: BarChartAlignment.spaceAround,
-                  maxY: maxVal,
-                  barTouchData: BarTouchData(enabled: false),
-                  titlesData: FlTitlesData(
-                    show: true,
-                    bottomTitles: AxisTitles(
-                      sideTitles: SideTitles(
-                        showTitles: true,
-                        getTitlesWidget: (value, meta) {
-                          final i = value.toInt();
-                          if (i >= 0 && i < courseStats.length) {
-                            final name = courseStats[i].courseName;
-                            final short = name.length > 8 ? '${name.substring(0, 8)}.' : name;
-                            return Padding(
-                              padding: const EdgeInsets.only(top: 8),
-                              child: Text(
-                                short,
-                                style: const TextStyle(fontSize: 11),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            );
-                          }
-                          return const Text('');
-                        },
-                      ),
-                    ),
-                    leftTitles: AxisTitles(
-                      sideTitles: SideTitles(
-                        showTitles: true,
-                        reservedSize: 24,
-                        getTitlesWidget: (value, meta) => Text(
-                          value.toInt().toString(),
-                          style: const TextStyle(fontSize: 11),
-                        ),
-                      ),
-                    ),
-                    topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                    rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  ),
-                  gridData: FlGridData(show: false),
-                  borderData: FlBorderData(show: false),
-                  barGroups: courseStats.asMap().entries.map((entry) {
-                    final i = entry.key;
-                    final s = entry.value;
-                    final colors = [
-                      AppTheme.primaryBlue,
-                      AppTheme.secondaryPurple,
-                      AppTheme.warningOrange,
-                      AppTheme.successGreen,
-                      AppTheme.mediumGray,
-                    ];
-                    return BarChartGroupData(
-                      x: i,
-                      barRods: [
-                        BarChartRodData(
-                          toY: s.completed.toDouble(),
-                          color: colors[i % colors.length],
-                          width: 20,
-                          borderRadius: const BorderRadius.vertical(
-                            top: Radius.circular(4),
-                          ),
-                        ),
-                      ],
-                      showingTooltipIndicators: [0],
-                    );
-                  }).toList(),
-                ),
-              ),
-            ),
-            if (courseStats.length <= 5)
-              Padding(
-                padding: const EdgeInsets.only(top: 12),
-                child: Wrap(
-                  spacing: 8,
-                  runSpacing: 4,
-                  children: courseStats.asMap().entries.map((e) {
-                    final name = e.value.courseName;
-                    final short = name.length > 12 ? '${name.substring(0, 12)}.' : name;
-                    return Chip(
-                      label: Text('$short: ${e.value.completed}/${e.value.total}', style: const TextStyle(fontSize: 11)),
-                      padding: EdgeInsets.zero,
-                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    );
-                  }).toList(),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
+  String _normalizedCourseName(Task task) {
+    final name = task.courseName.trim();
+    return name.isEmpty ? 'Other' : name;
   }
 
-  Widget _buildAISummary(_Stats stats, List<_CourseStat> courseStats) {
-    String text;
-    if (stats.total == 0) {
-      text = 'Add or sync assignments to see your progress and tips here.';
-    } else {
-      final pct = (stats.completionRate * 100).toInt();
-      final missed = stats.missed;
-      final gradePart = stats.averageGrade != null
-          ? ' Your average grade on graded work is ${stats.averageGrade!.toStringAsFixed(1)}%.'
-          : '';
-      if (missed > 0) {
-        text = 'You\'ve completed $pct% of your assignments ($stats.completed of ${stats.total}).'
-            ' You have $missed missed assignment${missed == 1 ? '' : 's'}.'
-            '$gradePart Check the Past Tasks screen to plan catch-up.';
-      } else {
-        text = 'You\'ve completed $pct% of your assignments ($stats.completed of ${stats.total}).'
-            '$gradePart Keep it up!';
-      }
+  String _taskStatusLabel(Task task) {
+    switch (task.status) {
+      case TaskStatus.completed:
+        return 'Finished';
+      case TaskStatus.pending:
+        return 'Pending';
+      case TaskStatus.inProgress:
+        return 'In progress';
+      case TaskStatus.missed:
+        return 'Missed';
     }
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    gradient: AppTheme.primaryGradient,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(
-                    Icons.auto_awesome,
-                    color: AppTheme.white,
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                const Text(
-                  'Summary',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Text(
-              text,
-              style: TextStyle(
-                fontSize: 14,
-                color: AppTheme.darkText.withOpacity(0.8),
-                height: 1.5,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 
-  Widget _buildStatCard(String label, String value, IconData icon, Color color) {
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-        side: BorderSide(
-          color: color.withOpacity(0.2),
-          width: 1,
-        ),
-      ),
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20),
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              color.withOpacity(0.08),
-              color.withOpacity(0.03),
-            ],
-          ),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(18),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(icon, color: color, size: 22),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                value,
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  color: color,
-                  letterSpacing: -0.5,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 13,
-                  color: AppTheme.darkText.withOpacity(0.6),
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  static _Stats _computeStats(List<Task> tasks) {
-    final total = tasks.length;
-    final completed = tasks.where((t) => t.status == TaskStatus.completed).length;
-    final missed = tasks.where((t) => t.status == TaskStatus.missed).length;
-    final now = DateTime.now();
-    final today = _dateOnly(now);
-    final pastDue = tasks.where((t) => _dateOnly(t.deadline).isBefore(today)).toList();
-    final pastDueTotal = pastDue.length;
-    final pastDueCompleted = pastDue.where((t) => t.status == TaskStatus.completed).length;
-    final estimatedMinutesCompleted = tasks
-        .where((t) => t.status == TaskStatus.completed)
-        .fold<int>(0, (sum, t) => sum + t.estimatedMinutes);
-
-    double? averageGrade;
-    final graded = tasks.where((t) => t.assignedGrade != null && t.maxPoints != null && t.maxPoints! > 0).toList();
-    if (graded.isNotEmpty) {
-      var sum = 0.0;
-      for (final t in graded) {
-        sum += (t.assignedGrade! / t.maxPoints!) * 100;
-      }
-      averageGrade = sum / graded.length;
+  bool _hideDenseLabel(int index, int total) {
+    if (total > 20) {
+      return index % 5 != 0 && index != total - 1;
     }
-
-    return _Stats(
-      total: total,
-      completed: completed,
-      missed: missed,
-      completionRate: total == 0 ? 0.0 : completed / total,
-      estimatedMinutesCompleted: estimatedMinutesCompleted,
-      pastDueTotal: pastDueTotal,
-      pastDueCompleted: pastDueCompleted,
-      averageGrade: averageGrade,
-    );
+    if (total > 10) {
+      return index % 2 != 0 && index != total - 1;
+    }
+    return false;
   }
 
-  static List<_CourseStat> _computeCourseStats(List<Task> tasks) {
-    final byCourse = <String, List<Task>>{};
-    for (final t in tasks) {
-      final name = t.courseName.isEmpty ? 'Other' : t.courseName;
-      byCourse.putIfAbsent(name, () => []).add(t);
-    }
-    return byCourse.entries.map((e) {
-      final list = e.value;
-      final completed = list.where((t) => t.status == TaskStatus.completed).length;
-      return _CourseStat(
-        courseName: e.key,
-        total: list.length,
-        completed: completed,
-      );
-    }).where((s) => s.total > 0).toList()
-      ..sort((a, b) => b.total.compareTo(a.total));
+  String _dayLabel(DateTime date, {required bool compact}) {
+    return compact
+        ? DateFormat('E').format(date)
+        : DateFormat('EEE, MMM d').format(date);
   }
 
-  static List<_DayPoint> _computeLast7DaysTrend(List<Task> tasks) {
-    final now = DateTime.now();
-    final today = _dateOnly(now);
-    final points = <_DayPoint>[];
-    for (var i = 6; i >= 0; i--) {
-      final date = today.subtract(Duration(days: i));
-      final dayTasks = tasks.where((t) => _dateOnly(t.deadline) == date).toList();
-      final total = dayTasks.length;
-      final completed = dayTasks.where((t) => t.status == TaskStatus.completed).length;
-      String label;
-      if (i == 0) {
-        label = 'Today';
-      } else if (i == 1) {
-        label = 'Yest.';
-      } else {
-        const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-        label = days[date.weekday - 1];
-      }
-      points.add(_DayPoint(label: label, total: total, completed: completed));
+  String _rangeLabel(DashboardRange range) {
+    switch (range) {
+      case DashboardRange.last7Days:
+        return 'Last 7 days';
+      case DashboardRange.last14Days:
+        return 'Last 14 days';
+      case DashboardRange.last30Days:
+        return 'Last 30 days';
     }
-    return points;
+  }
+
+  String _signed(double value) {
+    final sign = value >= 0 ? '+' : '-';
+    return '$sign${value.abs().toStringAsFixed(1)}%';
+  }
+
+  int _tasksNeededForTarget(DashboardStats stats, int targetPercent) {
+    final total = stats.totalTasks;
+    if (total == 0) return 0;
+    final targetDone = ((targetPercent / 100) * total).ceil();
+    final need = targetDone - stats.completedTasks;
+    return need > 0 ? need : 0;
+  }
+
+  DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
+
+  DateTime _completionDate(Task task) {
+    final completion = task.completedAt ?? task.deadline;
+    return _dateOnly(completion);
+  }
+
+  Color _statusColor(String label) {
+    switch (label) {
+      case 'Excellent':
+        return AppTheme.successGreen;
+      case 'On Track':
+        return AppTheme.primaryBlue;
+      case 'Needs Focus':
+        return AppTheme.warningOrange;
+      case 'At Risk':
+        return AppTheme.errorRed;
+      default:
+        return AppTheme.mediumGray;
+    }
   }
 }
 
-class _Stats {
-  final int total;
-  final int completed;
-  final int missed;
-  final double completionRate;
-  final int estimatedMinutesCompleted;
-  final int pastDueTotal;
-  final int pastDueCompleted;
-  final double? averageGrade;
+class _MetricCardData {
+  final String title;
+  final String value;
+  final String subtitle;
+  final IconData icon;
+  final Color color;
+  final double progress;
 
-  _Stats({
-    required this.total,
-    required this.completed,
-    required this.missed,
-    required this.completionRate,
-    required this.estimatedMinutesCompleted,
-    required this.pastDueTotal,
-    required this.pastDueCompleted,
-    this.averageGrade,
-  });
-}
-
-class _CourseStat {
-  final String courseName;
-  final int total;
-  final int completed;
-
-  _CourseStat({
-    required this.courseName,
-    required this.total,
-    required this.completed,
-  });
-}
-
-class _DayPoint {
-  final String label;
-  final int total;
-  final int completed;
-
-  _DayPoint({
-    required this.label,
-    required this.total,
-    required this.completed,
+  const _MetricCardData({
+    required this.title,
+    required this.value,
+    required this.subtitle,
+    required this.icon,
+    required this.color,
+    required this.progress,
   });
 }

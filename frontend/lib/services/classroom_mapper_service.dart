@@ -61,14 +61,16 @@ class ClassroomMapperService {
 
     for (final assignment in assignments) {
       final sub = submissions
-          .cast<ClassroomSubmission>()
-          .where((s) => s.assignmentId == assignment.id)
-          .fold<ClassroomSubmission?>(
-            null,
-            (prev, s) => prev ?? s,
-          ) ?? ClassroomSubmission.empty();
+              .cast<ClassroomSubmission>()
+              .where((s) => s.assignmentId == assignment.id)
+              .fold<ClassroomSubmission?>(
+                null,
+                (prev, s) => prev ?? s,
+              ) ??
+          ClassroomSubmission.empty();
 
-      final deadline = assignment.dueDate ?? DateTime.now().add(const Duration(days: 7));
+      final deadline =
+          assignment.dueDate ?? DateTime.now().add(const Duration(days: 7));
 
       final priority = _calculatePriority(
         deadline: deadline,
@@ -79,7 +81,9 @@ class ClassroomMapperService {
 
       final taskStatus = sub.isReturned || sub.isSubmitted
           ? TaskStatus.completed
-          : (deadline.isBefore(DateTime.now()) ? TaskStatus.missed : TaskStatus.pending);
+          : (deadline.isBefore(DateTime.now())
+              ? TaskStatus.missed
+              : TaskStatus.pending);
 
       tasks.add(
         Task(
@@ -92,6 +96,7 @@ class ClassroomMapperService {
           priority: priority,
           status: taskStatus,
           estimatedMinutes: estimatedMinutes,
+          completedAt: sub.completedAt,
           assignedGrade: sub.displayGrade != null ? sub.displayGrade : null,
           maxPoints: assignment.maxPoints,
         ),
@@ -111,7 +116,8 @@ class ClassroomMapperService {
     final data = raw['data'] as List<dynamic>? ?? [];
     for (final item in data) {
       final map = item as Map<String, dynamic>;
-      final course = ClassroomCourse.fromJson(map['course'] as Map<String, dynamic>);
+      final course =
+          ClassroomCourse.fromJson(map['course'] as Map<String, dynamic>);
 
       final works = map['works'] as List<dynamic>? ?? [];
       final subs = map['submissions'] as List<dynamic>? ?? [];
@@ -135,7 +141,6 @@ class ClassroomMapperService {
 
     return (courses: courses, tasks: tasks);
   }
-
 
   /// 🔹 AI-ish priority logic (important)
   static TaskPriority _calculatePriority({

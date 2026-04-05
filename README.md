@@ -4,6 +4,10 @@ UpGrade is an AI-powered study assistant that combines Google Classroom sync, ta
 
 This README documents the full project architecture, system workflows, and repository structure.
 
+## Diagram Pack
+
+- Full architecture, workflow, and structure diagrams: [docs/WEB_APP_ARCHITECTURE.md](docs/WEB_APP_ARCHITECTURE.md)
+
 ## Table of Contents
 
 1. Project Summary

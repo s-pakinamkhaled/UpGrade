@@ -11,6 +11,7 @@ env/
 .env
 .env.local
 ai/.env
+backend/.env
 *.egg-info/
 .eggs/
 

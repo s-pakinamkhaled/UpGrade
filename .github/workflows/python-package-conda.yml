@@ -103,6 +103,8 @@ jobs:
           curl --fail http://127.0.0.1:8001/api/plan/health
 
       - name: Run integration tests
+        env:
+          REQUIRE_FRONTEND: "false"
         run: |
           python test_integration.py
           python test_llama_integration.py

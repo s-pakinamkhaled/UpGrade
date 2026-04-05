@@ -6,6 +6,7 @@ Tests all components of the application
 import requests
 import sys
 import time
+import os
 
 # ANSI color codes
 GREEN = '\033[92m'
@@ -36,6 +37,8 @@ class IntegrationTester:
     def __init__(self):
         self.backend_url = "http://127.0.0.1:8001"
         self.frontend_url = "http://localhost:3000"
+        # CI does not boot the Flutter frontend, so keep this check configurable.
+        self.require_frontend = os.getenv("REQUIRE_FRONTEND", "true").lower() == "true"
         self.results = {
             'passed': 0,
             'failed': 0,
@@ -116,10 +119,15 @@ class IntegrationTester:
                 self.results['warnings'] += 1
                 return True
         except requests.exceptions.ConnectionError:
-            print_error("Frontend is not reachable")
-            print_info("Make sure 'flutter run -d chrome' is running")
-            self.results['failed'] += 1
-            return False
+            if self.require_frontend:
+                print_error("Frontend is not reachable")
+                print_info("Set REQUIRE_FRONTEND=false to make this check optional")
+                self.results['failed'] += 1
+                return False
+            print_warning("Frontend is not reachable (optional check skipped)")
+            print_info("Set REQUIRE_FRONTEND=true to enforce frontend availability")
+            self.results['warnings'] += 1
+            return True
         except Exception as e:
             print_warning(f"Frontend check inconclusive: {e}")
             self.results['warnings'] += 1

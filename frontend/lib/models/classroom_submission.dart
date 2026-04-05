@@ -8,6 +8,7 @@ class ClassroomSubmission {
   final String state; // TURNED_IN, RETURNED, etc.
   final double? assignedGrade;
   final double? draftGrade;
+  final DateTime? updateTime;
   final bool late;
 
   const ClassroomSubmission({
@@ -17,16 +18,21 @@ class ClassroomSubmission {
     required this.state,
     this.assignedGrade,
     this.draftGrade,
+    this.updateTime,
     this.late = false,
   });
 
   bool get isSubmitted =>
-      state == 'TURNED_IN' || state == 'RETURNED' || state == 'RECLAIMED_BY_STUDENT';
+      state == 'TURNED_IN' ||
+      state == 'RETURNED' ||
+      state == 'RECLAIMED_BY_STUDENT';
   bool get isReturned => state == 'RETURNED';
   double? get displayGrade => assignedGrade ?? draftGrade;
+  DateTime? get completedAt => isSubmitted ? updateTime : null;
 
   factory ClassroomSubmission.fromJson(Map<String, dynamic> json) {
     double? ag, dg;
+    DateTime? update;
     if (json['assignedGrade'] != null) {
       ag = (json['assignedGrade'] is num)
           ? (json['assignedGrade'] as num).toDouble()
@@ -37,13 +43,20 @@ class ClassroomSubmission {
           ? (json['draftGrade'] as num).toDouble()
           : null;
     }
+    if (json['updateTime'] is String) {
+      update = DateTime.tryParse(json['updateTime'] as String)?.toLocal();
+    }
+
     return ClassroomSubmission(
       id: json['id'] as String? ?? '',
       courseId: json['courseId'] as String? ?? '',
-      assignmentId: json['courseWorkId'] as String? ?? json['assignmentId'] as String? ?? '',
+      assignmentId: json['courseWorkId'] as String? ??
+          json['assignmentId'] as String? ??
+          '',
       state: json['state'] as String? ?? 'CREATED',
       assignedGrade: ag,
       draftGrade: dg,
+      updateTime: update,
       late: json['late'] as bool? ?? false,
     );
   }
@@ -53,6 +66,7 @@ class ClassroomSubmission {
         courseId: '',
         assignmentId: '',
         state: 'CREATED',
+        updateTime: null,
       );
 
   Map<String, dynamic> toJson() => {
@@ -62,6 +76,7 @@ class ClassroomSubmission {
         'state': state,
         'assignedGrade': assignedGrade,
         'draftGrade': draftGrade,
+        'updateTime': updateTime?.toIso8601String(),
         'late': late,
       };
 }

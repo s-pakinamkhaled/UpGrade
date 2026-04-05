@@ -1,32 +1,17 @@
-# Stage 1: Build Flutter web app
-FROM ghcr.io/cirruslabs/flutter:stable AS build
+FROM python:3.10-slim
 
-# Set working directory
 WORKDIR /app
+COPY backend/requirements.txt /app/backend/requirements.txt
+COPY ai/requirements.txt /app/ai/requirements.txt
 
-# Copy pubspec files
-COPY pubspec.yaml pubspec.lock ./
+RUN pip install --no-cache-dir -r /app/backend/requirements.txt \
+    && pip install --no-cache-dir -r /app/ai/requirements.txt
 
-# Get dependencies
-RUN flutter pub get
+COPY backend/ /app/backend/
+COPY ai/ /app/ai/
 
-# Copy the rest of the application
-COPY . .
+WORKDIR /app/backend
 
-# Build web app
-RUN flutter build web --release
+EXPOSE 8001
 
-# Stage 2: Serve with nginx
-FROM nginx:alpine
-
-# Copy built web app from build stage
-COPY --from=build /app/build/web /usr/share/nginx/html
-
-# Copy nginx configuration (optional)
-# COPY nginx.conf /etc/nginx/nginx.conf
-
-# Expose port 80
-EXPOSE 80
-
-# Start nginx
-CMD ["nginx", "-g", "daemon off;"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001"]

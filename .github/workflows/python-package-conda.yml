@@ -106,7 +106,7 @@ jobs:
         env:
           REQUIRE_FRONTEND: "false"
         run: |
-          python test_integration.py
+          python backend/tests/test_integration.py
           python test_llama_integration.py
 
       - name: Upload backend log on failure

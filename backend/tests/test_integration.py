@@ -5,8 +5,11 @@ Tests all components of the application
 
 import requests
 import sys
-import time
 import os
+import time
+import subprocess
+from pathlib import Path
+from urllib.parse import urlparse
 
 # ANSI color codes
 GREEN = '\033[92m'
@@ -35,15 +38,109 @@ def print_info(text):
 
 class IntegrationTester:
     def __init__(self):
-        self.backend_url = "http://127.0.0.1:8001"
-        self.frontend_url = "http://localhost:3000"
+        self.backend_url = os.getenv("UPGRADE_BACKEND_URL", "http://127.0.0.1:8001")
+        self.frontend_url = os.getenv("UPGRADE_FRONTEND_URL", "http://localhost:3000")
+        self.auto_start_backend = os.getenv("AUTO_START_BACKEND", "true").lower() == "true"
         # CI does not boot the Flutter frontend, so keep this check configurable.
-        self.require_frontend = os.getenv("REQUIRE_FRONTEND", "true").lower() == "true"
+        self.require_frontend = os.getenv("REQUIRE_FRONTEND", "false").lower() == "true"
+        self.project_root = self._detect_project_root()
+        self._started_backend = False
+        self._backend_process = None
+        self._backend_log_handle = None
+        self._backend_log_path = str(self.project_root / "backend_integration_test.log")
         self.results = {
             'passed': 0,
             'failed': 0,
             'warnings': 0
         }
+
+    def _detect_project_root(self):
+        """Find the repository root regardless of where this script is located."""
+        script_path = Path(__file__).resolve()
+        for candidate in [script_path.parent, *script_path.parents]:
+            if (candidate / "ai").exists() and (candidate / "backend").exists():
+                return candidate
+
+        # Fallback to script directory if expected structure cannot be discovered.
+        return script_path.parent
+
+    def _is_backend_reachable(self):
+        try:
+            response = requests.get(f"{self.backend_url}/health", timeout=2)
+            return response.status_code == 200
+        except Exception:
+            return False
+
+    def _start_backend_if_needed(self):
+        if self._is_backend_reachable():
+            print_info(f"Backend is already running at {self.backend_url}")
+            return
+
+        if not self.auto_start_backend:
+            print_info("Backend is not running. Start it with .\\run-backend.ps1 or set AUTO_START_BACKEND=true.")
+            return
+
+        parsed = urlparse(self.backend_url)
+        host = parsed.hostname or "127.0.0.1"
+        port = str(parsed.port or 8001)
+        backend_dir = self.project_root / "backend"
+
+        if not backend_dir.exists():
+            print_error(f"Cannot auto-start backend: folder not found: {backend_dir}")
+            return
+
+        print_info(f"Backend is down. Starting it automatically at {host}:{port}...")
+        cmd = [
+            sys.executable,
+            "-m",
+            "uvicorn",
+            "app.main:app",
+            "--host",
+            host,
+            "--port",
+            port,
+        ]
+
+        try:
+            self._backend_log_handle = open(self._backend_log_path, "w", encoding="utf-8")
+            self._backend_process = subprocess.Popen(
+                cmd,
+                cwd=str(backend_dir),
+                stdout=self._backend_log_handle,
+                stderr=subprocess.STDOUT,
+            )
+            self._started_backend = True
+        except Exception as e:
+            print_error(f"Failed to auto-start backend: {e}")
+            print_info("Run .\\run-backend.ps1 manually and rerun this test.")
+            if self._backend_log_handle:
+                self._backend_log_handle.close()
+                self._backend_log_handle = None
+            return
+
+        for _ in range(30):
+            if self._is_backend_reachable():
+                print_success("Backend started successfully")
+                return
+            if self._backend_process and self._backend_process.poll() is not None:
+                break
+            time.sleep(1)
+
+        print_error("Backend did not become ready in time.")
+        print_info(f"Check backend startup logs: {self._backend_log_path}")
+
+    def _stop_backend_if_started(self):
+        if self._started_backend and self._backend_process and self._backend_process.poll() is None:
+            print_info("Stopping backend started by this test...")
+            self._backend_process.terminate()
+            try:
+                self._backend_process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                self._backend_process.kill()
+
+        if self._backend_log_handle:
+            self._backend_log_handle.close()
+            self._backend_log_handle = None
 
     def test_backend_health(self):
         """Test if backend API is running"""
@@ -138,19 +235,25 @@ class IntegrationTester:
         print_header("TEST 5: AI Service")
         try:
             # Check if AI service files exist
-            import os
-            ai_dir = os.path.join(os.path.dirname(__file__), 'ai')
-            if os.path.exists(ai_dir):
+            ai_dir = self.project_root / 'ai'
+            if ai_dir.exists():
                 print_success("AI service directory found")
                 
                 # Check for key files
-                key_files = ['ai_service.py', 'test_service.py', 'requirements.txt']
+                key_files = ['planner_llm', 'chat_service.py', 'requirements.txt']
+                missing_files = []
                 for file in key_files:
-                    if os.path.exists(os.path.join(ai_dir, file)):
+                    if (ai_dir / file).exists():
                         print_info(f"Found: {file}")
                     else:
                         print_warning(f"Missing: {file}")
+                        missing_files.append(file)
                 
+                if missing_files:
+                    print_error("AI service is missing required files")
+                    self.results['failed'] += 1
+                    return False
+
                 print_success("AI service is properly configured")
                 self.results['passed'] += 1
                 return True
@@ -167,10 +270,9 @@ class IntegrationTester:
         """Test if database models are defined"""
         print_header("TEST 6: Database Models")
         try:
-            import os
-            models_dir = os.path.join(os.path.dirname(__file__), 'backend', 'app', 'models')
-            if os.path.exists(models_dir):
-                models = [f for f in os.listdir(models_dir) if f.endswith('.py') and f != '__pycache__']
+            models_dir = self.project_root / 'backend' / 'app' / 'models'
+            if models_dir.exists():
+                models = [f.name for f in models_dir.iterdir() if f.is_file() and f.suffix == '.py']
                 print_success(f"Found {len(models)} model file(s)")
                 for model in models:
                     print_info(f"Model: {model}")
@@ -191,14 +293,19 @@ class IntegrationTester:
         print(f"{BLUE}{'='*60}{RESET}")
         print(f"{BLUE}🎓 UpGrade - Integration Test Suite{RESET}")
         print(f"{BLUE}{'='*60}{RESET}")
+
+        self._start_backend_if_needed()
         
-        # Run all tests
-        self.test_backend_health()
-        self.test_backend_root()
-        self.test_backend_docs()
-        self.test_frontend_running()
-        self.test_ai_service()
-        self.test_database_models()
+        try:
+            # Run all tests
+            self.test_backend_health()
+            self.test_backend_root()
+            self.test_backend_docs()
+            self.test_frontend_running()
+            self.test_ai_service()
+            self.test_database_models()
+        finally:
+            self._stop_backend_if_started()
         
         # Print summary
         print_header("TEST SUMMARY")

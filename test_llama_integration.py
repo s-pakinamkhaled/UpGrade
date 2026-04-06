@@ -6,6 +6,11 @@ Tests Llama 3.3 integration end-to-end
 import requests
 import json
 import sys
+import os
+import time
+import subprocess
+from pathlib import Path
+from urllib.parse import urlparse
 
 # ANSI colors
 GREEN = '\033[92m'
@@ -31,9 +36,102 @@ def print_info(text):
 
 class LlamaIntegrationTester:
     def __init__(self):
-        self.backend_url = "http://127.0.0.1:8001"
+        self.backend_url = os.getenv("UPGRADE_BACKEND_URL", "http://127.0.0.1:8001")
+        self.auto_start_backend = os.getenv("AUTO_START_BACKEND", "true").lower() == "true"
         self.passed = 0
         self.failed = 0
+        self._started_backend = False
+        self._backend_process = None
+        self._backend_log_handle = None
+        self._backend_log_path = str(Path(__file__).resolve().parent / "backend_test_server.log")
+
+    def _is_backend_reachable(self):
+        """Return True when backend health endpoint is reachable."""
+        try:
+            response = requests.get(f"{self.backend_url}/health", timeout=2)
+            return response.status_code == 200
+        except Exception:
+            return False
+
+    def _start_backend_if_needed(self):
+        """Start backend automatically for local test runs when it is not already running."""
+        if self._is_backend_reachable():
+            print_info(f"Backend is already running at {self.backend_url}")
+            return True
+
+        if not self.auto_start_backend:
+            print_error(f"Backend is not reachable at {self.backend_url}")
+            print_info("Set AUTO_START_BACKEND=true or run .\\run-backend.ps1 in another terminal.")
+            return False
+
+        parsed = urlparse(self.backend_url)
+        host = parsed.hostname or "127.0.0.1"
+        port = str(parsed.port or 8001)
+        backend_dir = Path(__file__).resolve().parent / "backend"
+
+        if not backend_dir.exists():
+            print_error(f"Cannot auto-start backend: folder not found: {backend_dir}")
+            print_info("Run .\\run-backend.ps1 manually, then rerun this test.")
+            return False
+
+        print_info(f"Backend is down. Starting it automatically at {host}:{port}...")
+        cmd = [
+            sys.executable,
+            "-m",
+            "uvicorn",
+            "app.main:app",
+            "--host",
+            host,
+            "--port",
+            port,
+        ]
+
+        try:
+            self._backend_log_handle = open(self._backend_log_path, "w", encoding="utf-8")
+            self._backend_process = subprocess.Popen(
+                cmd,
+                cwd=str(backend_dir),
+                stdout=self._backend_log_handle,
+                stderr=subprocess.STDOUT,
+            )
+            self._started_backend = True
+        except Exception as e:
+            print_error(f"Failed to start backend automatically: {e}")
+            print_info("Run .\\run-backend.ps1 manually, then rerun this test.")
+            if self._backend_log_handle:
+                self._backend_log_handle.close()
+                self._backend_log_handle = None
+            return False
+
+        for _ in range(30):
+            if self._is_backend_reachable():
+                print_success("Backend started successfully")
+                return True
+
+            # If process crashed during startup, fail early and print log hint.
+            if self._backend_process and self._backend_process.poll() is not None:
+                break
+
+            time.sleep(1)
+
+        print_error("Backend did not become ready in time.")
+        print_info(f"Check startup logs at: {self._backend_log_path}")
+        print_info("You can also run .\\run-backend.ps1 manually.")
+        return False
+
+    def _stop_backend_if_started(self):
+        """Stop backend only if this test process started it."""
+        if self._started_backend and self._backend_process and self._backend_process.poll() is None:
+            print_info("Stopping backend started by this test...")
+            self._backend_process.terminate()
+            try:
+                self._backend_process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                self._backend_process.kill()
+
+        if self._backend_log_handle:
+            self._backend_log_handle.close()
+            self._backend_log_handle = None
     
     def test_chat_health(self):
         """Test if chat endpoint is available"""
@@ -248,12 +346,21 @@ class LlamaIntegrationTester:
         print(f"{BLUE}{'='*70}{RESET}")
         print(f"{BLUE}🦙 Llama 3.3 Integration Test Suite{RESET}")
         print(f"{BLUE}{'='*70}{RESET}")
+
+        if not self._start_backend_if_needed():
+            print_header("FINAL STATUS")
+            print_error("Backend is not available, so chat integration tests cannot run.")
+            print_info("Start backend and rerun this file.")
+            return False
         
-        self.test_chat_health()
-        self.test_simple_chat()
-        self.test_context_aware_chat()
-        self.test_conversation_history()
-        self.test_suggestions()
+        try:
+            self.test_chat_health()
+            self.test_simple_chat()
+            self.test_context_aware_chat()
+            self.test_conversation_history()
+            self.test_suggestions()
+        finally:
+            self._stop_backend_if_started()
         
         # Summary
         print_header("TEST RESULTS")

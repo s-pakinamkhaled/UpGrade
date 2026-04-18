@@ -1,12 +1,15 @@
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:flutter/foundation.dart';
 
 class GoogleAuthService {
+  static const List<String> classroomScopes = [
+    'https://www.googleapis.com/auth/classroom.courses.readonly',
+    'https://www.googleapis.com/auth/classroom.coursework.me.readonly',
+    'https://www.googleapis.com/auth/classroom.student-submissions.me.readonly',
+  ];
+
   static final GoogleSignIn _googleSignIn = GoogleSignIn(
-    scopes: [
-      'https://www.googleapis.com/auth/classroom.courses.readonly',
-      'https://www.googleapis.com/auth/classroom.coursework.me.readonly',
-      'https://www.googleapis.com/auth/classroom.student-submissions.me.readonly',
-    ],
+    scopes: classroomScopes,
   );
 
   /// Access the underlying GoogleSignIn instance (for token refresh, etc.)
@@ -14,13 +17,36 @@ class GoogleAuthService {
 
   static Future<String?> signInAndGetToken() async {
     try {
-      // On web, signIn() triggers the popup and returns the account
-      final account = await _googleSignIn.signIn();
+      GoogleSignInAccount? account = _googleSignIn.currentUser;
+      if (account == null) {
+        if (kIsWeb) {
+          // Web uses GIS renderButton flow; avoid deprecated popup signIn().
+          account = await _googleSignIn.signInSilently();
+        } else {
+          account = await _googleSignIn.signIn();
+        }
+      }
       if (account == null) {
         print('[GoogleAuth] Sign-in cancelled by user');
         return null;
       }
       print('[GoogleAuth] Signed in as: ${account.email}');
+
+      if (!kIsWeb) {
+        final hasScopes = await _googleSignIn.canAccessScopes(classroomScopes);
+        if (!hasScopes) {
+          print('[GoogleAuth] Missing Classroom scopes. Requesting additional permissions...');
+          final granted = await _googleSignIn.requestScopes(classroomScopes);
+          if (!granted) {
+            print('[GoogleAuth] Scope request declined.');
+            await _googleSignIn.disconnect();
+            account = await _googleSignIn.signIn();
+            if (account == null) return null;
+          }
+        }
+      } else {
+        print('[GoogleAuth] Web: skipping canAccessScopes/requestScopes (unreliable on web; token is source of truth).');
+      }
 
       // Get the authentication tokens
       final auth = await account.authentication;

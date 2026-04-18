@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 
 import '../core/theme.dart';
@@ -7,6 +8,7 @@ import '../widgets/app_logo.dart';
 import '../widgets/gradient_card.dart';
 import '../services/google_auth_service.dart';
 import '../providers/classroom_provider.dart';
+import '../widgets/google_web_sign_in_button.dart';
 
 class GoogleClassroomSyncScreen extends StatefulWidget {
   const GoogleClassroomSyncScreen({super.key});
@@ -24,7 +26,11 @@ class _GoogleClassroomSyncScreenState extends State<GoogleClassroomSyncScreen> {
     try {
       final accessToken = await GoogleAuthService.signInAndGetToken();
       if (accessToken == null) {
-        throw Exception('Google sign-in cancelled');
+        throw Exception(
+          kIsWeb
+              ? 'Google web sign-in not completed. Click "Continue with Google" first, then try Sync.'
+              : 'Google sign-in cancelled',
+        );
       }
 
       await provider.syncClassroom(accessToken);
@@ -250,6 +256,20 @@ class _GoogleClassroomSyncScreenState extends State<GoogleClassroomSyncScreen> {
               ),
               
               const SizedBox(height: 40),
+
+              if (kIsWeb) ...[
+                const Text(
+                  'Step 1: Continue with Google',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                buildGoogleWebSignInButton(),
+                const SizedBox(height: 18),
+              ],
               
               // Sync Now Button
               Consumer<ClassroomProvider>(

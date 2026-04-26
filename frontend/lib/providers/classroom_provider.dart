@@ -5,6 +5,7 @@ import '../models/task.dart';
 import '../services/classroom_sync_service.dart';
 import '../services/classroom_mapper_service.dart';
 import '../services/classroom_storage_service.dart';
+import '../services/user_matching_profile_sync_service.dart';
 
 class ClassroomProvider extends ChangeNotifier {
   bool _isLoading = false;
@@ -21,6 +22,8 @@ class ClassroomProvider extends ChangeNotifier {
   List<Task> get tasks => _tasks;
 
   /// Load previously synced data from local storage (so app shows real data on launch).
+  /// Also pushes [courseIds] / [courses] to Firestore when the user is signed in so
+  /// Group Study can match on the same IDs after a relaunch.
   Future<void> loadFromStorage() async {
     final courses = await ClassroomStorageService.loadCourses();
     final tasks = await ClassroomStorageService.loadTasks();
@@ -28,11 +31,18 @@ class ClassroomProvider extends ChangeNotifier {
     _courses = courses;
     _tasks = tasks;
     notifyListeners();
+    await UserMatchingProfileSyncService.syncCurrentUserProfile(
+      courses: _courses,
+      tasks: _tasks,
+    );
   }
 
   /// Sync with Google Classroom and persist data locally.
   /// Keeps courses and tasks that were added manually (ids starting with `manual_`).
-  Future<void> syncClassroom(String accessToken) async {
+  Future<void> syncClassroom(
+    String accessToken, {
+    String? semesterId,
+  }) async {
     _setLoading(true);
     _error = null;
 
@@ -42,7 +52,10 @@ class ClassroomProvider extends ChangeNotifier {
       final manualTasks =
           _tasks.where((t) => t.id.startsWith('manual_')).toList();
 
-      final rawData = await ClassroomSyncService.syncAll(accessToken);
+      final rawData = await ClassroomSyncService.syncAll(
+        accessToken,
+        semesterId: semesterId,
+      );
       final result = ClassroomMapperService.mapFromRawResponse(rawData);
 
       _courses = [...manualCourses, ...result.courses];
@@ -53,6 +66,13 @@ class ClassroomProvider extends ChangeNotifier {
 
       await ClassroomStorageService.save(
         syncedAt: _syncedAt!.toIso8601String(),
+        courses: _courses,
+        tasks: _tasks,
+      );
+      if (semesterId != null) {
+        await ClassroomStorageService.saveSelectedSemesterId(semesterId);
+      }
+      await UserMatchingProfileSyncService.syncCurrentUserProfile(
         courses: _courses,
         tasks: _tasks,
       );
@@ -83,6 +103,10 @@ class ClassroomProvider extends ChangeNotifier {
     ];
     _syncedAt ??= DateTime.now();
     await _saveToStorage();
+    await UserMatchingProfileSyncService.syncCurrentUserProfile(
+      courses: _courses,
+      tasks: _tasks,
+    );
     notifyListeners();
   }
 
@@ -92,6 +116,10 @@ class ClassroomProvider extends ChangeNotifier {
     _courses = _courses.where((c) => c.id != courseId).toList();
     _tasks = _tasks.where((t) => t.courseId != courseId).toList();
     await _saveToStorage();
+    await UserMatchingProfileSyncService.syncCurrentUserProfile(
+      courses: _courses,
+      tasks: _tasks,
+    );
     notifyListeners();
   }
 
@@ -118,6 +146,10 @@ class ClassroomProvider extends ChangeNotifier {
     ];
     _syncedAt ??= DateTime.now();
     await _saveToStorage();
+    await UserMatchingProfileSyncService.syncCurrentUserProfile(
+      courses: _courses,
+      tasks: _tasks,
+    );
     notifyListeners();
   }
 
@@ -126,6 +158,10 @@ class ClassroomProvider extends ChangeNotifier {
     if (!taskId.startsWith('manual_')) return;
     _tasks = _tasks.where((t) => t.id != taskId).toList();
     await _saveToStorage();
+    await UserMatchingProfileSyncService.syncCurrentUserProfile(
+      courses: _courses,
+      tasks: _tasks,
+    );
     notifyListeners();
   }
 

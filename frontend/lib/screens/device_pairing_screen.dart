@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../core/theme.dart';
@@ -22,6 +23,7 @@ class DevicePairingScreen extends StatefulWidget {
 
 class _DevicePairingScreenState extends State<DevicePairingScreen> {
   bool _isPaired = false;
+  bool _isCreatingSession = false;
   String? sessionId;
   String _deviceName = 'Desktop - Chrome';
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _pairingSubscription;
@@ -39,14 +41,26 @@ class _DevicePairingScreenState extends State<DevicePairingScreen> {
   }
 
   Future<void> createSession() async {
+    if (_isCreatingSession) return;
+    _isCreatingSession = true;
     _pairingSubscription?.cancel();
     _pairingSubscription = null;
     try {
+      final auth = FirebaseAuth.instance;
+      var user = auth.currentUser;
+      if (user == null) {
+        user = await auth.authStateChanges().first.timeout(
+          const Duration(seconds: 4),
+          onTimeout: () => null,
+        );
+      }
       final doc = await FirebaseFirestore.instance
           .collection('pairing_sessions')
           .add({
         'paired': false,
         'device': null,
+        'createdBy': user?.uid,
+        'createdAt': FieldValue.serverTimestamp(),
       });
       if (!mounted) return;
       setState(() => sessionId = doc.id);
@@ -61,6 +75,8 @@ class _DevicePairingScreenState extends State<DevicePairingScreen> {
           ),
         );
       }
+    } finally {
+      _isCreatingSession = false;
     }
   }
 
@@ -184,7 +200,20 @@ class _DevicePairingScreenState extends State<DevicePairingScreen> {
           TextButton.icon(
             onPressed: _skipPairing,
             icon: const Icon(Icons.skip_next, size: 20),
-            label: const Text('Skip'),
+            label: const Text('Skip Session'),
+          ),
+        ],
+        if (!_isPaired && sessionId == null) ...[
+          ElevatedButton.icon(
+            onPressed: createSession,
+            icon: const Icon(Icons.refresh),
+            label: const Text('Retry Session'),
+          ),
+          const SizedBox(height: 12),
+          TextButton.icon(
+            onPressed: _skipPairing,
+            icon: const Icon(Icons.skip_next, size: 20),
+            label: const Text('Skip Session'),
           ),
         ],
         if (!widget.isFromSettings && _isPaired)

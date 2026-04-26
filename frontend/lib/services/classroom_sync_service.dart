@@ -1,22 +1,20 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
+import 'semester_filter_service.dart';
+
 class ClassroomSyncService {
   static const String baseUrl = 'https://classroom.googleapis.com/v1';
 
   /// Set to true to print sync debug info in the console (run with flutter run).
   static bool debug = true;
 
-  /// Fetches all courses, course work (assignments), and student submissions.
-  /// Returns data grouped by course: each item has { course, works, submissions }
-  /// so the mapper can build tasks with names, deadlines, and grades.
-  static Future<Map<String, dynamic>> syncAll(String token) async {
+  static Future<List<Map<String, dynamic>>> fetchCourses(String token) async {
     final headers = {
       'Authorization': 'Bearer $token',
       'Content-Type': 'application/json',
     };
 
-    // 1) List courses (student courses)
     final coursesUrl = '$baseUrl/courses?studentId=me';
     if (debug) print('[ClassroomSync] GET $coursesUrl');
     final coursesRes = await http.get(
@@ -30,8 +28,39 @@ class ClassroomSyncService {
     }
 
     final body = jsonDecode(coursesRes.body);
-    final coursesList = body['courses'] as List<dynamic>? ?? [];
-    if (debug) print('[ClassroomSync] courses count: ${coursesList.length}');
+    final rawCourses = body['courses'] as List<dynamic>? ?? [];
+    final courses = rawCourses
+        .whereType<Map>()
+        .map((c) => Map<String, dynamic>.from(c))
+        .toList();
+    if (debug) print('[ClassroomSync] courses count: ${courses.length}');
+    return courses;
+  }
+
+  /// Fetches all courses, course work (assignments), and student submissions.
+  /// Returns data grouped by course: each item has { course, works, submissions }
+  /// so the mapper can build tasks with names, deadlines, and grades.
+  static Future<Map<String, dynamic>> syncAll(
+    String token, {
+    String? semesterId,
+  }) async {
+    final headers = {
+      'Authorization': 'Bearer $token',
+      'Content-Type': 'application/json',
+    };
+
+    final fetchedCourses = await fetchCourses(token);
+    final selectedSemesterId = semesterId;
+    final coursesList = selectedSemesterId == null
+        ? fetchedCourses
+        : fetchedCourses
+              .where(
+                (course) => SemesterFilterService.matchesSemester(
+                  course: course,
+                  semesterId: selectedSemesterId,
+                ),
+              )
+              .toList();
 
     final List<Map<String, dynamic>> allData = [];
 
@@ -98,7 +127,9 @@ class ClassroomSyncService {
 
     if (debug) {
       final totalWorks = allData.fold<int>(0, (n, e) => n + (e['works'] as List).length);
-      print('[ClassroomSync] done: ${coursesList.length} courses, $totalWorks courseWork items');
+      print(
+        '[ClassroomSync] done: ${coursesList.length} courses, $totalWorks courseWork items',
+      );
     }
 
     return {

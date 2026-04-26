@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:provider/provider.dart';
 
 import '../core/theme.dart';
 import '../core/constants.dart';
 import '../widgets/app_logo.dart';
 import '../services/firebase_auth_service.dart';
 import '../services/api_service.dart';
+import '../services/user_matching_profile_sync_service.dart';
+import '../providers/classroom_provider.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -52,6 +55,10 @@ class _LoginScreenState extends State<LoginScreen> {
       }
 
       if (!mounted) return;
+      await UserMatchingProfileSyncService.syncCurrentUserProfile(
+        courses: context.read<ClassroomProvider>().courses,
+        tasks: context.read<ClassroomProvider>().tasks,
+      );
 
       Navigator.of(context).pushReplacementNamed(
         AppConstants.routeGoogleClassroomSync,
@@ -83,6 +90,10 @@ class _LoginScreenState extends State<LoginScreen> {
       }
 
       if (!mounted) return;
+      await UserMatchingProfileSyncService.syncCurrentUserProfile(
+        courses: context.read<ClassroomProvider>().courses,
+        tasks: context.read<ClassroomProvider>().tasks,
+      );
 
       Navigator.of(context).pushReplacementNamed(
         AppConstants.routeGoogleClassroomSync,

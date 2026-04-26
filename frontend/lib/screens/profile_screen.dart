@@ -174,6 +174,14 @@ class ProfileScreen extends StatelessWidget {
               secondary: const Icon(Icons.notifications_outlined),
             ),
             ListTile(
+              leading: const Icon(Icons.schedule_outlined),
+              title: const Text('Availability for group matching'),
+              subtitle: Text(
+                '${settings.availableStart} - ${settings.availableEnd}',
+              ),
+              onTap: () => _editAvailability(context, settings),
+            ),
+            ListTile(
               leading: const Icon(Icons.lock_outline),
               title: const Text('Privacy'),
               subtitle: const Text('Manage data & permissions'),
@@ -279,6 +287,45 @@ class ProfileScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _editAvailability(
+    BuildContext context,
+    SettingsProvider settings,
+  ) async {
+    final startInitial = _parseTime(settings.availableStart) ??
+        const TimeOfDay(hour: 18, minute: 0);
+    final endInitial = _parseTime(settings.availableEnd) ??
+        const TimeOfDay(hour: 21, minute: 0);
+    final start = await showTimePicker(
+      context: context,
+      initialTime: startInitial,
+    );
+    if (start == null || !context.mounted) return;
+    final end = await showTimePicker(
+      context: context,
+      initialTime: endInitial,
+    );
+    if (end == null) return;
+    await settings.setAvailability(
+      startHHmm: _formatTime(start),
+      endHHmm: _formatTime(end),
+    );
+  }
+
+  TimeOfDay? _parseTime(String value) {
+    final parts = value.split(':');
+    if (parts.length != 2) return null;
+    final h = int.tryParse(parts[0]);
+    final m = int.tryParse(parts[1]);
+    if (h == null || m == null) return null;
+    return TimeOfDay(hour: h, minute: m);
+  }
+
+  String _formatTime(TimeOfDay time) {
+    final hh = time.hour.toString().padLeft(2, '0');
+    final mm = time.minute.toString().padLeft(2, '0');
+    return '$hh:$mm';
   }
 
   Widget _buildDevicesCard(BuildContext context) {

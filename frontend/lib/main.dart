@@ -6,6 +6,7 @@ import 'app.dart';
 import 'providers/classroom_provider.dart';
 import 'providers/dashboard_shell_provider.dart';
 import 'providers/settings_provider.dart';
+import 'providers/study_group_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -24,6 +25,9 @@ void main() async {
         ),
         ChangeNotifierProvider(
           create: (_) => DashboardShellProvider(),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => StudyGroupProvider(),
         ),
       ],
       child: const UpGradeApp(),

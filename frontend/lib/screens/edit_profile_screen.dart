@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:provider/provider.dart';
 
 import '../widgets/upgrade_page_shell.dart';
+import '../services/user_matching_profile_sync_service.dart';
+import '../providers/classroom_provider.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -48,6 +51,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       if (newEmail.isNotEmpty && newEmail != user.email) {
         await user.updateEmail(newEmail);
       }
+      await UserMatchingProfileSyncService.syncCurrentUserProfile(
+        courses: context.read<ClassroomProvider>().courses,
+        tasks: context.read<ClassroomProvider>().tasks,
+        nameOverride: _nameController.text.trim(),
+        emailOverride: newEmail,
+      );
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

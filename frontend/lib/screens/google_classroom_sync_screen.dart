@@ -6,6 +6,9 @@ import '../core/constants.dart';
 import '../widgets/app_logo.dart';
 import '../widgets/gradient_card.dart';
 import '../services/google_auth_service.dart';
+import '../services/classroom_sync_service.dart';
+import '../services/classroom_storage_service.dart';
+import '../services/semester_filter_service.dart';
 import '../providers/classroom_provider.dart';
 
 class GoogleClassroomSyncScreen extends StatefulWidget {
@@ -17,17 +20,79 @@ class GoogleClassroomSyncScreen extends StatefulWidget {
 }
 
 class _GoogleClassroomSyncScreenState extends State<GoogleClassroomSyncScreen> {
-  Future<void> _handleSync() async {
-    final provider = context.read<ClassroomProvider>();
-    if (provider.isLoading) return;
+  bool _isPreparingSemesters = false;
+  String? _accessToken;
+  String? _selectedSemesterId;
+  List<SemesterOption> _semesterOptions = const [];
 
+  @override
+  void initState() {
+    super.initState();
+    _loadSavedSemesterId();
+  }
+
+  Future<void> _loadSavedSemesterId() async {
+    final savedId = await ClassroomStorageService.getSelectedSemesterId();
+    if (!mounted) return;
+    setState(() {
+      _selectedSemesterId = savedId;
+    });
+  }
+
+  Future<void> _prepareSemesters() async {
+    if (_isPreparingSemesters) return;
+    setState(() => _isPreparingSemesters = true);
     try {
-      final accessToken = await GoogleAuthService.signInAndGetToken();
-      if (accessToken == null) {
+      _accessToken ??= await GoogleAuthService.signInAndGetToken();
+      if (_accessToken == null) {
         throw Exception('Google sign-in cancelled');
       }
 
-      await provider.syncClassroom(accessToken);
+      final courses = await ClassroomSyncService.fetchCourses(_accessToken!);
+      final semesters = SemesterFilterService.extractSemesters(courses);
+      final selected = SemesterFilterService.selectDefaultSemesterId(
+        semesters,
+        savedSemesterId: _selectedSemesterId,
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _semesterOptions = semesters;
+        _selectedSemesterId = selected;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to load semesters: $e')));
+    } finally {
+      if (mounted) {
+        setState(() => _isPreparingSemesters = false);
+      }
+    }
+  }
+
+  Future<void> _handleSync() async {
+    final provider = context.read<ClassroomProvider>();
+    if (provider.isLoading || _isPreparingSemesters) return;
+
+    try {
+      if (_semesterOptions.isEmpty) {
+        await _prepareSemesters();
+      }
+      if (_semesterOptions.isEmpty || _selectedSemesterId == null) {
+        throw Exception('Please load and select a semester first');
+      }
+
+      _accessToken ??= await GoogleAuthService.signInAndGetToken();
+      if (_accessToken == null) {
+        throw Exception('Google sign-in cancelled');
+      }
+
+      await provider.syncClassroom(
+        _accessToken!,
+        semesterId: _selectedSemesterId,
+      );
 
       if (!mounted) return;
       if (provider.error != null) {
@@ -39,10 +104,13 @@ class _GoogleClassroomSyncScreenState extends State<GoogleClassroomSyncScreen> {
 
       final count = provider.tasks.length;
       final coursesCount = provider.courses.length;
+      final selectedLabel = _selectedSemesterLabel;
       if (count > 0) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Synced $count assignments from $coursesCount courses'),
+            content: Text(
+              'Synced $count assignments from $coursesCount courses ($selectedLabel)',
+            ),
           ),
         );
       } else {
@@ -75,6 +143,7 @@ class _GoogleClassroomSyncScreenState extends State<GoogleClassroomSyncScreen> {
   
   @override
   Widget build(BuildContext context) {
+    final selectedLabel = _selectedSemesterLabel;
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
@@ -100,6 +169,82 @@ class _GoogleClassroomSyncScreenState extends State<GoogleClassroomSyncScreen> {
               ),
               
               const SizedBox(height: 40),
+
+              // Semester filter section
+              GradientCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Semester to Sync',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Choose which semester\'s courses and assignments should be imported.',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: AppTheme.darkText.withOpacity(0.75),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    if (_semesterOptions.isNotEmpty)
+                      DropdownButtonFormField<String>(
+                        value: _selectedSemesterId,
+                        decoration: const InputDecoration(
+                          labelText: 'Semester',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: _semesterOptions
+                            .map(
+                              (s) => DropdownMenuItem<String>(
+                                value: s.id,
+                                child: Text(s.label),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: _isPreparingSemesters
+                            ? null
+                            : (value) {
+                                if (value == null) return;
+                                setState(() => _selectedSemesterId = value);
+                                ClassroomStorageService.saveSelectedSemesterId(
+                                  value,
+                                );
+                              },
+                      )
+                    else
+                      OutlinedButton.icon(
+                        onPressed: _isPreparingSemesters ? null : _prepareSemesters,
+                        icon: _isPreparingSemesters
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(Icons.school_outlined),
+                        label: Text(
+                          _isPreparingSemesters
+                              ? 'Loading semesters...'
+                              : 'Connect Google & Load Semesters',
+                        ),
+                      ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Sync target: $selectedLabel',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 24),
               
               // Main Title
               const Text(
@@ -254,7 +399,9 @@ class _GoogleClassroomSyncScreenState extends State<GoogleClassroomSyncScreen> {
               // Sync Now Button
               Consumer<ClassroomProvider>(
                 builder: (context, provider, _) {
-                  final isLoading = provider.isLoading;
+                  final isLoading = provider.isLoading || _isPreparingSemesters;
+                  final canSync = _selectedSemesterId != null &&
+                      _semesterOptions.isNotEmpty;
                   return Container(
                     decoration: BoxDecoration(
                       gradient: AppTheme.primaryGradient,
@@ -262,7 +409,7 @@ class _GoogleClassroomSyncScreenState extends State<GoogleClassroomSyncScreen> {
                       boxShadow: AppTheme.mediumShadow,
                     ),
                     child: ElevatedButton.icon(
-                      onPressed: isLoading ? null : _handleSync,
+                      onPressed: isLoading || !canSync ? null : _handleSync,
                       icon: isLoading
                           ? const SizedBox(
                               width: 20,
@@ -372,5 +519,16 @@ class _GoogleClassroomSyncScreenState extends State<GoogleClassroomSyncScreen> {
         ),
       ],
     );
+  }
+
+  String get _selectedSemesterLabel {
+    final selected = _semesterOptions.cast<SemesterOption?>().firstWhere(
+          (s) => s?.id == _selectedSemesterId,
+          orElse: () => null,
+        );
+    if (selected != null) return selected.label;
+    return _selectedSemesterId == SemesterFilterService.unknownSemesterId
+        ? SemesterFilterService.unknownSemesterLabel
+        : 'Not selected';
   }
 }

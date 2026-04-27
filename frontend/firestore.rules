@@ -1,0 +1,20 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Device pairing: الويب ينشئ session والموبايل يحدّثها
+    match /pairing_sessions/{sessionId} {
+      allow read, write: if true;
+    }
+    // اختبار الاتصال (شاشة Login)
+    match /test/{docId} {
+      allow read, write: if true;
+    }
+    // أمثلة وتجارب
+    match /connection_test/{docId} {
+      allow read, write: if true;
+    }
+    match /users/{userId} {
+      allow read, write: if true;
+    }
+  }
+}

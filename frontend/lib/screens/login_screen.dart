@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import '../core/theme.dart';
 import '../core/constants.dart';
@@ -361,11 +362,29 @@ class _LoginScreenState extends State<LoginScreen> {
                           children: [
                             OutlinedButton(
                               onPressed: () async {
+                                final currentUser =
+                                    FirebaseAuth.instance.currentUser;
+                                if (currentUser == null) {
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          'Sign in first, then test Firestore.',
+                                        ),
+                                        backgroundColor: Color(0xFF1E293B),
+                                      ),
+                                    );
+                                  }
+                                  return;
+                                }
                                 try {
                                   await FirebaseFirestore.instance
-                                      .collection('test')
-                                      .doc('check')
-                                      .set({'connected': true});
+                                      .collection('users')
+                                      .doc(currentUser.uid)
+                                      .set({
+                                    'lastFirestoreCheck':
+                                        FieldValue.serverTimestamp(),
+                                  }, SetOptions(merge: true));
                                   if (mounted) {
                                     ScaffoldMessenger.of(context)
                                         .showSnackBar(

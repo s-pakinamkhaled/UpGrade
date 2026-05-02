@@ -5,10 +5,7 @@ import '../models/task.dart';
 import '../services/classroom_sync_service.dart';
 import '../services/classroom_mapper_service.dart';
 import '../services/classroom_storage_service.dart';
-<<<<<<< HEAD
-=======
 import '../services/api_service.dart';
->>>>>>> origin/continue
 
 class ClassroomProvider extends ChangeNotifier {
   bool _isLoading = false;
@@ -24,11 +21,8 @@ class ClassroomProvider extends ChangeNotifier {
   List<ClassroomCourse> get courses => _courses;
   List<Task> get tasks => _tasks;
 
-<<<<<<< HEAD
-=======
   static const String _defaultUserId = 'student_local';
 
->>>>>>> origin/continue
   /// Load previously synced data from local storage (so app shows real data on launch).
   Future<void> loadFromStorage() async {
     final courses = await ClassroomStorageService.loadCourses();
@@ -123,10 +117,7 @@ class ClassroomProvider extends ChangeNotifier {
         estimatedMinutes: 60,
         priority: TaskPriority.medium,
         status: TaskStatus.pending,
-<<<<<<< HEAD
-=======
         updatedAt: DateTime.now(),
->>>>>>> origin/continue
       ),
     ];
     _syncedAt ??= DateTime.now();
@@ -150,8 +141,6 @@ class ClassroomProvider extends ChangeNotifier {
     );
   }
 
-<<<<<<< HEAD
-=======
   Future<void> startTask(String taskId) async {
     await _applyTaskStatus(taskId, TaskStatus.inProgress);
   }
@@ -223,7 +212,6 @@ class ClassroomProvider extends ChangeNotifier {
     notifyListeners();
   }
 
->>>>>>> origin/continue
   void _setLoading(bool value) {
     _isLoading = value;
     notifyListeners();

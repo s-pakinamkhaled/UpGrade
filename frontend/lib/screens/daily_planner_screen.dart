@@ -85,15 +85,12 @@ class _DailyPlannerScreenState extends State<DailyPlannerScreen> {
   bool _isSameDay(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month && a.day == b.day;
 
-<<<<<<< HEAD
-=======
   void _showStatusSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message), duration: const Duration(seconds: 2)),
     );
   }
 
->>>>>>> origin/continue
   // ---------------- UI ----------------
 
   @override
@@ -171,13 +168,10 @@ class _DailyPlannerScreenState extends State<DailyPlannerScreen> {
   }
 
   Widget _buildEmptyState(bool neverSynced) {
-<<<<<<< HEAD
-=======
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final cardColor = isDark ? const Color(0xFF111827) : AppTheme.white;
     final textColor = isDark ? const Color(0xFFE5E7EB) : AppTheme.darkText;
     final subColor = isDark ? const Color(0xFF9CA3AF) : AppTheme.darkText.withOpacity(0.7);
->>>>>>> origin/continue
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -193,11 +187,7 @@ class _DailyPlannerScreenState extends State<DailyPlannerScreen> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
                 decoration: BoxDecoration(
-<<<<<<< HEAD
-                  color: AppTheme.white,
-=======
                   color: cardColor,
->>>>>>> origin/continue
                   borderRadius: BorderRadius.circular(24),
                   boxShadow: AppTheme.strongShadow,
                 ),
@@ -220,18 +210,11 @@ class _DailyPlannerScreenState extends State<DailyPlannerScreen> {
                     Text(
                       neverSynced ? 'Connect Google Classroom' : 'You\'re all set!',
                       textAlign: TextAlign.center,
-<<<<<<< HEAD
-                      style: const TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: -0.4,
-=======
                       style: TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.w700,
                         letterSpacing: -0.4,
                         color: textColor,
->>>>>>> origin/continue
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -242,11 +225,7 @@ class _DailyPlannerScreenState extends State<DailyPlannerScreen> {
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 14,
-<<<<<<< HEAD
-                        color: AppTheme.darkText.withOpacity(0.7),
-=======
                         color: subColor,
->>>>>>> origin/continue
                       ),
                     ),
                     const SizedBox(height: 20),
@@ -293,11 +272,7 @@ class _DailyPlannerScreenState extends State<DailyPlannerScreen> {
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 12,
-<<<<<<< HEAD
-                          color: AppTheme.darkText.withOpacity(0.6),
-=======
                           color: isDark ? const Color(0xFF94A3B8) : AppTheme.darkText.withOpacity(0.6),
->>>>>>> origin/continue
                         ),
                       ),
                     ],
@@ -314,12 +289,6 @@ class _DailyPlannerScreenState extends State<DailyPlannerScreen> {
   // ---------------- WEEK HEADER ----------------
 
   Widget _buildWeekHeader() {
-<<<<<<< HEAD
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-      decoration: BoxDecoration(
-        color: AppTheme.white,
-=======
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bg = isDark ? const Color(0xFF111827) : AppTheme.white;
     final text = isDark ? const Color(0xFFE5E7EB) : AppTheme.darkText;
@@ -328,7 +297,6 @@ class _DailyPlannerScreenState extends State<DailyPlannerScreen> {
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
       decoration: BoxDecoration(
         color: bg,
->>>>>>> origin/continue
         boxShadow: AppTheme.softShadow,
       ),
       child: Row(
@@ -390,11 +358,7 @@ class _DailyPlannerScreenState extends State<DailyPlannerScreen> {
                           fontSize: 11,
                           color: isSelected
                               ? AppTheme.white
-<<<<<<< HEAD
-                              : AppTheme.mediumGray,
-=======
                               : muted,
->>>>>>> origin/continue
                         ),
                       ),
                       const SizedBox(height: 6),
@@ -403,11 +367,7 @@ class _DailyPlannerScreenState extends State<DailyPlannerScreen> {
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           color:
-<<<<<<< HEAD
-                              isSelected ? AppTheme.white : AppTheme.darkText,
-=======
                               isSelected ? AppTheme.white : text,
->>>>>>> origin/continue
                         ),
                       ),
                     ],
@@ -623,12 +583,6 @@ class _DailyPlannerScreenState extends State<DailyPlannerScreen> {
     required String subtitle,
     required IconData icon,
   }) {
-<<<<<<< HEAD
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppTheme.white,
-=======
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bg = isDark ? const Color(0xFF111827) : AppTheme.white;
     final muted = isDark ? const Color(0xFF9CA3AF) : AppTheme.mediumGray;
@@ -636,7 +590,6 @@ class _DailyPlannerScreenState extends State<DailyPlannerScreen> {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: bg,
->>>>>>> origin/continue
         boxShadow: AppTheme.softShadow,
       ),
       child: Row(
@@ -657,11 +610,7 @@ class _DailyPlannerScreenState extends State<DailyPlannerScreen> {
                   style: const TextStyle(
                       fontSize: 20, fontWeight: FontWeight.bold)),
               Text(subtitle,
-<<<<<<< HEAD
-                  style: TextStyle(color: AppTheme.mediumGray)),
-=======
                   style: TextStyle(color: muted)),
->>>>>>> origin/continue
             ],
           ),
         ],
@@ -670,11 +619,8 @@ class _DailyPlannerScreenState extends State<DailyPlannerScreen> {
   }
 
   Widget _taskCard(Task task) {
-<<<<<<< HEAD
-=======
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final titleColor = isDark ? const Color(0xFFE5E7EB) : null;
->>>>>>> origin/continue
     final hasGrade = task.assignedGrade != null || task.maxPoints != null;
     final gradeText = hasGrade
         ? (task.maxPoints != null && task.assignedGrade != null
@@ -697,14 +643,10 @@ class _DailyPlannerScreenState extends State<DailyPlannerScreen> {
               task.courseName.isNotEmpty
                   ? '${task.title} / ${task.courseName}'
                   : task.title,
-<<<<<<< HEAD
-              style: const TextStyle(fontWeight: FontWeight.w600),
-=======
               style: TextStyle(
                 fontWeight: FontWeight.w600,
                 color: titleColor,
               ),
->>>>>>> origin/continue
             ),
             if (gradeText != null) ...[
               const SizedBox(height: 6),
@@ -717,19 +659,14 @@ class _DailyPlannerScreenState extends State<DailyPlannerScreen> {
                 ),
               ),
             ],
-<<<<<<< HEAD
-=======
             const SizedBox(height: 10),
             _buildTaskStatusActions(task),
->>>>>>> origin/continue
           ],
         ),
       ),
     );
   }
 
-<<<<<<< HEAD
-=======
   Widget _buildTaskStatusActions(Task task) {
     final provider = context.read<ClassroomProvider>();
     final isCompleted = task.status == TaskStatus.completed;
@@ -782,16 +719,12 @@ class _DailyPlannerScreenState extends State<DailyPlannerScreen> {
     );
   }
 
->>>>>>> origin/continue
   Widget _simpleCard(String text) => Card(
         shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14)),
         child: Padding(
           padding: const EdgeInsets.all(14),
           child:
-<<<<<<< HEAD
-              Text(text, style: const TextStyle(fontWeight: FontWeight.w600)),
-=======
               Text(
                 text,
                 style: TextStyle(
@@ -801,7 +734,6 @@ class _DailyPlannerScreenState extends State<DailyPlannerScreen> {
                       : null,
                 ),
               ),
->>>>>>> origin/continue
         ),
       );
 }

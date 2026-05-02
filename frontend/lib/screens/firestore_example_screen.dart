@@ -10,10 +10,10 @@ Future<void> checkConnection() async {
       'status': 'connected',
       'time': FieldValue.serverTimestamp(),
     });
-    print('🔥 Firebase Connected Successfully!');
+    debugPrint('🔥 Firebase Connected Successfully!');
   } catch (e) {
-    print('❌ Connection Failed:');
-    print(e);
+    debugPrint('❌ Connection Failed:');
+    debugPrint(e.toString());
   }
 }
 
@@ -50,11 +50,6 @@ class _FirestoreExampleScreenState extends State<FirestoreExampleScreen> {
           tooltip: 'Back',
         ),
         title: const Text('Firestore Example'),
-<<<<<<< HEAD
-        backgroundColor: AppTheme.white,
-        foregroundColor: AppTheme.darkText,
-=======
->>>>>>> origin/continue
       ),
       body: Column(
         children: [
@@ -94,31 +89,22 @@ class _FirestoreExampleScreenState extends State<FirestoreExampleScreen> {
               ),
             ),
           ),
-<<<<<<< HEAD
-          const Padding(
-=======
           Padding(
->>>>>>> origin/continue
             padding: EdgeInsets.symmetric(horizontal: 16.0),
             child: Text(
               'Users in Firestore',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
-<<<<<<< HEAD
-                color: AppTheme.darkText,
-=======
                 color: Theme.of(context).colorScheme.onSurface,
->>>>>>> origin/continue
               ),
             ),
           ),
           const SizedBox(height: 8),
           Expanded(
             child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-              stream: FirebaseFirestore.instance
-                  .collection('users')
-                  .snapshots(),
+              stream:
+                  FirebaseFirestore.instance.collection('users').snapshots(),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(
@@ -140,12 +126,6 @@ class _FirestoreExampleScreenState extends State<FirestoreExampleScreen> {
                   );
                 }
                 if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-<<<<<<< HEAD
-                  return const Center(
-                    child: Text(
-                      'No users yet. Tap "Add user" above.',
-                      style: TextStyle(color: AppTheme.mediumGray),
-=======
                   return Center(
                     child: Text(
                       'No users yet. Tap "Add user" above.',
@@ -155,7 +135,6 @@ class _FirestoreExampleScreenState extends State<FirestoreExampleScreen> {
                             .onSurface
                             .withOpacity(0.65),
                       ),
->>>>>>> origin/continue
                     ),
                   );
                 }
@@ -172,29 +151,18 @@ class _FirestoreExampleScreenState extends State<FirestoreExampleScreen> {
                       child: ListTile(
                         title: Text(
                           data['name']?.toString() ?? '—',
-<<<<<<< HEAD
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w600,
-                            color: AppTheme.darkText,
-=======
                           style: TextStyle(
                             fontWeight: FontWeight.w600,
                             color: Theme.of(context).colorScheme.onSurface,
->>>>>>> origin/continue
                           ),
                         ),
                         subtitle: Text(
                           data['email']?.toString() ?? '—',
-<<<<<<< HEAD
-                          style: const TextStyle(
-                            color: AppTheme.mediumGray,
-=======
                           style: TextStyle(
                             color: Theme.of(context)
                                 .colorScheme
                                 .onSurface
                                 .withOpacity(0.65),
->>>>>>> origin/continue
                           ),
                         ),
                         trailing: Text(

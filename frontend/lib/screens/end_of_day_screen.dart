@@ -50,14 +50,11 @@ class EndOfDayScreen extends StatelessWidget {
   
   @override
   Widget build(BuildContext context) {
-<<<<<<< HEAD
-=======
     final theme = Theme.of(context);
     final mutedText = theme.colorScheme.onSurface.withOpacity(0.7);
     final progressTrack = theme.brightness == Brightness.dark
         ? theme.colorScheme.surfaceContainerHighest
         : AppTheme.lightGray;
->>>>>>> origin/continue
     final completionRate = _completedTasks / (_completedTasks + _pendingTasks);
     
     return Scaffold(
@@ -91,11 +88,7 @@ class EndOfDayScreen extends StatelessWidget {
                       DateFormat('EEEE, MMMM d').format(DateTime.now()),
                       style: TextStyle(
                         fontSize: 16,
-<<<<<<< HEAD
-                        color: AppTheme.darkText.withOpacity(0.7),
-=======
                         color: mutedText,
->>>>>>> origin/continue
                       ),
                     ),
                     const SizedBox(height: 24),
@@ -103,30 +96,21 @@ class EndOfDayScreen extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
                         _buildStatItem(
-<<<<<<< HEAD
-=======
                           context,
->>>>>>> origin/continue
                           'Completed',
                           '$_completedTasks',
                           Icons.check_circle,
                           AppTheme.successGreen,
                         ),
                         _buildStatItem(
-<<<<<<< HEAD
-=======
                           context,
->>>>>>> origin/continue
                           'Pending',
                           '$_pendingTasks',
                           Icons.pending,
                           AppTheme.warningOrange,
                         ),
                         _buildStatItem(
-<<<<<<< HEAD
-=======
                           context,
->>>>>>> origin/continue
                           'Focus Time',
                           '${_totalFocusMinutes ~/ 60}h',
                           Icons.timer,
@@ -170,11 +154,7 @@ class EndOfDayScreen extends StatelessWidget {
                       const SizedBox(height: 16),
                       LinearProgressIndicator(
                         value: completionRate,
-<<<<<<< HEAD
-                        backgroundColor: AppTheme.lightGray,
-=======
                         backgroundColor: progressTrack,
->>>>>>> origin/continue
                         valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryBlue),
                         minHeight: 8,
                         borderRadius: BorderRadius.circular(4),
@@ -210,13 +190,9 @@ class EndOfDayScreen extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(height: 16),
-<<<<<<< HEAD
-                      ..._completed.map((task) => _buildTaskItem(task, true)),
-=======
                       ..._completed.map(
                         (task) => _buildTaskItem(context, task, true),
                       ),
->>>>>>> origin/continue
                     ],
                   ),
                 ),
@@ -248,13 +224,9 @@ class EndOfDayScreen extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(height: 16),
-<<<<<<< HEAD
-                      ..._pending.map((task) => _buildTaskItem(task, false)),
-=======
                       ..._pending.map(
                         (task) => _buildTaskItem(context, task, false),
                       ),
->>>>>>> origin/continue
                     ],
                   ),
                 ),
@@ -281,10 +253,7 @@ class EndOfDayScreen extends StatelessWidget {
                         children: [
                           Expanded(
                             child: _buildFocusStat(
-<<<<<<< HEAD
-=======
                               context,
->>>>>>> origin/continue
                               'Total Focus',
                               '${_totalFocusMinutes ~/ 60}h ${_totalFocusMinutes % 60}m',
                               Icons.timer,
@@ -297,10 +266,7 @@ class EndOfDayScreen extends StatelessWidget {
                           ),
                           Expanded(
                             child: _buildFocusStat(
-<<<<<<< HEAD
-=======
                               context,
->>>>>>> origin/continue
                               'Productivity',
                               '$_productivityScore/10',
                               Icons.trending_up,
@@ -348,30 +314,21 @@ class EndOfDayScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 16),
                       _buildRecommendation(
-<<<<<<< HEAD
-=======
                         context,
->>>>>>> origin/continue
                         'Start with Chemistry Lab Report',
                         'This is your highest priority task for tomorrow. Schedule it for the morning when you\'re most focused.',
                         Icons.priority_high,
                       ),
                       const SizedBox(height: 12),
                       _buildRecommendation(
-<<<<<<< HEAD
-=======
                         context,
->>>>>>> origin/continue
                         'Take a 15-minute break between tasks',
                         'You worked for 4 hours today. Remember to take breaks to maintain productivity.',
                         Icons.coffee,
                       ),
                       const SizedBox(height: 12),
                       _buildRecommendation(
-<<<<<<< HEAD
-=======
                         context,
->>>>>>> origin/continue
                         'Review completed tasks',
                         'Great job completing 7 tasks! Review what you learned to reinforce the material.',
                         Icons.rate_review,
@@ -401,9 +358,6 @@ class EndOfDayScreen extends StatelessWidget {
     );
   }
   
-<<<<<<< HEAD
-  Widget _buildStatItem(String label, String value, IconData icon, Color color) {
-=======
   Widget _buildStatItem(
     BuildContext context,
     String label,
@@ -412,7 +366,6 @@ class EndOfDayScreen extends StatelessWidget {
     Color color,
   ) {
     final subtleText = Theme.of(context).colorScheme.onSurface.withOpacity(0.65);
->>>>>>> origin/continue
     return Column(
       children: [
         Icon(icon, color: color, size: 32),
@@ -429,27 +382,19 @@ class EndOfDayScreen extends StatelessWidget {
           label,
           style: TextStyle(
             fontSize: 12,
-<<<<<<< HEAD
-            color: AppTheme.mediumGray,
-=======
             color: subtleText,
->>>>>>> origin/continue
           ),
         ),
       ],
     );
   }
   
-<<<<<<< HEAD
-  Widget _buildTaskItem(Task task, bool isCompleted) {
-=======
   Widget _buildTaskItem(
     BuildContext context,
     Task task,
     bool isCompleted,
   ) {
     final subtleText = Theme.of(context).colorScheme.onSurface.withOpacity(0.65);
->>>>>>> origin/continue
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
@@ -484,11 +429,7 @@ class EndOfDayScreen extends StatelessWidget {
                   task.courseName,
                   style: TextStyle(
                     fontSize: 12,
-<<<<<<< HEAD
-                    color: AppTheme.mediumGray,
-=======
                     color: subtleText,
->>>>>>> origin/continue
                   ),
                 ),
               ],
@@ -499,11 +440,7 @@ class EndOfDayScreen extends StatelessWidget {
               DateFormat('h:mm a').format(task.completedAt!),
               style: TextStyle(
                 fontSize: 12,
-<<<<<<< HEAD
-                color: AppTheme.mediumGray,
-=======
                 color: subtleText,
->>>>>>> origin/continue
               ),
             ),
         ],
@@ -511,9 +448,6 @@ class EndOfDayScreen extends StatelessWidget {
     );
   }
   
-<<<<<<< HEAD
-  Widget _buildFocusStat(String label, String value, IconData icon) {
-=======
   Widget _buildFocusStat(
     BuildContext context,
     String label,
@@ -521,7 +455,6 @@ class EndOfDayScreen extends StatelessWidget {
     IconData icon,
   ) {
     final subtleText = Theme.of(context).colorScheme.onSurface.withOpacity(0.65);
->>>>>>> origin/continue
     return Column(
       children: [
         Icon(icon, color: AppTheme.primaryBlue),
@@ -537,20 +470,13 @@ class EndOfDayScreen extends StatelessWidget {
           label,
           style: TextStyle(
             fontSize: 12,
-<<<<<<< HEAD
-            color: AppTheme.mediumGray,
-=======
             color: subtleText,
->>>>>>> origin/continue
           ),
         ),
       ],
     );
   }
   
-<<<<<<< HEAD
-  Widget _buildRecommendation(String title, String description, IconData icon) {
-=======
   Widget _buildRecommendation(
     BuildContext context,
     String title,
@@ -558,7 +484,6 @@ class EndOfDayScreen extends StatelessWidget {
     IconData icon,
   ) {
     final mutedText = Theme.of(context).colorScheme.onSurface.withOpacity(0.7);
->>>>>>> origin/continue
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -586,11 +511,7 @@ class EndOfDayScreen extends StatelessWidget {
                   description,
                   style: TextStyle(
                     fontSize: 12,
-<<<<<<< HEAD
-                    color: AppTheme.darkText.withOpacity(0.7),
-=======
                     color: mutedText,
->>>>>>> origin/continue
                     height: 1.4,
                   ),
                 ),

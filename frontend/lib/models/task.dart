@@ -7,17 +7,11 @@ class Task {
   final String courseName;
   final TaskPriority priority;
   final TaskStatus status;
-<<<<<<< HEAD
-  final int estimatedMinutes;
-  final DateTime? scheduledTime;
-  final DateTime? completedAt;
-=======
   final DateTime? startedAt;
   final int estimatedMinutes;
   final DateTime? scheduledTime;
   final DateTime? completedAt;
   final DateTime updatedAt;
->>>>>>> origin/continue
   /// Grade received (from Classroom), if returned by teacher.
   final double? assignedGrade;
   /// Max points for this assignment (from Classroom).
@@ -32,14 +26,6 @@ class Task {
     required this.courseName,
     this.priority = TaskPriority.medium,
     this.status = TaskStatus.pending,
-<<<<<<< HEAD
-    required this.estimatedMinutes,
-    this.scheduledTime,
-    this.completedAt,
-    this.assignedGrade,
-    this.maxPoints,
-  });
-=======
     this.startedAt,
     required this.estimatedMinutes,
     this.scheduledTime,
@@ -48,7 +34,6 @@ class Task {
     this.assignedGrade,
     this.maxPoints,
   }) : updatedAt = updatedAt ?? DateTime.now();
->>>>>>> origin/continue
 
   factory Task.fromJson(Map<String, dynamic> json) {
     return Task(
@@ -60,12 +45,9 @@ class Task {
       courseName: json['courseName'] as String? ?? '',
       priority: _priorityFromString(json['priority'] as String?),
       status: _statusFromString(json['status'] as String?),
-<<<<<<< HEAD
-=======
       startedAt: json['startedAt'] != null
           ? DateTime.tryParse(json['startedAt'] as String)
           : null,
->>>>>>> origin/continue
       estimatedMinutes: (json['estimatedMinutes'] as num?)?.toInt() ?? 30,
       scheduledTime: json['scheduledTime'] != null
           ? DateTime.tryParse(json['scheduledTime'] as String)
@@ -73,10 +55,7 @@ class Task {
       completedAt: json['completedAt'] != null
           ? DateTime.tryParse(json['completedAt'] as String)
           : null,
-<<<<<<< HEAD
-=======
       updatedAt: DateTime.tryParse(json['updatedAt'] as String? ?? ''),
->>>>>>> origin/continue
       assignedGrade: (json['assignedGrade'] as num?)?.toDouble(),
       maxPoints: (json['maxPoints'] as num?)?.toInt(),
     );
@@ -109,23 +88,15 @@ class Task {
         'courseName': courseName,
         'priority': priority.name,
         'status': status.name,
-<<<<<<< HEAD
-        'estimatedMinutes': estimatedMinutes,
-        'scheduledTime': scheduledTime?.toIso8601String(),
-        'completedAt': completedAt?.toIso8601String(),
-=======
         'startedAt': startedAt?.toIso8601String(),
         'estimatedMinutes': estimatedMinutes,
         'scheduledTime': scheduledTime?.toIso8601String(),
         'completedAt': completedAt?.toIso8601String(),
         'updatedAt': updatedAt.toIso8601String(),
->>>>>>> origin/continue
         'assignedGrade': assignedGrade,
         'maxPoints': maxPoints,
       };
 
-<<<<<<< HEAD
-=======
   Task copyWith({
     TaskStatus? status,
     DateTime? startedAt,
@@ -153,7 +124,6 @@ class Task {
     );
   }
 
->>>>>>> origin/continue
   bool get isOverdue => deadline.isBefore(DateTime.now()) && status != TaskStatus.completed;
   bool get isToday => scheduledTime != null && 
     scheduledTime!.year == DateTime.now().year &&

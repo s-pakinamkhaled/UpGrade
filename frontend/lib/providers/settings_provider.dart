@@ -15,13 +15,10 @@ class SettingsProvider extends ChangeNotifier {
 
   bool _aiSuggestionsEnabled = true;
   bool get aiSuggestionsEnabled => _aiSuggestionsEnabled;
-<<<<<<< HEAD
-=======
   bool _dataSharingEnabled = false;
   bool get dataSharingEnabled => _dataSharingEnabled;
   bool _twoFactorEnabled = false;
   bool get twoFactorEnabled => _twoFactorEnabled;
->>>>>>> origin/continue
 
   // AI preferences
   StudyStyle _studyStyle = StudyStyle.visual;
@@ -44,13 +41,10 @@ class SettingsProvider extends ChangeNotifier {
         prefs.getBool('settings_notifications') ?? true;
     _aiSuggestionsEnabled =
         prefs.getBool('settings_ai_suggestions') ?? true;
-<<<<<<< HEAD
-=======
     _dataSharingEnabled =
         prefs.getBool('settings_data_sharing') ?? false;
     _twoFactorEnabled =
         prefs.getBool('settings_two_factor') ?? false;
->>>>>>> origin/continue
 
     final styleStr = prefs.getString('settings_study_style') ?? 'visual';
     switch (styleStr) {
@@ -101,8 +95,6 @@ class SettingsProvider extends ChangeNotifier {
     await prefs.setBool('settings_ai_suggestions', value);
   }
 
-<<<<<<< HEAD
-=======
   Future<void> setDataSharingEnabled(bool value) async {
     _dataSharingEnabled = value;
     notifyListeners();
@@ -117,7 +109,6 @@ class SettingsProvider extends ChangeNotifier {
     await prefs.setBool('settings_two_factor', value);
   }
 
->>>>>>> origin/continue
   Future<void> setStudyStyle(StudyStyle style) async {
     _studyStyle = style;
     notifyListeners();

@@ -430,8 +430,6 @@ class _ProgressDashboardScreenState extends State<ProgressDashboardScreen> {
   ) {
     final cards = [
       _MetricCardData(
-<<<<<<< HEAD
-=======
         title: 'Pending',
         value: '${stats.pendingTasks}',
         subtitle: 'not started yet',
@@ -451,7 +449,6 @@ class _ProgressDashboardScreenState extends State<ProgressDashboardScreen> {
             : stats.inProgressTasks / stats.totalTasks,
       ),
       _MetricCardData(
->>>>>>> origin/continue
         title: 'Completed',
         value: '${stats.completedTasks}',
         subtitle: 'out of ${stats.totalTasks} total tasks',
@@ -460,18 +457,6 @@ class _ProgressDashboardScreenState extends State<ProgressDashboardScreen> {
         progress: stats.completionRate,
       ),
       _MetricCardData(
-<<<<<<< HEAD
-        title: 'Pending',
-        value: '${stats.pendingTasks}',
-        subtitle: '${stats.upcoming48Hours} due in next 48h',
-        icon: Icons.schedule_rounded,
-        color: AppTheme.warningOrange,
-        progress:
-            stats.totalTasks == 0 ? 0 : stats.pendingTasks / stats.totalTasks,
-      ),
-      _MetricCardData(
-=======
->>>>>>> origin/continue
         title: 'Missed',
         value: '${stats.missedTasks}',
         subtitle: stats.missedTasks == 0
@@ -483,22 +468,12 @@ class _ProgressDashboardScreenState extends State<ProgressDashboardScreen> {
             stats.totalTasks == 0 ? 0 : stats.missedTasks / stats.totalTasks,
       ),
       _MetricCardData(
-<<<<<<< HEAD
-        title: 'Productivity',
-        value: '${(stats.completionRateThisRange * 100).toStringAsFixed(0)}%',
-        subtitle:
-            '${_signed(stats.completionRateChangePct)} vs previous ${_selectedRange.label}',
-        icon: Icons.trending_up_rounded,
-        color: AppTheme.primaryBlue,
-        progress: stats.completionRateThisRange,
-=======
         title: 'Completion Rate',
         value: '${(stats.completionRate * 100).toStringAsFixed(0)}%',
         subtitle: '${stats.completedTasks}/${stats.totalTasks} tasks completed',
         icon: Icons.percent_rounded,
         color: AppTheme.primaryBlue,
         progress: stats.completionRate,
->>>>>>> origin/continue
       ),
     ];
 
@@ -1669,11 +1644,6 @@ class _ProgressDashboardScreenState extends State<ProgressDashboardScreen> {
       case DashboardRange.last30Days:
         return 'Last 30 days';
     }
-  }
-
-  String _signed(double value) {
-    final sign = value >= 0 ? '+' : '-';
-    return '$sign${value.abs().toStringAsFixed(1)}%';
   }
 
   int _tasksNeededForTarget(DashboardStats stats, int targetPercent) {

@@ -72,10 +72,7 @@ class DashboardStats {
   final int totalTasks;
   final int completedTasks;
   final int pendingTasks;
-<<<<<<< HEAD
-=======
   final int inProgressTasks;
->>>>>>> origin/continue
   final int missedTasks;
   final int dueToday;
   final int upcoming48Hours;
@@ -101,10 +98,7 @@ class DashboardStats {
     required this.totalTasks,
     required this.completedTasks,
     required this.pendingTasks,
-<<<<<<< HEAD
-=======
     required this.inProgressTasks,
->>>>>>> origin/continue
     required this.missedTasks,
     required this.dueToday,
     required this.upcoming48Hours,

@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-<<<<<<< HEAD
-=======
 import 'package:firebase_auth/firebase_auth.dart';
->>>>>>> origin/continue
 
 import '../core/theme.dart';
 import '../core/constants.dart';
@@ -166,8 +163,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: 13,
-                            color: theme.colorScheme.onSurface
-                                .withOpacity(0.7),
+                            color: theme.colorScheme.onSurface.withOpacity(0.7),
                           ),
                         ),
                         const SizedBox(height: 20),
@@ -264,9 +260,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               style: TextStyle(
                                 fontWeight: FontWeight.w600,
                                 color: _error != null
-                                    ? Theme.of(context)
-                                        .colorScheme
-                                        .error
+                                    ? Theme.of(context).colorScheme.error
                                     : AppTheme.primaryBlue,
                               ),
                             ),
@@ -283,8 +277,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                     width: 20,
                                     child: CircularProgressIndicator(
                                       strokeWidth: 2,
-                                      valueColor:
-                                          AlwaysStoppedAnimation<Color>(
+                                      valueColor: AlwaysStoppedAnimation<Color>(
                                         Colors.white,
                                       ),
                                     ),
@@ -303,8 +296,8 @@ class _LoginScreenState extends State<LoginScreen> {
                           children: [
                             const Expanded(child: Divider()),
                             Padding(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 12),
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 12),
                               child: Text(
                                 'OR',
                                 style: TextStyle(
@@ -321,13 +314,11 @@ class _LoginScreenState extends State<LoginScreen> {
                         SizedBox(
                           height: 46,
                           child: OutlinedButton.icon(
-                            onPressed:
-                                _isLoading ? null : _handleGoogleLogin,
+                            onPressed: _isLoading ? null : _handleGoogleLogin,
                             icon: const Icon(Icons.g_mobiledata, size: 28),
                             label: const Text('Continue with Google'),
                             style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(
-                                  vertical: 12),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(14),
                               ),
@@ -341,12 +332,8 @@ class _LoginScreenState extends State<LoginScreen> {
                             Text(
                               "Don't have an account? ",
                               style: TextStyle(
-<<<<<<< HEAD
-                                color: AppTheme.darkText.withOpacity(0.7),
-=======
                                 color: theme.colorScheme.onSurface
                                     .withOpacity(0.7),
->>>>>>> origin/continue
                               ),
                             ),
                             TextButton(
@@ -369,26 +356,17 @@ class _LoginScreenState extends State<LoginScreen> {
                           children: [
                             OutlinedButton(
                               onPressed: () async {
-<<<<<<< HEAD
-                                try {
-                                  await FirebaseFirestore.instance
-                                      .collection('test')
-                                      .doc('check')
-                                      .set({'connected': true});
-=======
                                 final currentUser =
                                     FirebaseAuth.instance.currentUser;
                                 if (currentUser == null) {
-                                  if (mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text(
-                                          'Sign in first, then test Firestore.',
-                                        ),
-                                        backgroundColor: Color(0xFF1E293B),
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        'Sign in first, then test Firestore.',
                                       ),
-                                    );
-                                  }
+                                      backgroundColor: Color(0xFF1E293B),
+                                    ),
+                                  );
                                   return;
                                 }
                                 try {
@@ -399,30 +377,21 @@ class _LoginScreenState extends State<LoginScreen> {
                                     'lastFirestoreCheck':
                                         FieldValue.serverTimestamp(),
                                   }, SetOptions(merge: true));
->>>>>>> origin/continue
-                                  if (mounted) {
-                                    ScaffoldMessenger.of(context)
-                                        .showSnackBar(
-                                      const SnackBar(
-                                        content: Text(
-                                            '✅ Firestore Connected'),
-                                        backgroundColor:
-                                            AppTheme.successGreen,
-                                      ),
-                                    );
-                                  }
+                                  if (!context.mounted) return;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('✅ Firestore Connected'),
+                                      backgroundColor: AppTheme.successGreen,
+                                    ),
+                                  );
                                 } catch (e) {
-                                  if (mounted) {
-                                    ScaffoldMessenger.of(context)
-                                        .showSnackBar(
-                                      SnackBar(
-                                        content:
-                                            Text('❌ Firestore: $e'),
-                                        backgroundColor:
-                                            AppTheme.errorRed,
-                                      ),
-                                    );
-                                  }
+                                  if (!context.mounted) return;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('❌ Firestore: $e'),
+                                      backgroundColor: AppTheme.errorRed,
+                                    ),
+                                  );
                                 }
                               },
                               child: const Text('Test Firestore'),
@@ -432,33 +401,27 @@ class _LoginScreenState extends State<LoginScreen> {
                                 try {
                                   final message =
                                       await ApiService().testConnection();
-                                  if (!mounted) return;
+                                  if (!context.mounted) return;
                                   final ok =
                                       message != 'Backend connection failed';
-                                  ScaffoldMessenger.of(context)
-                                      .showSnackBar(
+                                  ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
                                       content: Text(
                                           ok ? '✅ $message' : '❌ $message'),
                                       backgroundColor: ok
                                           ? AppTheme.successGreen
                                           : AppTheme.errorRed,
-                                      duration:
-                                          const Duration(seconds: 3),
+                                      duration: const Duration(seconds: 3),
                                     ),
                                   );
                                 } catch (e) {
-                                  if (mounted) {
-                                    ScaffoldMessenger.of(context)
-                                        .showSnackBar(
-                                      SnackBar(
-                                        content:
-                                            Text('❌ Backend: $e'),
-                                        backgroundColor:
-                                            AppTheme.errorRed,
-                                      ),
-                                    );
-                                  }
+                                  if (!context.mounted) return;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('❌ Backend: $e'),
+                                      backgroundColor: AppTheme.errorRed,
+                                    ),
+                                  );
                                 }
                               },
                               child: const Text('Test Backend'),

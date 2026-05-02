@@ -4,26 +4,6 @@ import 'package:upgrade/core/theme.dart';
 import 'package:upgrade/widgets/app_logo.dart';
 
 /// Sidebar for the Progress Dashboard layout (StudyAI-style).
-<<<<<<< HEAD
-/// Dark blue background to match website colors; nav items with active (blue–purple gradient).
-class DashboardSidebar extends StatelessWidget {
-  final int currentIndex;
-  final ValueChanged<int> onSelectTab;
-  final void Function(String route) onNavigateToRoute;
-  final VoidCallback onEndSession;
-  final VoidCallback onCollapse;
-  /// Highlights a pushed route: My courses, Study Plan, Warnings, Profile, etc.
-  final String? highlightRoute;
-
-  const DashboardSidebar({
-    super.key,
-    required this.currentIndex,
-    required this.onSelectTab,
-    required this.onNavigateToRoute,
-    required this.onEndSession,
-    required this.onCollapse,
-    this.highlightRoute,
-=======
 /// Light background with active blue-purple item matching the reference UI.
 class DashboardSidebar extends StatelessWidget {
   final String selectedRoute;
@@ -39,16 +19,10 @@ class DashboardSidebar extends StatelessWidget {
     required this.onNavigateToRoute,
     required this.onEndSession,
     required this.onCollapse,
->>>>>>> origin/continue
   });
 
   /// Default width; actual width scales slightly with viewport (see [effectiveWidth]).
   static const double width = 260;
-<<<<<<< HEAD
-  /// Dark blue to match app theme (aligned with AppTheme.darkSurface).
-  static const Color sidebarBackground = Color(0xFF0F172A);
-  static const Color navInactive = Color(0xFF9CA3AF);
-=======
   static const Color sidebarBackground = Color(0xFFF8FAFC);
   /// Inactive nav label/icon on **light** sidebar (higher contrast than slate-400).
   static const Color navInactiveLight = Color(0xFF475569);
@@ -60,7 +34,6 @@ class DashboardSidebar extends StatelessWidget {
         ? navInactiveDark
         : navInactiveLight;
   }
->>>>>>> origin/continue
 
   static double effectiveWidth(BuildContext context) {
     final w = MediaQuery.sizeOf(context).width;
@@ -69,20 +42,12 @@ class DashboardSidebar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-<<<<<<< HEAD
-=======
     final isDark = Theme.of(context).brightness == Brightness.dark;
->>>>>>> origin/continue
     final mq = MediaQuery.sizeOf(context);
     final compactH = mq.height < 720;
     final topPad = compactH ? 12.0 : 24.0;
     final afterLogo = compactH ? 16.0 : 32.0;
 
-<<<<<<< HEAD
-    return Container(
-      width: effectiveWidth(context),
-      color: sidebarBackground,
-=======
     final activeMenuKey = _activeMenuKeyForRoute(selectedRoute);
 
     return Container(
@@ -95,7 +60,6 @@ class DashboardSidebar extends StatelessWidget {
           ),
         ),
       ),
->>>>>>> origin/continue
       child: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -113,13 +77,8 @@ class DashboardSidebar extends StatelessWidget {
                       children: [
                         Text(
                           AppConstants.appName,
-<<<<<<< HEAD
-                          style: const TextStyle(
-                            color: Colors.white,
-=======
                           style: TextStyle(
                             color: isDark ? Colors.white : AppTheme.darkText,
->>>>>>> origin/continue
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
                           ),
@@ -129,11 +88,7 @@ class DashboardSidebar extends StatelessWidget {
                         Text(
                           AppConstants.appTagline,
                           style: TextStyle(
-<<<<<<< HEAD
-                            color: navInactive,
-=======
                             color: navInactiveFor(context),
->>>>>>> origin/continue
                             fontSize: compactH ? 11 : 12,
                           ),
                           maxLines: 2,
@@ -143,14 +98,10 @@ class DashboardSidebar extends StatelessWidget {
                     ),
                   ),
                   IconButton(
-<<<<<<< HEAD
-                    icon: const Icon(Icons.chevron_left, color: Colors.white70),
-=======
                     icon: Icon(
                       Icons.chevron_left,
                       color: isDark ? Colors.white70 : AppTheme.darkText,
                     ),
->>>>>>> origin/continue
                     tooltip: 'Collapse sidebar',
                     onPressed: onCollapse,
                   ),
@@ -166,94 +117,48 @@ class DashboardSidebar extends StatelessWidget {
                   _NavItem(
                     icon: Icons.calendar_today_outlined,
                     label: 'Daily Planner',
-<<<<<<< HEAD
-                    selected: currentIndex == 0,
-                    compact: compactH,
-                    onTap: () => onSelectTab(0),
-=======
                     isActive: activeMenuKey == _SidebarMenuKey.dailyPlanner,
                     compact: compactH,
                     onTap: () => onSelectRoute(AppConstants.routeDailyPlanner),
->>>>>>> origin/continue
                   ),
                   _NavItem(
                     icon: Icons.auto_awesome_outlined,
                     label: 'AI Assistant',
-<<<<<<< HEAD
-                    selected: currentIndex == 1,
-                    compact: compactH,
-                    onTap: () => onSelectTab(1),
-=======
                     isActive: activeMenuKey == _SidebarMenuKey.aiAssistant,
                     compact: compactH,
                     onTap: () => onSelectRoute(AppConstants.routeAIChatbot),
->>>>>>> origin/continue
                   ),
                   _NavItem(
                     icon: Icons.dashboard_outlined,
                     label: 'Dashboard',
-<<<<<<< HEAD
-                    selected: currentIndex == 2,
-                    compact: compactH,
-                    onTap: () => onSelectTab(2),
-=======
                     isActive: activeMenuKey == _SidebarMenuKey.dashboard,
                     compact: compactH,
                     onTap: () => onSelectRoute(AppConstants.routeProgress),
->>>>>>> origin/continue
                   ),
                   _NavItem(
                     icon: Icons.school_outlined,
                     label: 'Study Plan',
-<<<<<<< HEAD
-                    selected:
-                        highlightRoute == AppConstants.routeStudyPlan,
-=======
                     isActive: activeMenuKey == _SidebarMenuKey.studyPlan,
->>>>>>> origin/continue
                     compact: compactH,
                     onTap: () => onNavigateToRoute(AppConstants.routeStudyPlan),
                   ),
                   _NavItem(
                     icon: Icons.groups_outlined,
                     label: 'Group Study',
-<<<<<<< HEAD
-                    selected: currentIndex == 3,
-                    compact: compactH,
-                    onTap: () => onSelectTab(3),
-=======
                     isActive: activeMenuKey == _SidebarMenuKey.groupStudy,
                     compact: compactH,
                     onTap: () => onSelectRoute(AppConstants.routeGroupStudy),
->>>>>>> origin/continue
                   ),
                   _NavItem(
                     icon: Icons.warning_amber_outlined,
                     label: 'Warnings',
-<<<<<<< HEAD
-                    selected:
-                        highlightRoute == AppConstants.routeWarnings,
-=======
                     isActive: activeMenuKey == _SidebarMenuKey.warnings,
->>>>>>> origin/continue
                     compact: compactH,
                     onTap: () => onNavigateToRoute(AppConstants.routeWarnings),
                   ),
                   _NavItem(
                     icon: Icons.person_outline,
                     label: 'Profile',
-<<<<<<< HEAD
-                    selected:
-                        highlightRoute == AppConstants.routeProfile,
-                    compact: compactH,
-                    onTap: () => onNavigateToRoute(AppConstants.routeProfile),
-                  ),
-                  const Divider(color: Color(0xFF374151), height: 24),
-                  _NavItem(
-                    icon: Icons.qr_code_scanner_outlined,
-                    label: 'Device Pairing',
-                    selected: false,
-=======
                     isActive: activeMenuKey == _SidebarMenuKey.profile,
                     compact: compactH,
                     onTap: () => onNavigateToRoute(AppConstants.routeProfile),
@@ -267,18 +172,13 @@ class DashboardSidebar extends StatelessWidget {
                     icon: Icons.qr_code_scanner_outlined,
                     label: 'Device Pairing',
                     isActive: false,
->>>>>>> origin/continue
                     compact: compactH,
                     onTap: () => onNavigateToRoute(AppConstants.routeQrScanner),
                   ),
                   _NavItem(
                     icon: Icons.class_outlined,
                     label: 'Google Classroom',
-<<<<<<< HEAD
-                    selected: false,
-=======
                     isActive: false,
->>>>>>> origin/continue
                     compact: compactH,
                     onTap: () =>
                         onNavigateToRoute(AppConstants.routeGoogleClassroomSync),
@@ -286,12 +186,7 @@ class DashboardSidebar extends StatelessWidget {
                   _NavItem(
                     icon: Icons.playlist_add_outlined,
                     label: 'My courses',
-<<<<<<< HEAD
-                    selected:
-                        highlightRoute == AppConstants.routeManualCourses,
-=======
                     isActive: activeMenuKey == _SidebarMenuKey.myCourses,
->>>>>>> origin/continue
                     compact: compactH,
                     onTap: () =>
                         onNavigateToRoute(AppConstants.routeManualCourses),
@@ -299,11 +194,7 @@ class DashboardSidebar extends StatelessWidget {
                   _NavItem(
                     icon: Icons.logout,
                     label: 'End Session',
-<<<<<<< HEAD
-                    selected: false,
-=======
                     isActive: false,
->>>>>>> origin/continue
                     compact: compactH,
                     isDestructive: true,
                     onTap: onEndSession,
@@ -322,23 +213,6 @@ class DashboardSidebar extends StatelessWidget {
 class DashboardSidebarCollapsedRail extends StatelessWidget {
   static const double railWidth = 56;
 
-<<<<<<< HEAD
-  final int currentIndex;
-  final ValueChanged<int> onSelectTab;
-  final VoidCallback onExpand;
-  final void Function(String route) onNavigateToRoute;
-  final VoidCallback onEndSession;
-  final String? highlightRoute;
-
-  const DashboardSidebarCollapsedRail({
-    super.key,
-    required this.currentIndex,
-    required this.onSelectTab,
-    required this.onExpand,
-    required this.onNavigateToRoute,
-    required this.onEndSession,
-    this.highlightRoute,
-=======
   final String selectedRoute;
   final void Function(String route) onSelectRoute;
   final VoidCallback onExpand;
@@ -352,39 +226,20 @@ class DashboardSidebarCollapsedRail extends StatelessWidget {
     required this.onExpand,
     required this.onNavigateToRoute,
     required this.onEndSession,
->>>>>>> origin/continue
   });
 
   @override
   Widget build(BuildContext context) {
-<<<<<<< HEAD
-    return Material(
-      color: DashboardSidebar.sidebarBackground,
-=======
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final activeMenuKey = _activeMenuKeyForRoute(selectedRoute);
     return Material(
       color: isDark ? const Color(0xFF0F172A) : DashboardSidebar.sidebarBackground,
->>>>>>> origin/continue
       child: SafeArea(
         child: SizedBox(
           width: railWidth,
           child: Column(
             children: [
               IconButton(
-<<<<<<< HEAD
-                icon: const Icon(Icons.chevron_right, color: Colors.white),
-                tooltip: 'Expand sidebar',
-                onPressed: onExpand,
-              ),
-              const Divider(color: Color(0xFF374151), height: 1),
-              _CollapsedRailNavButton(
-                icon: Icons.calendar_today_outlined,
-                selectedIcon: Icons.calendar_today,
-                selected: currentIndex == 0,
-                tooltip: 'Daily Planner',
-                onTap: () => onSelectTab(0),
-=======
                 icon: Icon(
                   Icons.chevron_right,
                   color: isDark ? Colors.white70 : AppTheme.darkText,
@@ -402,82 +257,45 @@ class DashboardSidebarCollapsedRail extends StatelessWidget {
                 isActive: activeMenuKey == _SidebarMenuKey.dailyPlanner,
                 tooltip: 'Daily Planner',
                 onTap: () => onSelectRoute(AppConstants.routeDailyPlanner),
->>>>>>> origin/continue
               ),
               _CollapsedRailNavButton(
                 icon: Icons.auto_awesome_outlined,
                 selectedIcon: Icons.auto_awesome,
-<<<<<<< HEAD
-                selected: currentIndex == 1,
-                tooltip: 'AI Assistant',
-                onTap: () => onSelectTab(1),
-=======
                 isActive: activeMenuKey == _SidebarMenuKey.aiAssistant,
                 tooltip: 'AI Assistant',
                 onTap: () => onSelectRoute(AppConstants.routeAIChatbot),
->>>>>>> origin/continue
               ),
               _CollapsedRailNavButton(
                 icon: Icons.dashboard_outlined,
                 selectedIcon: Icons.dashboard,
-<<<<<<< HEAD
-                selected: currentIndex == 2,
-                tooltip: 'Dashboard',
-                onTap: () => onSelectTab(2),
-=======
                 isActive: activeMenuKey == _SidebarMenuKey.dashboard,
                 tooltip: 'Dashboard',
                 onTap: () => onSelectRoute(AppConstants.routeProgress),
->>>>>>> origin/continue
               ),
               _CollapsedRailNavButton(
                 icon: Icons.groups_outlined,
                 selectedIcon: Icons.groups,
-<<<<<<< HEAD
-                selected: currentIndex == 3,
-                tooltip: 'Group Study',
-                onTap: () => onSelectTab(3),
-=======
                 isActive: activeMenuKey == _SidebarMenuKey.groupStudy,
                 tooltip: 'Group Study',
                 onTap: () => onSelectRoute(AppConstants.routeGroupStudy),
->>>>>>> origin/continue
               ),
               _CollapsedRailNavButton(
                 icon: Icons.school_outlined,
                 selectedIcon: Icons.school,
-<<<<<<< HEAD
-                selected: highlightRoute == AppConstants.routeStudyPlan,
-=======
                 isActive: activeMenuKey == _SidebarMenuKey.studyPlan,
->>>>>>> origin/continue
                 tooltip: 'Study Plan',
                 onTap: () =>
                     onNavigateToRoute(AppConstants.routeStudyPlan),
               ),
               const Spacer(),
               IconButton(
-<<<<<<< HEAD
-                icon: Icon(Icons.menu, color: DashboardSidebar.navInactive),
-=======
                 icon: Icon(Icons.menu, color: DashboardSidebar.navInactiveFor(context)),
->>>>>>> origin/continue
                 tooltip: 'Full menu',
                 onPressed: onExpand,
               ),
               IconButton(
                 icon: Icon(
                   Icons.notifications_outlined,
-<<<<<<< HEAD
-                  color: highlightRoute == AppConstants.routeWarnings
-                      ? Colors.white
-                      : DashboardSidebar.navInactive,
-                ),
-                tooltip: 'Warnings',
-                style: highlightRoute == AppConstants.routeWarnings
-                    ? IconButton.styleFrom(
-                        backgroundColor: Colors.white.withOpacity(0.12),
-=======
                   color: activeMenuKey == _SidebarMenuKey.warnings
                       ? AppTheme.primaryBlue
                       : DashboardSidebar.navInactiveFor(context),
@@ -486,7 +304,6 @@ class DashboardSidebarCollapsedRail extends StatelessWidget {
                 style: activeMenuKey == _SidebarMenuKey.warnings
                     ? IconButton.styleFrom(
                         backgroundColor: AppTheme.primaryBlue.withOpacity(0.12),
->>>>>>> origin/continue
                       )
                     : null,
                 onPressed: () => onNavigateToRoute(AppConstants.routeWarnings),
@@ -494,16 +311,6 @@ class DashboardSidebarCollapsedRail extends StatelessWidget {
               IconButton(
                 icon: Icon(
                   Icons.person_outline,
-<<<<<<< HEAD
-                  color: highlightRoute == AppConstants.routeProfile
-                      ? Colors.white
-                      : DashboardSidebar.navInactive,
-                ),
-                tooltip: 'Profile',
-                style: highlightRoute == AppConstants.routeProfile
-                    ? IconButton.styleFrom(
-                        backgroundColor: Colors.white.withOpacity(0.12),
-=======
                   color: activeMenuKey == _SidebarMenuKey.profile
                       ? AppTheme.primaryBlue
                       : DashboardSidebar.navInactiveFor(context),
@@ -512,7 +319,6 @@ class DashboardSidebarCollapsedRail extends StatelessWidget {
                 style: activeMenuKey == _SidebarMenuKey.profile
                     ? IconButton.styleFrom(
                         backgroundColor: AppTheme.primaryBlue.withOpacity(0.12),
->>>>>>> origin/continue
                       )
                     : null,
                 onPressed: () => onNavigateToRoute(AppConstants.routeProfile),
@@ -520,16 +326,6 @@ class DashboardSidebarCollapsedRail extends StatelessWidget {
               IconButton(
                 icon: Icon(
                   Icons.playlist_add_outlined,
-<<<<<<< HEAD
-                  color: highlightRoute == AppConstants.routeManualCourses
-                      ? Colors.white
-                      : DashboardSidebar.navInactive,
-                ),
-                tooltip: 'My courses',
-                style: highlightRoute == AppConstants.routeManualCourses
-                    ? IconButton.styleFrom(
-                        backgroundColor: Colors.white.withOpacity(0.12),
-=======
                   color: activeMenuKey == _SidebarMenuKey.myCourses
                       ? AppTheme.primaryBlue
                       : DashboardSidebar.navInactiveFor(context),
@@ -538,20 +334,15 @@ class DashboardSidebarCollapsedRail extends StatelessWidget {
                 style: activeMenuKey == _SidebarMenuKey.myCourses
                     ? IconButton.styleFrom(
                         backgroundColor: AppTheme.primaryBlue.withOpacity(0.12),
->>>>>>> origin/continue
                       )
                     : null,
                 onPressed: () =>
                     onNavigateToRoute(AppConstants.routeManualCourses),
               ),
-<<<<<<< HEAD
-              const Divider(color: Color(0xFF374151), height: 1),
-=======
               Divider(
                 color: isDark ? const Color(0xFF1F2937) : const Color(0xFFE2E8F0),
                 height: 1,
               ),
->>>>>>> origin/continue
               IconButton(
                 icon: Icon(Icons.logout, color: AppTheme.errorRed.withOpacity(0.9)),
                 tooltip: 'End session',
@@ -569,35 +360,23 @@ class DashboardSidebarCollapsedRail extends StatelessWidget {
 class _CollapsedRailNavButton extends StatelessWidget {
   final IconData icon;
   final IconData selectedIcon;
-<<<<<<< HEAD
-  final bool selected;
-=======
   final bool isActive;
->>>>>>> origin/continue
   final String tooltip;
   final VoidCallback onTap;
 
   const _CollapsedRailNavButton({
     required this.icon,
     required this.selectedIcon,
-<<<<<<< HEAD
-    required this.selected,
-=======
     required this.isActive,
->>>>>>> origin/continue
     required this.tooltip,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-<<<<<<< HEAD
-    final color = selected ? Colors.white : DashboardSidebar.navInactive;
-=======
     final color = isActive
         ? Colors.white
         : DashboardSidebar.navInactiveFor(context);
->>>>>>> origin/continue
     return Tooltip(
       message: tooltip,
       child: Padding(
@@ -607,32 +386,22 @@ class _CollapsedRailNavButton extends StatelessWidget {
           child: InkWell(
             onTap: onTap,
             borderRadius: BorderRadius.circular(12),
-<<<<<<< HEAD
-=======
             splashFactory: NoSplash.splashFactory,
             overlayColor: WidgetStateProperty.all(Colors.transparent),
             hoverColor: Colors.transparent,
             focusColor: Colors.transparent,
             highlightColor: Colors.transparent,
->>>>>>> origin/continue
             child: Container(
               width: 44,
               height: 44,
               margin: const EdgeInsets.symmetric(horizontal: 6),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(12),
-<<<<<<< HEAD
-                gradient: selected ? AppTheme.primaryGradient : null,
-              ),
-              child: Icon(
-                selected ? selectedIcon : icon,
-=======
                 gradient: isActive ? AppTheme.primaryGradient : null,
                 color: isActive ? null : const Color(0x00000000),
               ),
               child: Icon(
                 isActive ? selectedIcon : icon,
->>>>>>> origin/continue
                 size: 22,
                 color: color,
               ),
@@ -647,11 +416,7 @@ class _CollapsedRailNavButton extends StatelessWidget {
 class _NavItem extends StatelessWidget {
   final IconData icon;
   final String label;
-<<<<<<< HEAD
-  final bool selected;
-=======
   final bool isActive;
->>>>>>> origin/continue
   final VoidCallback onTap;
   final bool isDestructive;
   final bool compact;
@@ -659,11 +424,7 @@ class _NavItem extends StatelessWidget {
   const _NavItem({
     required this.icon,
     required this.label,
-<<<<<<< HEAD
-    required this.selected,
-=======
     required this.isActive,
->>>>>>> origin/continue
     required this.onTap,
     this.isDestructive = false,
     this.compact = false,
@@ -673,13 +434,9 @@ class _NavItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = isDestructive
         ? AppTheme.errorRed
-<<<<<<< HEAD
-        : (selected ? Colors.white : DashboardSidebar.navInactive);
-=======
         : (isActive
             ? Colors.white
             : DashboardSidebar.navInactiveFor(context));
->>>>>>> origin/continue
     final vPad = compact ? 6.0 : 12.0;
     final fontSize = compact ? 13.0 : 14.0;
 
@@ -690,30 +447,21 @@ class _NavItem extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(12),
-<<<<<<< HEAD
-=======
           splashFactory: NoSplash.splashFactory,
           overlayColor: WidgetStateProperty.all(Colors.transparent),
           hoverColor: Colors.transparent,
           focusColor: Colors.transparent,
           highlightColor: Colors.transparent,
->>>>>>> origin/continue
           child: Container(
             padding: EdgeInsets.symmetric(horizontal: 14, vertical: vPad),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
-<<<<<<< HEAD
-              gradient: selected && !isDestructive
-                  ? AppTheme.primaryGradient
-                  : null,
-=======
               gradient: isActive && !isDestructive
                   ? AppTheme.primaryGradient
                   : null,
               color: isActive || isDestructive
                   ? null
                   : const Color(0x00000000),
->>>>>>> origin/continue
             ),
             child: Row(
               children: [
@@ -727,11 +475,7 @@ class _NavItem extends StatelessWidget {
                     style: TextStyle(
                       color: color,
                       fontSize: fontSize,
-<<<<<<< HEAD
-                      fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-=======
                       fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
->>>>>>> origin/continue
                     ),
                   ),
                 ),
@@ -743,8 +487,6 @@ class _NavItem extends StatelessWidget {
     );
   }
 }
-<<<<<<< HEAD
-=======
 
 enum _SidebarMenuKey {
   dailyPlanner,
@@ -781,4 +523,3 @@ _SidebarMenuKey? _activeMenuKeyForRoute(String route) {
       return null;
   }
 }
->>>>>>> origin/continue

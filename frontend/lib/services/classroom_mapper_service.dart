@@ -97,7 +97,7 @@ class ClassroomMapperService {
           status: taskStatus,
           estimatedMinutes: estimatedMinutes,
           completedAt: sub.completedAt,
-          assignedGrade: sub.displayGrade != null ? sub.displayGrade : null,
+          assignedGrade: sub.displayGrade,
           maxPoints: assignment.maxPoints,
         ),
       );

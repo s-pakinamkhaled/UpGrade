@@ -71,7 +71,8 @@ class AIChatbotScreen extends StatefulWidget {
   State<AIChatbotScreen> createState() => _AIChatbotScreenState();
 }
 
-class _AIChatbotScreenState extends State<AIChatbotScreen> with TickerProviderStateMixin {
+class _AIChatbotScreenState extends State<AIChatbotScreen>
+    with TickerProviderStateMixin {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final List<ChatMessage> _messages = [];
@@ -92,7 +93,7 @@ class _AIChatbotScreenState extends State<AIChatbotScreen> with TickerProviderSt
     final user = FirebaseAuth.instance.currentUser;
     return user?.displayName ?? user?.email?.split('@').first ?? 'Student';
   }
-  
+
   @override
   void initState() {
     super.initState();
@@ -102,7 +103,7 @@ class _AIChatbotScreenState extends State<AIChatbotScreen> with TickerProviderSt
     )..repeat();
     _addWelcomeMessage();
   }
-  
+
   @override
   void dispose() {
     _messageController.dispose();
@@ -110,20 +111,23 @@ class _AIChatbotScreenState extends State<AIChatbotScreen> with TickerProviderSt
     _typingAnimationController.dispose();
     super.dispose();
   }
-  
+
   void _addWelcomeMessage() {
     final tasks = _studentTasks;
     final taskCount = tasks.length;
-    final urgentCount = tasks.where((t) =>
-        t.priority == TaskPriority.urgent || t.priority == TaskPriority.high).length;
+    final urgentCount = tasks
+        .where((t) =>
+            t.priority == TaskPriority.urgent ||
+            t.priority == TaskPriority.high)
+        .length;
 
     final greeting = taskCount > 0
         ? 'Hi $_studentName! I\'m your AI study assistant powered by Llama 3.3. '
-          'You have **$taskCount tasks** synced from Google Classroom'
-          '${urgentCount > 0 ? ' ($urgentCount urgent)' : ''}. '
-          'Ask me anything about your studies!'
+            'You have **$taskCount tasks** synced from Google Classroom'
+            '${urgentCount > 0 ? ' ($urgentCount urgent)' : ''}. '
+            'Ask me anything about your studies!'
         : 'Hi $_studentName! I\'m your AI study assistant powered by Llama 3.3. '
-          'Sync your Google Classroom data so I can give you personalised advice!';
+            'Sync your Google Classroom data so I can give you personalised advice!';
 
     _messages.add(ChatMessage(
       text: greeting,
@@ -136,10 +140,10 @@ class _AIChatbotScreenState extends State<AIChatbotScreen> with TickerProviderSt
       ],
     ));
   }
-  
+
   Future<void> _sendMessage(String text) async {
     if (text.trim().isEmpty) return;
-    
+
     // Add user message
     setState(() {
       _messages.add(ChatMessage(
@@ -148,15 +152,15 @@ class _AIChatbotScreenState extends State<AIChatbotScreen> with TickerProviderSt
         timestamp: DateTime.now(),
       ));
     });
-    
+
     _messageController.clear();
     _scrollToBottom();
-    
+
     // Show typing indicator
     setState(() {
       _isTyping = true;
     });
-    
+
     // Get AI response from backend (Llama 3.3)
     try {
       // Prepare conversation history (only user/assistant, skip welcome)
@@ -174,16 +178,19 @@ class _AIChatbotScreenState extends State<AIChatbotScreen> with TickerProviderSt
       final tasks = _studentTasks;
       final studentContext = <String, dynamic>{
         'name': _studentName,
-        'tasks': tasks.map((task) => <String, dynamic>{
-              'title': task.title,
-              'courseName': task.courseName,
-              'priority': task.priority.name,
-              'status': task.status.name,
-              'deadline': task.deadline.toIso8601String(),
-              'estimatedMinutes': task.estimatedMinutes,
-              if (task.assignedGrade != null) 'assignedGrade': task.assignedGrade,
-              if (task.maxPoints != null) 'maxPoints': task.maxPoints,
-            }).toList(),
+        'tasks': tasks
+            .map((task) => <String, dynamic>{
+                  'title': task.title,
+                  'courseName': task.courseName,
+                  'priority': task.priority.name,
+                  'status': task.status.name,
+                  'deadline': task.deadline.toIso8601String(),
+                  'estimatedMinutes': task.estimatedMinutes,
+                  if (task.assignedGrade != null)
+                    'assignedGrade': task.assignedGrade,
+                  if (task.maxPoints != null) 'maxPoints': task.maxPoints,
+                })
+            .toList(),
       };
 
       // Call API
@@ -193,15 +200,16 @@ class _AIChatbotScreenState extends State<AIChatbotScreen> with TickerProviderSt
         conversationHistory: history,
         studentContext: studentContext,
       );
-      
+
       if (mounted) {
         setState(() {
           _isTyping = false;
-          
+
           if (response != null && response['success'] == true) {
             // Add AI response
             _messages.add(ChatMessage(
-              text: response['message'] ?? 'Sorry, I couldn\'t generate a response.',
+              text: response['message'] ??
+                  'Sorry, I couldn\'t generate a response.',
               isAI: true,
               timestamp: DateTime.now(),
               suggestions: List<String>.from(response['suggestions'] ?? []),
@@ -214,7 +222,7 @@ class _AIChatbotScreenState extends State<AIChatbotScreen> with TickerProviderSt
         _scrollToBottom();
       }
     } catch (e) {
-      print('Error calling AI API: $e');
+      debugPrint('Error calling AI API: $e');
       // Fallback to local mock response
       if (mounted) {
         setState(() {
@@ -225,31 +233,36 @@ class _AIChatbotScreenState extends State<AIChatbotScreen> with TickerProviderSt
       }
     }
   }
-  
+
   ChatMessage _generateAIResponse(String userInput) {
     final lowerInput = userInput.toLowerCase();
-    
+
     final tasks = _studentTasks;
     // Natural language processing simulation
-    if (lowerInput.contains('study now') || lowerInput.contains('what should') || lowerInput.contains('next')) {
+    if (lowerInput.contains('study now') ||
+        lowerInput.contains('what should') ||
+        lowerInput.contains('next')) {
       if (tasks.isEmpty) {
         return ChatMessage(
-          text: 'You don\'t have any tasks right now. Sync your Google Classroom to get started!',
+          text:
+              'You don\'t have any tasks right now. Sync your Google Classroom to get started!',
           isAI: true,
           timestamp: DateTime.now(),
           suggestions: ['Show my schedule', 'Help'],
         );
       }
       final nextTask = tasks.firstWhere(
-        (task) => task.scheduledTime != null && 
-                  task.scheduledTime!.isAfter(DateTime.now()),
+        (task) =>
+            task.scheduledTime != null &&
+            task.scheduledTime!.isAfter(DateTime.now()),
         orElse: () => tasks.first,
       );
       final timeInfo = nextTask.scheduledTime != null
           ? 'It\'s scheduled for ${DateFormat('h:mm a').format(nextTask.scheduledTime!)} and will take about ${nextTask.estimatedMinutes} minutes. '
           : 'It will take about ${nextTask.estimatedMinutes} minutes. ';
       return ChatMessage(
-        text: 'Based on your schedule, I recommend starting with **${nextTask.title}**.\n\n${timeInfo}This is a ${nextTask.priority.label.toLowerCase()} priority task.\n\nWould you like me to start a focus session for this?',
+        text:
+            'Based on your schedule, I recommend starting with **${nextTask.title}**.\n\n${timeInfo}This is a ${nextTask.priority.label.toLowerCase()} priority task.\n\nWould you like me to start a focus session for this?',
         isAI: true,
         timestamp: DateTime.now(),
         relatedTask: nextTask,
@@ -259,15 +272,18 @@ class _AIChatbotScreenState extends State<AIChatbotScreen> with TickerProviderSt
           'Show all tasks',
         ],
       );
-    } else if (lowerInput.contains('reschedule') || lowerInput.contains('move') || lowerInput.contains('change')) {
+    } else if (lowerInput.contains('reschedule') ||
+        lowerInput.contains('move') ||
+        lowerInput.contains('change')) {
       final task = _findTaskInInput(userInput);
-      
+
       if (task != null) {
         final currentTime = task.scheduledTime != null
             ? 'Current time: ${DateFormat('h:mm a').format(task.scheduledTime!)}\n'
             : '';
         return ChatMessage(
-          text: 'I can help you reschedule **${task.title}**.\n\n${currentTime}Estimated duration: ${task.estimatedMinutes} minutes\n\nWhen would you like to move it to? You can say:\n• "Tomorrow at 2 PM"\n• "Later today"\n• "Next week"',
+          text:
+              'I can help you reschedule **${task.title}**.\n\n${currentTime}Estimated duration: ${task.estimatedMinutes} minutes\n\nWhen would you like to move it to? You can say:\n• "Tomorrow at 2 PM"\n• "Later today"\n• "Next week"',
           isAI: true,
           timestamp: DateTime.now(),
           relatedTask: task,
@@ -279,15 +295,19 @@ class _AIChatbotScreenState extends State<AIChatbotScreen> with TickerProviderSt
         );
       } else {
         return ChatMessage(
-          text: 'I can help you reschedule tasks. Which task would you like to move?\n\nYou can say:\n• "Reschedule my math assignment"\n• "Move chemistry quiz"\n• "Change history reading"',
+          text:
+              'I can help you reschedule tasks. Which task would you like to move?\n\nYou can say:\n• "Reschedule my math assignment"\n• "Move chemistry quiz"\n• "Change history reading"',
           isAI: true,
           timestamp: DateTime.now(),
           suggestions: tasks.map((t) => 'Reschedule ${t.title}').toList(),
         );
       }
-    } else if (lowerInput.contains('schedule') || lowerInput.contains('show') || lowerInput.contains('list')) {
+    } else if (lowerInput.contains('schedule') ||
+        lowerInput.contains('show') ||
+        lowerInput.contains('list')) {
       return ChatMessage(
-        text: 'Here\'s your schedule for today:\n\n${_formatSchedule()}\n\nYou have ${tasks.length} tasks scheduled. Would you like me to help you optimize your schedule?',
+        text:
+            'Here\'s your schedule for today:\n\n${_formatSchedule()}\n\nYou have ${tasks.length} tasks scheduled. Would you like me to help you optimize your schedule?',
         isAI: true,
         timestamp: DateTime.now(),
         showTasks: true,
@@ -297,14 +317,17 @@ class _AIChatbotScreenState extends State<AIChatbotScreen> with TickerProviderSt
           'Show warnings',
         ],
       );
-    } else if (lowerInput.contains('warning') || lowerInput.contains('alert') || lowerInput.contains('deadline')) {
-      final urgentTasks = tasks.where((t) => 
-        t.priority == TaskPriority.urgent || t.isOverdue
-      ).toList();
-      
+    } else if (lowerInput.contains('warning') ||
+        lowerInput.contains('alert') ||
+        lowerInput.contains('deadline')) {
+      final urgentTasks = tasks
+          .where((t) => t.priority == TaskPriority.urgent || t.isOverdue)
+          .toList();
+
       if (urgentTasks.isNotEmpty) {
         return ChatMessage(
-          text: '⚠️ **Urgent Alert**\n\nYou have ${urgentTasks.length} urgent task(s):\n\n${urgentTasks.map((t) => '• ${t.title} - Due ${DateFormat('h:mm a').format(t.deadline)}').join('\n')}\n\nI recommend prioritizing these tasks. Would you like me to reschedule other tasks to make room?',
+          text:
+              '⚠️ **Urgent Alert**\n\nYou have ${urgentTasks.length} urgent task(s):\n\n${urgentTasks.map((t) => '• ${t.title} - Due ${DateFormat('h:mm a').format(t.deadline)}').join('\n')}\n\nI recommend prioritizing these tasks. Would you like me to reschedule other tasks to make room?',
           isAI: true,
           timestamp: DateTime.now(),
           showTasks: true,
@@ -316,14 +339,16 @@ class _AIChatbotScreenState extends State<AIChatbotScreen> with TickerProviderSt
         );
       } else {
         return ChatMessage(
-          text: 'Great news! You don\'t have any urgent deadlines right now. Your schedule looks manageable. Keep up the good work! 🎉',
+          text:
+              'Great news! You don\'t have any urgent deadlines right now. Your schedule looks manageable. Keep up the good work! 🎉',
           isAI: true,
           timestamp: DateTime.now(),
         );
       }
     } else if (lowerInput.contains('help') || lowerInput.contains('how')) {
       return ChatMessage(
-        text: 'I can help you with:\n\n📅 **Planning**\n• "What should I study now?"\n• "Show my schedule"\n• "Optimize my day"\n\n🔄 **Rescheduling**\n• "Reschedule my math assignment"\n• "Move chemistry quiz to tomorrow"\n• "Change history reading time"\n\n⚠️ **Warnings**\n• "Show warnings"\n• "Any urgent tasks?"\n• "Check deadlines"\n\nJust ask me naturally!',
+        text:
+            'I can help you with:\n\n📅 **Planning**\n• "What should I study now?"\n• "Show my schedule"\n• "Optimize my day"\n\n🔄 **Rescheduling**\n• "Reschedule my math assignment"\n• "Move chemistry quiz to tomorrow"\n• "Change history reading time"\n\n⚠️ **Warnings**\n• "Show warnings"\n• "Any urgent tasks?"\n• "Check deadlines"\n\nJust ask me naturally!',
         isAI: true,
         timestamp: DateTime.now(),
         suggestions: [
@@ -335,7 +360,8 @@ class _AIChatbotScreenState extends State<AIChatbotScreen> with TickerProviderSt
     } else {
       // Default friendly response
       return ChatMessage(
-        text: 'I understand! Let me help you with that. You can ask me to:\n\n• Plan your study schedule\n• Reschedule tasks\n• Get suggestions on what to study\n• Check for urgent deadlines\n\nWhat would you like to do?',
+        text:
+            'I understand! Let me help you with that. You can ask me to:\n\n• Plan your study schedule\n• Reschedule tasks\n• Get suggestions on what to study\n• Check for urgent deadlines\n\nWhat would you like to do?',
         isAI: true,
         timestamp: DateTime.now(),
         suggestions: [
@@ -346,7 +372,7 @@ class _AIChatbotScreenState extends State<AIChatbotScreen> with TickerProviderSt
       );
     }
   }
-  
+
   Task? _findTaskInInput(String input) {
     final lowerInput = input.toLowerCase();
     for (var task in _studentTasks) {
@@ -357,12 +383,12 @@ class _AIChatbotScreenState extends State<AIChatbotScreen> with TickerProviderSt
     }
     return null;
   }
-  
+
   String _formatSchedule() {
     final sortedTasks = List<Task>.from(_studentTasks)
       ..sort((a, b) => (a.scheduledTime ?? DateTime.now())
           .compareTo(b.scheduledTime ?? DateTime.now()));
-    
+
     return sortedTasks.map((task) {
       final time = task.scheduledTime != null
           ? DateFormat('h:mm a').format(task.scheduledTime!)
@@ -370,7 +396,7 @@ class _AIChatbotScreenState extends State<AIChatbotScreen> with TickerProviderSt
       return '• $time - ${task.title} (${task.courseName})';
     }).join('\n');
   }
-  
+
   void _scrollToBottom() {
     Future.delayed(const Duration(milliseconds: 100), () {
       if (_scrollController.hasClients) {
@@ -382,58 +408,17 @@ class _AIChatbotScreenState extends State<AIChatbotScreen> with TickerProviderSt
       }
     });
   }
-  
+
   @override
   Widget build(BuildContext context) {
-<<<<<<< HEAD
-    return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: Icon(
-            Navigator.canPop(context)
-                ? Icons.arrow_back
-                : (widget.openDrawer != null ? Icons.menu : Icons.arrow_back),
-          ),
-          onPressed: () {
-            if (Navigator.canPop(context)) {
-              Navigator.maybePop(context);
-            } else if (widget.openDrawer != null) {
-              widget.openDrawer!();
-            } else {
-              Navigator.maybePop(context);
-            }
-          },
-          tooltip: Navigator.canPop(context) ? 'Back' : 'Open menu',
-        ),
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                gradient: AppTheme.primaryGradient,
-                borderRadius: BorderRadius.circular(10),
-                boxShadow: AppTheme.softShadow,
-              ),
-              child: const Icon(
-                Icons.auto_awesome,
-                color: AppTheme.white,
-                size: 20,
-              ),
-            ),
-            const SizedBox(width: 12),
-            const Text(
-              'AI Assistant',
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-                letterSpacing: -0.5,
-=======
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final pageBg = isDark ? const Color(0xFF0B1220) : const Color(0xFFF1F5FB);
     final cardBg = isDark ? const Color(0xFF111827) : const Color(0xFFF4F7FC);
-    final borderColor = isDark ? const Color(0xFF1F2937) : const Color(0xFFE2E8F0);
+    final borderColor =
+        isDark ? const Color(0xFF1F2937) : const Color(0xFFE2E8F0);
     final textColor = isDark ? Colors.white : AppTheme.darkText;
-    final suggestions = _messages.isNotEmpty ? _messages.last.suggestions : <String>[];
+    final suggestions =
+        _messages.isNotEmpty ? _messages.last.suggestions : <String>[];
     final root = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -453,7 +438,8 @@ class _AIChatbotScreenState extends State<AIChatbotScreen> with TickerProviderSt
                   gradient: AppTheme.primaryGradient,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(Icons.smart_toy_outlined, color: Colors.white, size: 20),
+                child: const Icon(Icons.smart_toy_outlined,
+                    color: Colors.white, size: 20),
               ),
               const SizedBox(width: 10),
               Column(
@@ -461,14 +447,20 @@ class _AIChatbotScreenState extends State<AIChatbotScreen> with TickerProviderSt
                 children: [
                   Text(
                     'AI Study Assistant',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: textColor),
+                    style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                        color: textColor),
                   ),
                   const SizedBox(height: 2),
                   const Row(
                     children: [
                       Icon(Icons.circle, size: 9, color: AppTheme.successGreen),
                       SizedBox(width: 6),
-                      Text('Online & Ready', style: TextStyle(color: AppTheme.successGreen, fontWeight: FontWeight.w600)),
+                      Text('Online & Ready',
+                          style: TextStyle(
+                              color: AppTheme.successGreen,
+                              fontWeight: FontWeight.w600)),
                     ],
                   ),
                 ],
@@ -517,15 +509,19 @@ class _AIChatbotScreenState extends State<AIChatbotScreen> with TickerProviderSt
                 child: OutlinedButton(
                   onPressed: () => _sendMessage(s),
                   style: OutlinedButton.styleFrom(
-                    backgroundColor: isDark ? const Color(0xFF111827) : Colors.white,
+                    backgroundColor:
+                        isDark ? const Color(0xFF111827) : Colors.white,
                     side: BorderSide(color: borderColor),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14)),
                     alignment: Alignment.centerLeft,
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 14),
                   ),
                   child: Text(
                     s,
-                    style: TextStyle(color: textColor, fontWeight: FontWeight.w600),
+                    style: TextStyle(
+                        color: textColor, fontWeight: FontWeight.w600),
                   ),
                 ),
               );
@@ -550,7 +546,8 @@ class _AIChatbotScreenState extends State<AIChatbotScreen> with TickerProviderSt
                     borderRadius: const BorderRadius.all(Radius.circular(12)),
                     borderSide: BorderSide(color: borderColor),
                   ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
                 ),
                 style: TextStyle(color: textColor),
                 textInputAction: TextInputAction.send,
@@ -566,189 +563,10 @@ class _AIChatbotScreenState extends State<AIChatbotScreen> with TickerProviderSt
               child: IconButton(
                 onPressed: () => _sendMessage(_messageController.text),
                 icon: const Icon(Icons.send_outlined, color: Colors.white),
->>>>>>> origin/continue
               ),
             ),
           ],
         ),
-<<<<<<< HEAD
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.info_outline),
-            onPressed: () {
-              _sendMessage('help');
-            },
-            tooltip: 'Help',
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          // Quick Stats Bar
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: AppTheme.white,
-              boxShadow: AppTheme.softShadow,
-            ),
-            child: Row(
-              children: [
-                _buildQuickStat(
-                  '${_studentTasks.length}',
-                  'Tasks',
-                  AppTheme.primaryBlue,
-                ),
-                Container(
-                  width: 1,
-                  height: 30,
-                  color: AppTheme.mediumGray.withOpacity(0.3),
-                  margin: const EdgeInsets.symmetric(horizontal: 16),
-                ),
-                _buildQuickStat(
-                  '${_studentTasks.where((t) => t.priority == TaskPriority.urgent).length}',
-                  'Urgent',
-                  AppTheme.errorRed,
-                ),
-                const Spacer(),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    gradient: AppTheme.softGradient,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 8,
-                        height: 8,
-                        decoration: const BoxDecoration(
-                          color: AppTheme.successGreen,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        'Online',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: AppTheme.darkText.withOpacity(0.7),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          
-          // Chat Messages
-          Expanded(
-            child: Container(
-              color: AppTheme.lightGray,
-              child: ListView.builder(
-                controller: _scrollController,
-                padding: const EdgeInsets.all(16),
-                itemCount: _messages.length + (_isTyping ? 1 : 0),
-                itemBuilder: (context, index) {
-                  if (index == _messages.length && _isTyping) {
-                    return _buildTypingIndicator();
-                  }
-                  
-                  final message = _messages[index];
-                  return _buildChatMessage(message);
-                },
-              ),
-            ),
-          ),
-          
-          // Suggestions Bar (if last message has suggestions)
-          if (_messages.isNotEmpty && _messages.last.suggestions.isNotEmpty)
-            _buildSuggestionsBar(_messages.last.suggestions),
-          
-          // Input Area
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppTheme.white,
-              boxShadow: [
-                BoxShadow(
-                  color: AppTheme.primaryBlue.withOpacity(0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, -2),
-                ),
-              ],
-            ),
-            child: SafeArea(
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: AppTheme.lightGray,
-                        borderRadius: BorderRadius.circular(28),
-                        border: Border.all(
-                          color: AppTheme.primaryBlue.withOpacity(0.1),
-                          width: 1,
-                        ),
-                      ),
-                      child: TextField(
-                        controller: _messageController,
-                        decoration: InputDecoration(
-                          hintText: 'Ask me anything...',
-                          hintStyle: TextStyle(
-                            color: AppTheme.mediumGray,
-                            fontSize: 14,
-                          ),
-                          filled: false,
-                          border: InputBorder.none,
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 14,
-                          ),
-                          prefixIcon: Icon(
-                            Icons.auto_awesome,
-                            size: 18,
-                            color: AppTheme.primaryBlue.withOpacity(0.6),
-                          ),
-                        ),
-                        style: const TextStyle(fontSize: 14),
-                        maxLines: null,
-                        textInputAction: TextInputAction.send,
-                        onSubmitted: _sendMessage,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Container(
-                    decoration: BoxDecoration(
-                      gradient: AppTheme.primaryGradient,
-                      shape: BoxShape.circle,
-                      boxShadow: AppTheme.softShadow,
-                    ),
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: () => _sendMessage(_messageController.text),
-                        borderRadius: BorderRadius.circular(28),
-                        child: const Padding(
-                          padding: EdgeInsets.all(12),
-                          child: Icon(
-                            Icons.send_rounded,
-                            color: AppTheme.white,
-                            size: 20,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-=======
       ],
     );
 
@@ -766,54 +584,23 @@ class _AIChatbotScreenState extends State<AIChatbotScreen> with TickerProviderSt
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: root,
->>>>>>> origin/continue
       ),
     );
   }
-  
-  Widget _buildQuickStat(String value, String label, Color color) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: color,
-          ),
-        ),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 11,
-            color: AppTheme.mediumGray,
-          ),
-        ),
-      ],
-    );
-  }
-  
+
   Widget _buildChatMessage(ChatMessage message) {
-<<<<<<< HEAD
-=======
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final aiBubbleColor = isDark ? const Color(0xFF0F172A) : Colors.white;
->>>>>>> origin/continue
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Align(
-          alignment: message.isAI ? Alignment.centerLeft : Alignment.centerRight,
+          alignment:
+              message.isAI ? Alignment.centerLeft : Alignment.centerRight,
           child: Container(
             margin: const EdgeInsets.only(bottom: 12),
             constraints: BoxConstraints(
-<<<<<<< HEAD
-              maxWidth: MediaQuery.of(context).size.width * 0.8,
-=======
               maxWidth: MediaQuery.of(context).size.width * 0.72,
->>>>>>> origin/continue
             ),
             child: Column(
               crossAxisAlignment: message.isAI
@@ -822,25 +609,10 @@ class _AIChatbotScreenState extends State<AIChatbotScreen> with TickerProviderSt
               children: [
                 // Message Bubble
                 Container(
-<<<<<<< HEAD
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-=======
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
->>>>>>> origin/continue
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                   decoration: BoxDecoration(
-                    gradient: message.isAI
-                        ? null
-                        : AppTheme.primaryGradient,
-<<<<<<< HEAD
-                    color: message.isAI ? AppTheme.white : null,
-                    borderRadius: BorderRadius.only(
-                      topLeft: const Radius.circular(20),
-                      topRight: const Radius.circular(20),
-                      bottomLeft: Radius.circular(message.isAI ? 20 : 4),
-                      bottomRight: Radius.circular(message.isAI ? 4 : 20),
-                    ),
-                    boxShadow: AppTheme.softShadow,
-=======
+                    gradient: message.isAI ? null : AppTheme.primaryGradient,
                     color: message.isAI ? aiBubbleColor : null,
                     borderRadius: BorderRadius.only(
                       topLeft: const Radius.circular(16),
@@ -852,7 +624,6 @@ class _AIChatbotScreenState extends State<AIChatbotScreen> with TickerProviderSt
                         ? Border.all(color: const Color(0xFFE2E8F0))
                         : null,
                     boxShadow: message.isAI ? null : AppTheme.softShadow,
->>>>>>> origin/continue
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -891,7 +662,7 @@ class _AIChatbotScreenState extends State<AIChatbotScreen> with TickerProviderSt
                     ],
                   ),
                 ),
-                
+
                 // Related Task Card
                 if (message.relatedTask != null) ...[
                   const SizedBox(height: 8),
@@ -900,7 +671,8 @@ class _AIChatbotScreenState extends State<AIChatbotScreen> with TickerProviderSt
                     child: TaskCard(
                       task: message.relatedTask!,
                       onReschedule: () {
-                        _sendMessage('Reschedule ${message.relatedTask!.title}');
+                        _sendMessage(
+                            'Reschedule ${message.relatedTask!.title}');
                       },
                       onTap: () {
                         Navigator.of(context).pushNamed(
@@ -911,7 +683,7 @@ class _AIChatbotScreenState extends State<AIChatbotScreen> with TickerProviderSt
                     ),
                   ),
                 ],
-                
+
                 // Tasks List
                 if (message.showTasks) ...[
                   const SizedBox(height: 8),
@@ -945,17 +717,14 @@ class _AIChatbotScreenState extends State<AIChatbotScreen> with TickerProviderSt
       ],
     );
   }
-  
+
   Widget _buildMessageText(String text) {
-<<<<<<< HEAD
-=======
     final isDark = Theme.of(context).brightness == Brightness.dark;
->>>>>>> origin/continue
     // Parse markdown-like formatting
     final parts = <TextSpan>[];
     final regex = RegExp(r'(\*\*.*?\*\*|•)');
     int lastIndex = 0;
-    
+
     for (final match in regex.allMatches(text)) {
       // Add text before match
       if (match.start > lastIndex) {
@@ -963,7 +732,7 @@ class _AIChatbotScreenState extends State<AIChatbotScreen> with TickerProviderSt
           text: text.substring(lastIndex, match.start),
         ));
       }
-      
+
       // Add formatted match
       final matchedText = match.group(0)!;
       if (matchedText.startsWith('**') && matchedText.endsWith('**')) {
@@ -978,23 +747,19 @@ class _AIChatbotScreenState extends State<AIChatbotScreen> with TickerProviderSt
       } else {
         parts.add(TextSpan(text: matchedText));
       }
-      
+
       lastIndex = match.end;
     }
-    
+
     // Add remaining text
     if (lastIndex < text.length) {
       parts.add(TextSpan(text: text.substring(lastIndex)));
     }
-    
+
     return RichText(
       text: TextSpan(
         style: TextStyle(
-<<<<<<< HEAD
-          color: AppTheme.darkText,
-=======
           color: isDark ? Colors.white : AppTheme.darkText,
->>>>>>> origin/continue
           fontSize: 14,
           height: 1.5,
         ),
@@ -1002,7 +767,7 @@ class _AIChatbotScreenState extends State<AIChatbotScreen> with TickerProviderSt
       ),
     );
   }
-  
+
   Widget _buildUserMessageText(String text) {
     return Text(
       text,
@@ -1013,29 +778,18 @@ class _AIChatbotScreenState extends State<AIChatbotScreen> with TickerProviderSt
       ),
     );
   }
-  
+
   Widget _buildTypingIndicator() {
-<<<<<<< HEAD
-=======
     final isDark = Theme.of(context).brightness == Brightness.dark;
->>>>>>> origin/continue
     return Align(
       alignment: Alignment.centerLeft,
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
-<<<<<<< HEAD
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: AppTheme.white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: AppTheme.softShadow,
-=======
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
           color: isDark ? const Color(0xFF0F172A) : Colors.white,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: const Color(0xFFE2E8F0)),
->>>>>>> origin/continue
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -1069,15 +823,16 @@ class _AIChatbotScreenState extends State<AIChatbotScreen> with TickerProviderSt
       ),
     );
   }
-  
+
   Widget _buildTypingDot(int index) {
     return AnimatedBuilder(
       animation: _typingAnimationController,
       builder: (context, child) {
         final delay = index * 0.2;
-        final animatedValue = ((_typingAnimationController.value + delay) % 1.0);
+        final animatedValue =
+            ((_typingAnimationController.value + delay) % 1.0);
         final opacity = 0.3 + (0.7 * (0.5 - (animatedValue - 0.5).abs()) * 2);
-        
+
         return Container(
           width: 8,
           height: 8,
@@ -1092,57 +847,6 @@ class _AIChatbotScreenState extends State<AIChatbotScreen> with TickerProviderSt
       },
     );
   }
-  
-  Widget _buildSuggestionsBar(List<String> suggestions) {
-    return Container(
-      height: 50,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: AppTheme.white,
-        border: Border(
-          top: BorderSide(
-            color: AppTheme.mediumGray.withOpacity(0.2),
-            width: 1,
-          ),
-        ),
-      ),
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        itemCount: suggestions.length,
-        itemBuilder: (context, index) {
-          final suggestion = suggestions[index];
-          return Container(
-            margin: const EdgeInsets.only(right: 8),
-            child: InkWell(
-              onTap: () => _sendMessage(suggestion),
-              borderRadius: BorderRadius.circular(20),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                decoration: BoxDecoration(
-                  gradient: AppTheme.softGradient,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: AppTheme.primaryBlue.withOpacity(0.2),
-                    width: 1,
-                  ),
-                ),
-                child: Center(
-                  child: Text(
-                    suggestion,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.primaryBlue,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
 }
 
 class ChatMessage {
@@ -1152,7 +856,7 @@ class ChatMessage {
   final List<String> suggestions;
   final Task? relatedTask;
   final bool showTasks;
-  
+
   ChatMessage({
     required this.text,
     required this.isAI,

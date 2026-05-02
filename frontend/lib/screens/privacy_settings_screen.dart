@@ -1,42 +1,16 @@
 import 'package:flutter/material.dart';
-<<<<<<< HEAD
-
-import '../widgets/upgrade_page_shell.dart';
-=======
 import 'package:provider/provider.dart';
 
 import '../core/constants.dart';
 import '../core/theme.dart';
 import '../providers/settings_provider.dart';
 import '../widgets/dashboard_secondary_shell.dart';
->>>>>>> origin/continue
 
 class PrivacySettingsScreen extends StatelessWidget {
   const PrivacySettingsScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-<<<<<<< HEAD
-    return const UpGradePageShell(
-      title: 'Privacy Settings',
-      subtitle: 'Control how your data is used in UpGrade',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Coming soon',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          SizedBox(height: 8),
-          Text(
-            'You will be able to manage data retention, analytics, and AI training preferences here.',
-          ),
-        ],
-      ),
-=======
     final content = Consumer<SettingsProvider>(
       builder: (context, settings, _) {
         final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -218,7 +192,6 @@ class PrivacySettingsScreen extends StatelessWidget {
           ),
         ),
       ],
->>>>>>> origin/continue
     );
   }
 }

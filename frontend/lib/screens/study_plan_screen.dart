@@ -79,11 +79,7 @@ import '../services/api_service.dart';
 import '../widgets/dashboard_secondary_shell.dart';
 
 /// Study Plan page matching the dashboard design: header, summary cards,
-<<<<<<< HEAD
-/// My Courses / Upcoming Tasks tabs, course cards with gradient progress,
-=======
 /// My Courses / Weekly Plan tabs, course cards with gradient progress,
->>>>>>> origin/continue
 /// and AI recommendation card.
 class StudyPlanScreen extends StatefulWidget {
   const StudyPlanScreen({super.key});
@@ -93,11 +89,7 @@ class StudyPlanScreen extends StatefulWidget {
 }
 
 class _StudyPlanScreenState extends State<StudyPlanScreen> {
-<<<<<<< HEAD
-  int _tabIndex = 0; // 0 = My Courses, 1 = Upcoming Tasks
-=======
   int _tabIndex = 0; // 0 = My Courses, 1 = Weekly Plan
->>>>>>> origin/continue
   bool _loading = true;
   String? _error;
   StudyPlan? _plan;
@@ -522,11 +514,7 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
           ),
           Expanded(
             child: _tabChip(
-<<<<<<< HEAD
-              label: 'Upcoming Tasks',
-=======
               label: 'Weekly Plan',
->>>>>>> origin/continue
               selected: _tabIndex == 1,
               onTap: () => setState(() => _tabIndex = 1),
               surface: surface,
@@ -800,11 +788,7 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-<<<<<<< HEAD
-          'Upcoming Tasks',
-=======
           'Weekly Plan',
->>>>>>> origin/continue
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.bold,
@@ -1075,10 +1059,7 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
   }
 
   Widget _buildLoading() {
-<<<<<<< HEAD
-=======
     final isDark = Theme.of(context).brightness == Brightness.dark;
->>>>>>> origin/continue
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -1106,13 +1087,9 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
               'AI-powered personalized schedule',
               style: TextStyle(
                 fontSize: 14,
-<<<<<<< HEAD
-                color: AppTheme.darkText.withOpacity(0.6),
-=======
                 color: isDark
                     ? const Color(0xFF9CA3AF)
                     : AppTheme.darkText.withOpacity(0.6),
->>>>>>> origin/continue
               ),
             ),
           ],
@@ -1122,14 +1099,6 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
   }
 
   Widget _buildErrorBanner(BuildContext context) {
-<<<<<<< HEAD
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppTheme.errorRed.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.errorRed.withOpacity(0.3)),
-=======
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.all(16),
@@ -1143,7 +1112,6 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
               ? const Color(0xFF7F1D1D)
               : AppTheme.errorRed.withOpacity(0.3),
         ),
->>>>>>> origin/continue
       ),
       child: Row(
         children: [
@@ -1152,14 +1120,10 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
           Expanded(
             child: Text(
               _error!,
-<<<<<<< HEAD
-              style: TextStyle(fontSize: 14, color: AppTheme.darkText),
-=======
               style: TextStyle(
                 fontSize: 14,
                 color: isDark ? const Color(0xFFFCA5A5) : AppTheme.darkText,
               ),
->>>>>>> origin/continue
             ),
           ),
           TextButton(

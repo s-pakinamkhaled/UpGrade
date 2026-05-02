@@ -148,6 +148,112 @@ class ApiService {
     }
   }
 
+<<<<<<< HEAD
+=======
+  Future<bool> upsertTaskForTracking({
+    required String taskId,
+    required String userId,
+    required Map<String, dynamic> taskJson,
+  }) async {
+    try {
+      final payload = {
+        'id': taskId,
+        'userId': userId,
+        'title': taskJson['title'],
+        'status': taskJson['status'] ?? 'pending',
+        'startedAt': taskJson['startedAt'],
+        'completedAt': taskJson['completedAt'],
+        'updatedAt': taskJson['updatedAt'] ?? DateTime.now().toIso8601String(),
+      };
+
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/tasks'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode(payload),
+      ).timeout(const Duration(seconds: 10));
+
+      return response.statusCode == 200;
+    } catch (e) {
+      print('Failed to upsert task for tracking: $e');
+      return false;
+    }
+  }
+
+  Future<Map<String, dynamic>?> updateTaskStatus({
+    required String taskId,
+    required String status,
+    required String userId,
+  }) async {
+    try {
+      final response = await http.patch(
+        Uri.parse('$baseUrl/api/tasks/$taskId/status'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'status': status, 'userId': userId}),
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        return json.decode(response.body) as Map<String, dynamic>;
+      }
+
+      print('Task status API error: ${response.statusCode} ${response.body}');
+      return null;
+    } catch (e) {
+      print('Failed to update task status: $e');
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>?> getUserProfile(String userId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/profile/$userId'),
+        headers: {'Content-Type': 'application/json'},
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final body = json.decode(response.body) as Map<String, dynamic>;
+        return body['profile'] as Map<String, dynamic>?;
+      }
+      return null;
+    } catch (e) {
+      print('Failed to fetch user profile: $e');
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>?> updateUserProfile({
+    required String userId,
+    required String fullName,
+    required String email,
+    required String major,
+    required String academicYear,
+    required String gpa,
+  }) async {
+    try {
+      final response = await http.patch(
+        Uri.parse('$baseUrl/api/profile/$userId'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'fullName': fullName,
+          'email': email,
+          'major': major,
+          'academicYear': academicYear,
+          'gpa': gpa,
+        }),
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final body = json.decode(response.body) as Map<String, dynamic>;
+        return body['profile'] as Map<String, dynamic>?;
+      }
+      return null;
+    } catch (e) {
+      print('Failed to update user profile: $e');
+      return null;
+    }
+  }
+
+>>>>>>> origin/continue
   // Add more API methods here as needed:
   // - getUserTasks()
   // - createTask()

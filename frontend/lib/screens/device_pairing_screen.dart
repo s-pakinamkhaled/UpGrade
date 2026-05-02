@@ -148,6 +148,16 @@ class _DevicePairingScreenState extends State<DevicePairingScreen> {
   }
 
   Widget _buildBody() {
+<<<<<<< HEAD
+=======
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final qrContainerColor =
+        isDark ? theme.colorScheme.surface : AppTheme.white;
+    final hintTextColor = theme.colorScheme.onSurface.withOpacity(0.7);
+    final subHintTextColor = theme.colorScheme.onSurface.withOpacity(0.6);
+
+>>>>>>> origin/continue
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -159,7 +169,11 @@ class _DevicePairingScreenState extends State<DevicePairingScreen> {
                 width: 260,
                 height: 260,
                 decoration: BoxDecoration(
+<<<<<<< HEAD
                   color: AppTheme.white,
+=======
+                  color: qrContainerColor,
+>>>>>>> origin/continue
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
                     color: AppTheme.primaryBlue.withOpacity(0.2),
@@ -171,7 +185,14 @@ class _DevicePairingScreenState extends State<DevicePairingScreen> {
                     ? _buildPairedView()
                     : sessionId == null
                         ? _buildLoadingView()
+<<<<<<< HEAD
                         : _buildQRCodeView(),
+=======
+                        : _buildQRCodeView(
+                            hintTextColor: hintTextColor,
+                            subHintTextColor: subHintTextColor,
+                          ),
+>>>>>>> origin/continue
               ),
             ],
           ),
@@ -228,7 +249,14 @@ class _DevicePairingScreenState extends State<DevicePairingScreen> {
     );
   }
 
+<<<<<<< HEAD
   Widget _buildQRCodeView() {
+=======
+  Widget _buildQRCodeView({
+    required Color hintTextColor,
+    required Color subHintTextColor,
+  }) {
+>>>>>>> origin/continue
     final link = 'upgrade://pair?session=$sessionId';
 
     return Column(
@@ -245,7 +273,11 @@ class _DevicePairingScreenState extends State<DevicePairingScreen> {
           'In UpGrade app: Menu → Connect Desktop',
           style: TextStyle(
             fontSize: 12,
+<<<<<<< HEAD
             color: AppTheme.darkText.withOpacity(0.7),
+=======
+            color: hintTextColor,
+>>>>>>> origin/continue
           ),
         ),
         const SizedBox(height: 4),
@@ -253,7 +285,11 @@ class _DevicePairingScreenState extends State<DevicePairingScreen> {
           'Then scan this QR with your phone',
           style: TextStyle(
             fontSize: 11,
+<<<<<<< HEAD
             color: AppTheme.darkText.withOpacity(0.6),
+=======
+            color: subHintTextColor,
+>>>>>>> origin/continue
           ),
         ),
       ],

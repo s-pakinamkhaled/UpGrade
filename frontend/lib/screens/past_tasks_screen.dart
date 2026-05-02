@@ -23,6 +23,15 @@ class PastTasksScreen extends StatelessWidget {
       ..sort((a, b) => b.deadline.compareTo(a.deadline));
   }
 
+<<<<<<< HEAD
+=======
+  static bool _isMissed(Task task) {
+    final today = _dateOnly(DateTime.now());
+    return _dateOnly(task.deadline).isBefore(today) &&
+        task.status != TaskStatus.completed;
+  }
+
+>>>>>>> origin/continue
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -38,7 +47,11 @@ class PastTasksScreen extends StatelessWidget {
         builder: (context, provider, _) {
           final allTasks = provider.tasks;
           final past = _pastTasks(allTasks);
+<<<<<<< HEAD
           final missed = past.where((t) => t.status == TaskStatus.missed).toList();
+=======
+          final missed = past.where(_isMissed).toList();
+>>>>>>> origin/continue
 
           if (past.isEmpty) {
             return Center(
@@ -172,7 +185,14 @@ class _PastTaskCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+<<<<<<< HEAD
     final isMissed = task.status == TaskStatus.missed;
+=======
+    final today = DateTime.now();
+    final isMissed = DateTime(task.deadline.year, task.deadline.month, task.deadline.day)
+            .isBefore(DateTime(today.year, today.month, today.day)) &&
+        task.status != TaskStatus.completed;
+>>>>>>> origin/continue
     final hasGrade = task.assignedGrade != null || task.maxPoints != null;
 
     String statusLabel;

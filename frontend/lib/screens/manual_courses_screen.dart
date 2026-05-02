@@ -128,6 +128,10 @@ class _ManualCoursesScreenState extends State<ManualCoursesScreen> {
   Widget _buildCoursesColumn(BuildContext context) {
     final theme = Theme.of(context);
     final onSurfaceMuted = theme.colorScheme.onSurface.withOpacity(0.65);
+<<<<<<< HEAD
+=======
+    final onSurfaceStrong = theme.colorScheme.onSurface.withOpacity(0.85);
+>>>>>>> origin/continue
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -282,7 +286,11 @@ class _ManualCoursesScreenState extends State<ManualCoursesScreen> {
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
+<<<<<<< HEAD
                     color: AppTheme.darkText.withOpacity(0.85),
+=======
+                    color: onSurfaceStrong,
+>>>>>>> origin/continue
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -292,7 +300,11 @@ class _ManualCoursesScreenState extends State<ManualCoursesScreen> {
                     "${AppConstants.appName} with Google Classroom.",
                     style: TextStyle(
                       fontSize: 14,
+<<<<<<< HEAD
                       color: AppTheme.darkText.withOpacity(0.65),
+=======
+                      color: onSurfaceMuted,
+>>>>>>> origin/continue
                     ),
                   )
                 else
@@ -376,7 +388,11 @@ class _ManualCoursesScreenState extends State<ManualCoursesScreen> {
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
+<<<<<<< HEAD
                     color: AppTheme.darkText.withOpacity(0.85),
+=======
+                    color: onSurfaceStrong,
+>>>>>>> origin/continue
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -385,7 +401,11 @@ class _ManualCoursesScreenState extends State<ManualCoursesScreen> {
                     'No manual tasks yet. Use “Add a task” above — they show up in your daily planner.',
                     style: TextStyle(
                       fontSize: 14,
+<<<<<<< HEAD
                       color: AppTheme.darkText.withOpacity(0.65),
+=======
+                      color: onSurfaceMuted,
+>>>>>>> origin/continue
                     ),
                   )
                 else
@@ -466,7 +486,10 @@ class _ManualCoursesScreenState extends State<ManualCoursesScreen> {
             .withOpacity(theme.brightness == Brightness.dark ? 0.35 : 1),
         body: DashboardShellRow(
           popOverlayRouteAfterSidebarAction: true,
+<<<<<<< HEAD
           highlightRoute: AppConstants.routeManualCourses,
+=======
+>>>>>>> origin/continue
           body: SafeArea(
             child: LayoutBuilder(
               builder: (context, constraints) {

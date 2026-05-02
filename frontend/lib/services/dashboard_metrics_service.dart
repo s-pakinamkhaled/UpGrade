@@ -21,6 +21,7 @@ class DashboardMetricsService {
     final totalTasks = filteredTasks.length;
     final completedTasks =
         filteredTasks.where((t) => t.status == TaskStatus.completed).length;
+<<<<<<< HEAD
     final pendingTasks = filteredTasks
         .where(
           (t) =>
@@ -30,6 +31,17 @@ class DashboardMetricsService {
         .length;
     final missedTasks =
         filteredTasks.where((t) => t.status == TaskStatus.missed).length;
+=======
+    final pendingTasks =
+        filteredTasks.where((t) => t.status == TaskStatus.pending).length;
+    final inProgressTasks =
+        filteredTasks.where((t) => t.status == TaskStatus.inProgress).length;
+    final missedTasks = filteredTasks
+        .where(
+          (t) => t.deadline.isBefore(now) && t.status != TaskStatus.completed,
+        )
+        .length;
+>>>>>>> origin/continue
 
     final dueToday = filteredTasks
         .where(
@@ -101,6 +113,10 @@ class DashboardMetricsService {
       totalTasks: totalTasks,
       completedTasks: completedTasks,
       pendingTasks: pendingTasks,
+<<<<<<< HEAD
+=======
+      inProgressTasks: inProgressTasks,
+>>>>>>> origin/continue
       missedTasks: missedTasks,
       dueToday: dueToday,
       upcoming48Hours: upcoming48Hours,
@@ -116,6 +132,10 @@ class DashboardMetricsService {
       totalTasks: totalTasks,
       completedTasks: completedTasks,
       pendingTasks: pendingTasks,
+<<<<<<< HEAD
+=======
+      inProgressTasks: inProgressTasks,
+>>>>>>> origin/continue
       missedTasks: missedTasks,
       dueToday: dueToday,
       upcoming48Hours: upcoming48Hours,
@@ -146,6 +166,10 @@ class DashboardMetricsService {
   }) {
     final points = <DashboardDayPoint>[];
 
+<<<<<<< HEAD
+=======
+    final now = DateTime.now();
+>>>>>>> origin/continue
     for (var i = 0; i < days; i++) {
       final day = start.add(Duration(days: i));
       final dueTasks =
@@ -153,8 +177,14 @@ class DashboardMetricsService {
 
       final dueCompleted =
           dueTasks.where((t) => t.status == TaskStatus.completed).length;
+<<<<<<< HEAD
       final dueMissed =
           dueTasks.where((t) => t.status == TaskStatus.missed).length;
+=======
+      final dueMissed = dueTasks
+          .where((t) => t.deadline.isBefore(now) && t.status != TaskStatus.completed)
+          .length;
+>>>>>>> origin/continue
       final duePending = dueTasks
           .where(
             (t) =>
@@ -237,6 +267,10 @@ class DashboardMetricsService {
 
   static List<CourseProgressStat> _buildCourseProgress(List<Task> tasks) {
     final byCourse = <String, List<Task>>{};
+<<<<<<< HEAD
+=======
+    final now = DateTime.now();
+>>>>>>> origin/continue
 
     for (final task in tasks) {
       final name = _courseName(task);
@@ -247,7 +281,13 @@ class DashboardMetricsService {
       final list = entry.value;
       final completed =
           list.where((t) => t.status == TaskStatus.completed).length;
+<<<<<<< HEAD
       final missed = list.where((t) => t.status == TaskStatus.missed).length;
+=======
+      final missed = list
+          .where((t) => t.deadline.isBefore(now) && t.status != TaskStatus.completed)
+          .length;
+>>>>>>> origin/continue
       final pending = list
           .where(
             (t) =>
@@ -325,6 +365,10 @@ class DashboardMetricsService {
     required int totalTasks,
     required int completedTasks,
     required int pendingTasks,
+<<<<<<< HEAD
+=======
+    required int inProgressTasks,
+>>>>>>> origin/continue
     required int missedTasks,
     required int dueToday,
     required int upcoming48Hours,
@@ -372,9 +416,15 @@ class DashboardMetricsService {
       insights.add(
         'You have $missedTasks missed task${missedTasks == 1 ? '' : 's'} to recover. Focus first on $focusCourse.',
       );
+<<<<<<< HEAD
     } else if (pendingTasks > 0) {
       insights.add(
         'Great job keeping zero misses. You still have $pendingTasks pending task${pendingTasks == 1 ? '' : 's'} to complete.',
+=======
+    } else if (pendingTasks > 0 || inProgressTasks > 0) {
+      insights.add(
+        'Great job keeping zero misses. You have $pendingTasks pending and $inProgressTasks in-progress task${(pendingTasks + inProgressTasks) == 1 ? '' : 's'} left.',
+>>>>>>> origin/continue
       );
     }
 

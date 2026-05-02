@@ -1,7 +1,14 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+<<<<<<< HEAD
 import '../core/theme.dart';
 import '../models/task.dart';
+=======
+import 'package:provider/provider.dart';
+import '../core/theme.dart';
+import '../models/task.dart';
+import '../providers/classroom_provider.dart';
+>>>>>>> origin/continue
 
 class TaskExecutionScreen extends StatefulWidget {
   final Task task;
@@ -30,7 +37,15 @@ class _TaskExecutionScreenState extends State<TaskExecutionScreen> {
     super.dispose();
   }
   
+<<<<<<< HEAD
   void _startTimer() {
+=======
+  Future<void> _startTimer() async {
+    if (widget.task.status == TaskStatus.pending) {
+      await context.read<ClassroomProvider>().startTask(widget.task.id);
+    }
+
+>>>>>>> origin/continue
     setState(() {
       _isRunning = true;
       _isPaused = false;
@@ -53,8 +68,13 @@ class _TaskExecutionScreenState extends State<TaskExecutionScreen> {
     _timer?.cancel();
   }
   
+<<<<<<< HEAD
   void _resumeTimer() {
     _startTimer();
+=======
+  Future<void> _resumeTimer() async {
+    await _startTimer();
+>>>>>>> origin/continue
   }
   
   void _stopTimer() {
@@ -65,7 +85,11 @@ class _TaskExecutionScreenState extends State<TaskExecutionScreen> {
     });
   }
   
+<<<<<<< HEAD
   void _completeTask() {
+=======
+  Future<void> _completeTask() async {
+>>>>>>> origin/continue
     _stopTimer();
     showDialog(
       context: context,
@@ -78,7 +102,13 @@ class _TaskExecutionScreenState extends State<TaskExecutionScreen> {
             child: const Text('Cancel'),
           ),
           ElevatedButton(
+<<<<<<< HEAD
             onPressed: () {
+=======
+            onPressed: () async {
+              await context.read<ClassroomProvider>().completeTask(widget.task.id);
+              if (!mounted) return;
+>>>>>>> origin/continue
               Navigator.pop(context);
               Navigator.pop(context, true); // Return true to indicate completion
             },

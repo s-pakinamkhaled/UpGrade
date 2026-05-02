@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+<<<<<<< HEAD
+=======
+import 'package:firebase_auth/firebase_auth.dart';
+>>>>>>> origin/continue
 
 import '../core/theme.dart';
 import '../core/constants.dart';
@@ -337,7 +341,12 @@ class _LoginScreenState extends State<LoginScreen> {
                             Text(
                               "Don't have an account? ",
                               style: TextStyle(
+<<<<<<< HEAD
                                 color: AppTheme.darkText.withOpacity(0.7),
+=======
+                                color: theme.colorScheme.onSurface
+                                    .withOpacity(0.7),
+>>>>>>> origin/continue
                               ),
                             ),
                             TextButton(
@@ -360,11 +369,37 @@ class _LoginScreenState extends State<LoginScreen> {
                           children: [
                             OutlinedButton(
                               onPressed: () async {
+<<<<<<< HEAD
                                 try {
                                   await FirebaseFirestore.instance
                                       .collection('test')
                                       .doc('check')
                                       .set({'connected': true});
+=======
+                                final currentUser =
+                                    FirebaseAuth.instance.currentUser;
+                                if (currentUser == null) {
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          'Sign in first, then test Firestore.',
+                                        ),
+                                        backgroundColor: Color(0xFF1E293B),
+                                      ),
+                                    );
+                                  }
+                                  return;
+                                }
+                                try {
+                                  await FirebaseFirestore.instance
+                                      .collection('users')
+                                      .doc(currentUser.uid)
+                                      .set({
+                                    'lastFirestoreCheck':
+                                        FieldValue.serverTimestamp(),
+                                  }, SetOptions(merge: true));
+>>>>>>> origin/continue
                                   if (mounted) {
                                     ScaffoldMessenger.of(context)
                                         .showSnackBar(

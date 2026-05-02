@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../core/constants.dart';
 import '../widgets/app_logo.dart';
+<<<<<<< HEAD
+=======
+import '../services/api_service.dart';
+>>>>>>> origin/continue
 import '../services/firebase_auth_service.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -59,6 +63,30 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
       if (user == null) throw Exception('Registration failed');
 
+<<<<<<< HEAD
+=======
+      final registeredName = _nameController.text.trim();
+      if (registeredName.isNotEmpty) {
+        await user.updateDisplayName(registeredName);
+        await user.reload();
+      }
+
+      // Keep backend profile in sync with the name used at registration.
+      try {
+        final uid = user.uid;
+        await ApiService().updateUserProfile(
+          userId: uid,
+          fullName: registeredName,
+          email: _emailController.text.trim(),
+          major: 'Computer Science',
+          academicYear: 'Junior',
+          gpa: '3.85',
+        );
+      } catch (_) {
+        // Backend optional; Firebase displayName is the source of truth for the name.
+      }
+
+>>>>>>> origin/continue
       if (!mounted) return;
 
       Navigator.of(context).pushReplacementNamed(

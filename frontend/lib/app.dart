@@ -305,6 +305,12 @@ class _MainNavigationScreenState
             ? const SizedBox.shrink()
             : FloatingActionButton(
                 onPressed: () {
+<<<<<<< HEAD
+=======
+                  context
+                      .read<DashboardShellProvider>()
+                      .selectRoute(AppConstants.routeWarnings);
+>>>>>>> origin/continue
                   Navigator.of(context).pushNamed(AppConstants.routeWarnings);
                 },
                 backgroundColor: Colors.transparent,
@@ -349,6 +355,22 @@ class _MainNavigationScreenState
   }
 
   Drawer _buildDrawer(BuildContext context) {
+<<<<<<< HEAD
+=======
+    final shell = context.read<DashboardShellProvider>();
+
+    void selectMainRoute(String route) {
+      Navigator.pop(context);
+      shell.selectRoute(route);
+    }
+
+    void navigateToOverlayRoute(String route) {
+      Navigator.pop(context);
+      shell.selectRoute(route);
+      Navigator.of(context).pushNamed(route);
+    }
+
+>>>>>>> origin/continue
     return Drawer(
       child: ListView(
         padding: EdgeInsets.zero,
@@ -393,8 +415,12 @@ class _MainNavigationScreenState
             leading: const Icon(Icons.person_outline),
             title: const Text('Profile'),
             onTap: () {
+<<<<<<< HEAD
               Navigator.pop(context);
               Navigator.of(context).pushNamed(AppConstants.routeProfile);
+=======
+              navigateToOverlayRoute(AppConstants.routeProfile);
+>>>>>>> origin/continue
             },
           ),
 
@@ -403,9 +429,13 @@ class _MainNavigationScreenState
             title: const Text('My courses'),
             subtitle: const Text('Add classes not in Classroom'),
             onTap: () {
+<<<<<<< HEAD
               Navigator.pop(context);
               Navigator.of(context)
                   .pushNamed(AppConstants.routeManualCourses);
+=======
+              navigateToOverlayRoute(AppConstants.routeManualCourses);
+>>>>>>> origin/continue
             },
           ),
 
@@ -414,17 +444,25 @@ class _MainNavigationScreenState
             title: const Text('Connect Desktop'),
             subtitle: const Text('Scan QR on laptop'),
             onTap: () {
+<<<<<<< HEAD
               Navigator.pop(context);
               Navigator.of(context).pushNamed(AppConstants.routeQrScanner);
+=======
+              navigateToOverlayRoute(AppConstants.routeQrScanner);
+>>>>>>> origin/continue
             },
           ),
           ListTile(
             leading: const Icon(Icons.auto_awesome),
             title: const Text('AI Assistant'),
             onTap: () {
+<<<<<<< HEAD
               Navigator.pop(context);
               Navigator.of(context)
                   .pushNamed(AppConstants.routeAIChatbot);
+=======
+              selectMainRoute(AppConstants.routeAIChatbot);
+>>>>>>> origin/continue
             },
           ),
 
@@ -432,9 +470,13 @@ class _MainNavigationScreenState
             leading: const Icon(Icons.history_edu),
             title: const Text('Past Tasks'),
             onTap: () {
+<<<<<<< HEAD
               Navigator.pop(context);
               Navigator.of(context)
                   .pushNamed(AppConstants.routePastTasks);
+=======
+              navigateToOverlayRoute(AppConstants.routePastTasks);
+>>>>>>> origin/continue
             },
           ),
 
@@ -442,8 +484,12 @@ class _MainNavigationScreenState
             leading: const Icon(Icons.dashboard),
             title: const Text('Progress Dashboard'),
             onTap: () {
+<<<<<<< HEAD
               Navigator.pop(context);
               context.read<DashboardShellProvider>().selectTab(2);
+=======
+              selectMainRoute(AppConstants.routeProgress);
+>>>>>>> origin/continue
             },
           ),
 
@@ -451,9 +497,13 @@ class _MainNavigationScreenState
             leading: const Icon(Icons.health_and_safety),
             title: const Text('Burnout Risk'),
             onTap: () {
+<<<<<<< HEAD
               Navigator.pop(context);
               Navigator.of(context)
                   .pushNamed(AppConstants.routeBurnout);
+=======
+              navigateToOverlayRoute(AppConstants.routeBurnout);
+>>>>>>> origin/continue
             },
           ),
 
@@ -461,8 +511,12 @@ class _MainNavigationScreenState
             leading: const Icon(Icons.groups),
             title: const Text('Group Study'),
             onTap: () {
+<<<<<<< HEAD
               Navigator.pop(context);
               context.read<DashboardShellProvider>().selectTab(3);
+=======
+              selectMainRoute(AppConstants.routeGroupStudy);
+>>>>>>> origin/continue
             },
           ),
 
@@ -470,9 +524,13 @@ class _MainNavigationScreenState
             leading: const Icon(Icons.rate_review),
             title: const Text('End of Day Review'),
             onTap: () {
+<<<<<<< HEAD
               Navigator.pop(context);
               Navigator.of(context)
                   .pushNamed(AppConstants.routeEndOfDay);
+=======
+              navigateToOverlayRoute(AppConstants.routeEndOfDay);
+>>>>>>> origin/continue
             },
           ),
 
@@ -480,9 +538,13 @@ class _MainNavigationScreenState
             leading: const Icon(Icons.cloud),
             title: const Text('Firestore Example'),
             onTap: () {
+<<<<<<< HEAD
               Navigator.pop(context);
               Navigator.of(context)
                   .pushNamed(AppConstants.routeFirestoreExample);
+=======
+              navigateToOverlayRoute(AppConstants.routeFirestoreExample);
+>>>>>>> origin/continue
             },
           ),
         ],

@@ -385,6 +385,7 @@ class _AIChatbotScreenState extends State<AIChatbotScreen> with TickerProviderSt
   
   @override
   Widget build(BuildContext context) {
+<<<<<<< HEAD
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
@@ -426,10 +427,151 @@ class _AIChatbotScreenState extends State<AIChatbotScreen> with TickerProviderSt
               style: TextStyle(
                 fontWeight: FontWeight.w700,
                 letterSpacing: -0.5,
+=======
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final pageBg = isDark ? const Color(0xFF0B1220) : const Color(0xFFF1F5FB);
+    final cardBg = isDark ? const Color(0xFF111827) : const Color(0xFFF4F7FC);
+    final borderColor = isDark ? const Color(0xFF1F2937) : const Color(0xFFE2E8F0);
+    final textColor = isDark ? Colors.white : AppTheme.darkText;
+    final suggestions = _messages.isNotEmpty ? _messages.last.suggestions : <String>[];
+    final root = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: cardBg,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: borderColor),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  gradient: AppTheme.primaryGradient,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.smart_toy_outlined, color: Colors.white, size: 20),
+              ),
+              const SizedBox(width: 10),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'AI Study Assistant',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: textColor),
+                  ),
+                  const SizedBox(height: 2),
+                  const Row(
+                    children: [
+                      Icon(Icons.circle, size: 9, color: AppTheme.successGreen),
+                      SizedBox(width: 6),
+                      Text('Online & Ready', style: TextStyle(color: AppTheme.successGreen, fontWeight: FontWeight.w600)),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+        Expanded(
+          child: Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: cardBg,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: borderColor),
+            ),
+            child: ListView.builder(
+              controller: _scrollController,
+              padding: const EdgeInsets.all(16),
+              itemCount: _messages.length + (_isTyping ? 1 : 0),
+              itemBuilder: (context, index) {
+                if (index == _messages.length && _isTyping) {
+                  return _buildTypingIndicator();
+                }
+                return _buildChatMessage(_messages[index]);
+              },
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        if (suggestions.isNotEmpty) ...[
+          Text(
+            'Try asking:',
+            style: TextStyle(
+              color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF64748B),
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: suggestions.take(4).map((s) {
+              return SizedBox(
+                width: (MediaQuery.of(context).size.width - 80) / 2,
+                child: OutlinedButton(
+                  onPressed: () => _sendMessage(s),
+                  style: OutlinedButton.styleFrom(
+                    backgroundColor: isDark ? const Color(0xFF111827) : Colors.white,
+                    side: BorderSide(color: borderColor),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    alignment: Alignment.centerLeft,
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                  ),
+                  child: Text(
+                    s,
+                    style: TextStyle(color: textColor, fontWeight: FontWeight.w600),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 10),
+        ],
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _messageController,
+                decoration: InputDecoration(
+                  hintText: 'Ask me anything about your studies...',
+                  filled: true,
+                  fillColor: isDark ? const Color(0xFF111827) : Colors.white,
+                  border: OutlineInputBorder(
+                    borderRadius: const BorderRadius.all(Radius.circular(12)),
+                    borderSide: BorderSide(color: borderColor),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: const BorderRadius.all(Radius.circular(12)),
+                    borderSide: BorderSide(color: borderColor),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                ),
+                style: TextStyle(color: textColor),
+                textInputAction: TextInputAction.send,
+                onSubmitted: _sendMessage,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              decoration: BoxDecoration(
+                gradient: AppTheme.primaryGradient,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: IconButton(
+                onPressed: () => _sendMessage(_messageController.text),
+                icon: const Icon(Icons.send_outlined, color: Colors.white),
+>>>>>>> origin/continue
               ),
             ),
           ],
         ),
+<<<<<<< HEAD
         actions: [
           IconButton(
             icon: const Icon(Icons.info_outline),
@@ -606,6 +748,25 @@ class _AIChatbotScreenState extends State<AIChatbotScreen> with TickerProviderSt
             ),
           ),
         ],
+=======
+      ],
+    );
+
+    return Scaffold(
+      appBar: widget.openDrawer == null
+          ? null
+          : AppBar(
+              leading: IconButton(
+                icon: const Icon(Icons.menu),
+                onPressed: widget.openDrawer,
+              ),
+              title: const Text('AI Assistant'),
+            ),
+      backgroundColor: pageBg,
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: root,
+>>>>>>> origin/continue
       ),
     );
   }
@@ -635,6 +796,11 @@ class _AIChatbotScreenState extends State<AIChatbotScreen> with TickerProviderSt
   }
   
   Widget _buildChatMessage(ChatMessage message) {
+<<<<<<< HEAD
+=======
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final aiBubbleColor = isDark ? const Color(0xFF0F172A) : Colors.white;
+>>>>>>> origin/continue
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -643,7 +809,11 @@ class _AIChatbotScreenState extends State<AIChatbotScreen> with TickerProviderSt
           child: Container(
             margin: const EdgeInsets.only(bottom: 12),
             constraints: BoxConstraints(
+<<<<<<< HEAD
               maxWidth: MediaQuery.of(context).size.width * 0.8,
+=======
+              maxWidth: MediaQuery.of(context).size.width * 0.72,
+>>>>>>> origin/continue
             ),
             child: Column(
               crossAxisAlignment: message.isAI
@@ -652,11 +822,16 @@ class _AIChatbotScreenState extends State<AIChatbotScreen> with TickerProviderSt
               children: [
                 // Message Bubble
                 Container(
+<<<<<<< HEAD
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+=======
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+>>>>>>> origin/continue
                   decoration: BoxDecoration(
                     gradient: message.isAI
                         ? null
                         : AppTheme.primaryGradient,
+<<<<<<< HEAD
                     color: message.isAI ? AppTheme.white : null,
                     borderRadius: BorderRadius.only(
                       topLeft: const Radius.circular(20),
@@ -665,6 +840,19 @@ class _AIChatbotScreenState extends State<AIChatbotScreen> with TickerProviderSt
                       bottomRight: Radius.circular(message.isAI ? 4 : 20),
                     ),
                     boxShadow: AppTheme.softShadow,
+=======
+                    color: message.isAI ? aiBubbleColor : null,
+                    borderRadius: BorderRadius.only(
+                      topLeft: const Radius.circular(16),
+                      topRight: const Radius.circular(16),
+                      bottomLeft: Radius.circular(message.isAI ? 16 : 4),
+                      bottomRight: Radius.circular(message.isAI ? 4 : 16),
+                    ),
+                    border: message.isAI
+                        ? Border.all(color: const Color(0xFFE2E8F0))
+                        : null,
+                    boxShadow: message.isAI ? null : AppTheme.softShadow,
+>>>>>>> origin/continue
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -759,6 +947,10 @@ class _AIChatbotScreenState extends State<AIChatbotScreen> with TickerProviderSt
   }
   
   Widget _buildMessageText(String text) {
+<<<<<<< HEAD
+=======
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+>>>>>>> origin/continue
     // Parse markdown-like formatting
     final parts = <TextSpan>[];
     final regex = RegExp(r'(\*\*.*?\*\*|•)');
@@ -798,7 +990,11 @@ class _AIChatbotScreenState extends State<AIChatbotScreen> with TickerProviderSt
     return RichText(
       text: TextSpan(
         style: TextStyle(
+<<<<<<< HEAD
           color: AppTheme.darkText,
+=======
+          color: isDark ? Colors.white : AppTheme.darkText,
+>>>>>>> origin/continue
           fontSize: 14,
           height: 1.5,
         ),
@@ -819,15 +1015,27 @@ class _AIChatbotScreenState extends State<AIChatbotScreen> with TickerProviderSt
   }
   
   Widget _buildTypingIndicator() {
+<<<<<<< HEAD
+=======
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+>>>>>>> origin/continue
     return Align(
       alignment: Alignment.centerLeft,
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
+<<<<<<< HEAD
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: AppTheme.white,
           borderRadius: BorderRadius.circular(20),
           boxShadow: AppTheme.softShadow,
+=======
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF0F172A) : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+>>>>>>> origin/continue
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,

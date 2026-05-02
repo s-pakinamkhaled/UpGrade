@@ -51,7 +51,11 @@ class EndSessionScreen extends StatelessWidget {
     return Consumer<ClassroomProvider>(
       builder: (context, provider, _) {
         final tasks = provider.tasks;
+<<<<<<< HEAD
         final totalTasks = tasks.where((t) => t.status != TaskStatus.missed).length;
+=======
+        final totalTasks = tasks.length;
+>>>>>>> origin/continue
         final completedTasks = tasks.where((t) => t.status == TaskStatus.completed).length;
 
         final studyMinutes = _computeStudyTimeMinutes(tasks);

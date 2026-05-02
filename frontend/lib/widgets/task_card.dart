@@ -1,7 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+<<<<<<< HEAD
 import '../core/theme.dart';
 import '../models/task.dart';
+=======
+import 'package:provider/provider.dart';
+import '../core/theme.dart';
+import '../models/task.dart';
+import '../providers/classroom_provider.dart';
+>>>>>>> origin/continue
 
 class TaskCard extends StatelessWidget {
   final Task task;
@@ -187,6 +194,11 @@ class TaskCard extends StatelessWidget {
                     ),
                   ],
                 ),
+<<<<<<< HEAD
+=======
+                const SizedBox(height: 12),
+                _buildStatusActions(context),
+>>>>>>> origin/continue
               ],
             ),
           ),
@@ -194,4 +206,70 @@ class TaskCard extends StatelessWidget {
       ),
     );
   }
+<<<<<<< HEAD
+=======
+
+  void _showStatusSnackBar(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), duration: const Duration(seconds: 2)),
+    );
+  }
+
+  Widget _buildStatusActions(BuildContext context) {
+    final provider = context.read<ClassroomProvider>();
+    final isCompleted = task.status == TaskStatus.completed;
+    final isInProgress = task.status == TaskStatus.inProgress;
+    final isPending = task.status == TaskStatus.pending;
+
+    if (isCompleted) {
+      return Align(
+        alignment: Alignment.centerLeft,
+        child: OutlinedButton.icon(
+          onPressed: () async {
+            await provider.reopenTask(task.id);
+            _showStatusSnackBar(context, 'Task moved back to pending');
+          },
+          icon: const Icon(Icons.restart_alt, size: 16),
+          label: const Text('Reopen'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: AppTheme.primaryBlue,
+            side: BorderSide(color: AppTheme.primaryBlue.withOpacity(0.45)),
+          ),
+        ),
+      );
+    }
+
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        if (isPending)
+          ElevatedButton.icon(
+            onPressed: () async {
+              await provider.startTask(task.id);
+              _showStatusSnackBar(context, 'Task moved to in progress');
+            },
+            icon: const Icon(Icons.play_arrow, size: 16),
+            label: const Text('Start'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryBlue,
+              foregroundColor: AppTheme.white,
+            ),
+          ),
+        ElevatedButton.icon(
+          onPressed: () async {
+            await provider.completeTask(task.id);
+            _showStatusSnackBar(context, 'Task marked as completed');
+          },
+          icon: const Icon(Icons.check_circle, size: 16),
+          label: Text(isInProgress ? 'Complete' : 'Mark Complete'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppTheme.successGreen,
+            foregroundColor: AppTheme.white,
+          ),
+        ),
+      ],
+    );
+  }
+>>>>>>> origin/continue
 }

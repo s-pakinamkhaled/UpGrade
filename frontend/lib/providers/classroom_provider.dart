@@ -5,6 +5,10 @@ import '../models/task.dart';
 import '../services/classroom_sync_service.dart';
 import '../services/classroom_mapper_service.dart';
 import '../services/classroom_storage_service.dart';
+<<<<<<< HEAD
+=======
+import '../services/api_service.dart';
+>>>>>>> origin/continue
 
 class ClassroomProvider extends ChangeNotifier {
   bool _isLoading = false;
@@ -20,6 +24,11 @@ class ClassroomProvider extends ChangeNotifier {
   List<ClassroomCourse> get courses => _courses;
   List<Task> get tasks => _tasks;
 
+<<<<<<< HEAD
+=======
+  static const String _defaultUserId = 'student_local';
+
+>>>>>>> origin/continue
   /// Load previously synced data from local storage (so app shows real data on launch).
   Future<void> loadFromStorage() async {
     final courses = await ClassroomStorageService.loadCourses();
@@ -114,6 +123,10 @@ class ClassroomProvider extends ChangeNotifier {
         estimatedMinutes: 60,
         priority: TaskPriority.medium,
         status: TaskStatus.pending,
+<<<<<<< HEAD
+=======
+        updatedAt: DateTime.now(),
+>>>>>>> origin/continue
       ),
     ];
     _syncedAt ??= DateTime.now();
@@ -137,6 +150,80 @@ class ClassroomProvider extends ChangeNotifier {
     );
   }
 
+<<<<<<< HEAD
+=======
+  Future<void> startTask(String taskId) async {
+    await _applyTaskStatus(taskId, TaskStatus.inProgress);
+  }
+
+  Future<void> completeTask(String taskId) async {
+    await _applyTaskStatus(taskId, TaskStatus.completed);
+  }
+
+  Future<void> reopenTask(String taskId) async {
+    await _applyTaskStatus(taskId, TaskStatus.pending);
+  }
+
+  Future<void> _applyTaskStatus(String taskId, TaskStatus newStatus) async {
+    final index = _tasks.indexWhere((t) => t.id == taskId);
+    if (index < 0) return;
+
+    final current = _tasks[index];
+    final now = DateTime.now();
+
+    Task updated = current;
+    if (newStatus == TaskStatus.inProgress && current.status == TaskStatus.pending) {
+      updated = current.copyWith(
+        status: TaskStatus.inProgress,
+        startedAt: current.startedAt ?? now,
+        updatedAt: now,
+      );
+    } else if ((current.status == TaskStatus.pending || current.status == TaskStatus.inProgress) &&
+        newStatus == TaskStatus.completed) {
+      updated = current.copyWith(
+        status: TaskStatus.completed,
+        completedAt: now,
+        updatedAt: now,
+      );
+    } else if (newStatus == TaskStatus.pending && current.status == TaskStatus.completed) {
+      updated = current.copyWith(
+        status: TaskStatus.pending,
+        clearCompletedAt: true,
+        updatedAt: now,
+      );
+    } else {
+      return;
+    }
+
+    final api = ApiService();
+    await api.upsertTaskForTracking(
+      taskId: current.id,
+      userId: _defaultUserId,
+      taskJson: current.toJson(),
+    );
+    final serverResponse = await api.updateTaskStatus(
+      taskId: current.id,
+      status: newStatus.name,
+      userId: _defaultUserId,
+    );
+
+    if (serverResponse != null && serverResponse['task'] is Map<String, dynamic>) {
+      final serverTask = Task.fromJson(serverResponse['task'] as Map<String, dynamic>);
+      updated = updated.copyWith(
+        status: serverTask.status,
+        startedAt: serverTask.startedAt ?? updated.startedAt,
+        completedAt: serverTask.completedAt,
+        clearCompletedAt: serverTask.completedAt == null && newStatus == TaskStatus.pending,
+        updatedAt: serverTask.updatedAt,
+      );
+    }
+
+    _tasks[index] = updated;
+    await _saveToStorage();
+    notifyListeners();
+  }
+
+>>>>>>> origin/continue
   void _setLoading(bool value) {
     _isLoading = value;
     notifyListeners();

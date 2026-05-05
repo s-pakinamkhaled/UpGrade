@@ -62,6 +62,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
@@ -96,7 +97,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   'Enter your email and we\'ll send you a link to reset your password.',
                   style: TextStyle(
                     fontSize: 15,
-                    color: AppTheme.darkText.withOpacity(0.7),
+                    color: theme.colorScheme.onSurface.withOpacity(0.7),
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -120,7 +121,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                               child: Text(
                                 'Email sent',
                                 style: TextStyle(
-                                  color: AppTheme.darkText,
+                                  color: theme.colorScheme.onSurface,
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -134,7 +135,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                           'Open your email and click the link to set a new password. '
                           'Check your spam folder if you don\'t see it.',
                           style: TextStyle(
-                            color: AppTheme.darkText.withOpacity(0.85),
+                            color: theme.colorScheme.onSurface.withOpacity(0.85),
                             fontSize: 14,
                             height: 1.4,
                           ),

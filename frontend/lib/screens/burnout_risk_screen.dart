@@ -25,6 +25,11 @@ class BurnoutRiskScreen extends StatelessWidget {
   
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final mutedText = theme.colorScheme.onSurface.withOpacity(0.7);
+    final trackColor = theme.brightness == Brightness.dark
+        ? theme.colorScheme.surfaceContainerHighest
+        : AppTheme.lightGray;
     final riskLevel = _getRiskLevel();
     final riskColor = _getRiskColor();
     
@@ -79,7 +84,7 @@ class BurnoutRiskScreen extends StatelessWidget {
                                 '${(_burnoutScore * 100).toInt()}% risk detected',
                                 style: TextStyle(
                                   fontSize: 14,
-                                  color: AppTheme.darkText.withOpacity(0.7),
+                                  color: mutedText,
                                 ),
                               ),
                             ],
@@ -95,7 +100,7 @@ class BurnoutRiskScreen extends StatelessWidget {
                         borderRadius: BorderRadius.circular(6),
                         child: LinearProgressIndicator(
                           value: _burnoutScore,
-                          backgroundColor: AppTheme.lightGray,
+                          backgroundColor: trackColor,
                           valueColor: AlwaysStoppedAnimation<Color>(riskColor),
                           minHeight: 12,
                         ),
@@ -137,7 +142,7 @@ class BurnoutRiskScreen extends StatelessWidget {
                                         : index < 8
                                             ? AppTheme.warningOrange
                                             : AppTheme.errorRed)
-                                    : AppTheme.lightGray,
+                                    : trackColor,
                                 borderRadius: BorderRadius.circular(4),
                               ),
                             ),
@@ -149,7 +154,7 @@ class BurnoutRiskScreen extends StatelessWidget {
                         '$_workloadIntensity/10 - ${_workloadIntensity >= 8 ? "Very High" : _workloadIntensity >= 6 ? "High" : "Moderate"}',
                         style: TextStyle(
                           fontSize: 14,
-                          color: AppTheme.darkText.withOpacity(0.7),
+                          color: mutedText,
                         ),
                       ),
                     ],
@@ -175,6 +180,7 @@ class BurnoutRiskScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 16),
                       _buildRiskFactor(
+                        context,
                         'Consecutive Study Days',
                         '$_consecutiveDays days without rest',
                         Icons.calendar_today,
@@ -182,6 +188,7 @@ class BurnoutRiskScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 12),
                       _buildRiskFactor(
+                        context,
                         'Average Daily Hours',
                         '$_avgHoursPerDay hours per day',
                         Icons.access_time,
@@ -189,6 +196,7 @@ class BurnoutRiskScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 12),
                       _buildRiskFactor(
+                        context,
                         'Task Completion Rate',
                         'Below average this week',
                         Icons.trending_down,
@@ -234,6 +242,7 @@ class BurnoutRiskScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 16),
                       _buildRecommendation(
+                        context,
                         'Take a Break',
                         'You\'ve been studying for $_consecutiveDays consecutive days. Consider taking tomorrow off to recharge.',
                         Icons.spa,
@@ -241,6 +250,7 @@ class BurnoutRiskScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 12),
                       _buildRecommendation(
+                        context,
                         'Reduce Daily Load',
                         'Try reducing your daily study hours from $_avgHoursPerDay to 4-5 hours to prevent burnout.',
                         Icons.timer_off,
@@ -248,6 +258,7 @@ class BurnoutRiskScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 12),
                       _buildRecommendation(
+                        context,
                         'Schedule Rest Days',
                         'Plan 1-2 rest days per week to maintain long-term productivity.',
                         Icons.event_available,
@@ -255,6 +266,7 @@ class BurnoutRiskScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 12),
                       _buildRecommendation(
+                        context,
                         'Practice Mindfulness',
                         'Try 10-minute meditation sessions to reduce stress and improve focus.',
                         Icons.self_improvement,
@@ -297,7 +309,14 @@ class BurnoutRiskScreen extends StatelessWidget {
     );
   }
   
-  Widget _buildRiskFactor(String title, String subtitle, IconData icon, Color color) {
+  Widget _buildRiskFactor(
+    BuildContext context,
+    String title,
+    String subtitle,
+    IconData icon,
+    Color color,
+  ) {
+    final mutedText = Theme.of(context).colorScheme.onSurface.withOpacity(0.7);
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -324,7 +343,7 @@ class BurnoutRiskScreen extends StatelessWidget {
                   subtitle,
                   style: TextStyle(
                     fontSize: 12,
-                    color: AppTheme.darkText.withOpacity(0.7),
+                    color: mutedText,
                   ),
                 ),
               ],
@@ -335,7 +354,14 @@ class BurnoutRiskScreen extends StatelessWidget {
     );
   }
   
-  Widget _buildRecommendation(String title, String description, IconData icon, Color color) {
+  Widget _buildRecommendation(
+    BuildContext context,
+    String title,
+    String description,
+    IconData icon,
+    Color color,
+  ) {
+    final mutedText = Theme.of(context).colorScheme.onSurface.withOpacity(0.7);
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -363,7 +389,7 @@ class BurnoutRiskScreen extends StatelessWidget {
                   description,
                   style: TextStyle(
                     fontSize: 12,
-                    color: AppTheme.darkText.withOpacity(0.7),
+                    color: mutedText,
                     height: 1.4,
                   ),
                 ),

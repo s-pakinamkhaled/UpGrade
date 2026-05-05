@@ -85,6 +85,12 @@ class _DailyPlannerScreenState extends State<DailyPlannerScreen> {
   bool _isSameDay(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month && a.day == b.day;
 
+  void _showStatusSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), duration: const Duration(seconds: 2)),
+    );
+  }
+
   // ---------------- UI ----------------
 
   @override
@@ -162,6 +168,10 @@ class _DailyPlannerScreenState extends State<DailyPlannerScreen> {
   }
 
   Widget _buildEmptyState(bool neverSynced) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardColor = isDark ? const Color(0xFF111827) : AppTheme.white;
+    final textColor = isDark ? const Color(0xFFE5E7EB) : AppTheme.darkText;
+    final subColor = isDark ? const Color(0xFF9CA3AF) : AppTheme.darkText.withOpacity(0.7);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -177,7 +187,7 @@ class _DailyPlannerScreenState extends State<DailyPlannerScreen> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
                 decoration: BoxDecoration(
-                  color: AppTheme.white,
+                  color: cardColor,
                   borderRadius: BorderRadius.circular(24),
                   boxShadow: AppTheme.strongShadow,
                 ),
@@ -200,10 +210,11 @@ class _DailyPlannerScreenState extends State<DailyPlannerScreen> {
                     Text(
                       neverSynced ? 'Connect Google Classroom' : 'You\'re all set!',
                       textAlign: TextAlign.center,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.w700,
                         letterSpacing: -0.4,
+                        color: textColor,
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -214,7 +225,7 @@ class _DailyPlannerScreenState extends State<DailyPlannerScreen> {
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 14,
-                        color: AppTheme.darkText.withOpacity(0.7),
+                        color: subColor,
                       ),
                     ),
                     const SizedBox(height: 20),
@@ -261,7 +272,7 @@ class _DailyPlannerScreenState extends State<DailyPlannerScreen> {
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 12,
-                          color: AppTheme.darkText.withOpacity(0.6),
+                          color: isDark ? const Color(0xFF94A3B8) : AppTheme.darkText.withOpacity(0.6),
                         ),
                       ),
                     ],
@@ -278,10 +289,14 @@ class _DailyPlannerScreenState extends State<DailyPlannerScreen> {
   // ---------------- WEEK HEADER ----------------
 
   Widget _buildWeekHeader() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = isDark ? const Color(0xFF111827) : AppTheme.white;
+    final text = isDark ? const Color(0xFFE5E7EB) : AppTheme.darkText;
+    final muted = isDark ? const Color(0xFF9CA3AF) : AppTheme.mediumGray;
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
       decoration: BoxDecoration(
-        color: AppTheme.white,
+        color: bg,
         boxShadow: AppTheme.softShadow,
       ),
       child: Row(
@@ -343,7 +358,7 @@ class _DailyPlannerScreenState extends State<DailyPlannerScreen> {
                           fontSize: 11,
                           color: isSelected
                               ? AppTheme.white
-                              : AppTheme.mediumGray,
+                              : muted,
                         ),
                       ),
                       const SizedBox(height: 6),
@@ -352,7 +367,7 @@ class _DailyPlannerScreenState extends State<DailyPlannerScreen> {
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           color:
-                              isSelected ? AppTheme.white : AppTheme.darkText,
+                              isSelected ? AppTheme.white : text,
                         ),
                       ),
                     ],
@@ -568,10 +583,13 @@ class _DailyPlannerScreenState extends State<DailyPlannerScreen> {
     required String subtitle,
     required IconData icon,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = isDark ? const Color(0xFF111827) : AppTheme.white;
+    final muted = isDark ? const Color(0xFF9CA3AF) : AppTheme.mediumGray;
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppTheme.white,
+        color: bg,
         boxShadow: AppTheme.softShadow,
       ),
       child: Row(
@@ -592,7 +610,7 @@ class _DailyPlannerScreenState extends State<DailyPlannerScreen> {
                   style: const TextStyle(
                       fontSize: 20, fontWeight: FontWeight.bold)),
               Text(subtitle,
-                  style: TextStyle(color: AppTheme.mediumGray)),
+                  style: TextStyle(color: muted)),
             ],
           ),
         ],
@@ -601,6 +619,8 @@ class _DailyPlannerScreenState extends State<DailyPlannerScreen> {
   }
 
   Widget _taskCard(Task task) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final titleColor = isDark ? const Color(0xFFE5E7EB) : null;
     final hasGrade = task.assignedGrade != null || task.maxPoints != null;
     final gradeText = hasGrade
         ? (task.maxPoints != null && task.assignedGrade != null
@@ -623,7 +643,10 @@ class _DailyPlannerScreenState extends State<DailyPlannerScreen> {
               task.courseName.isNotEmpty
                   ? '${task.title} / ${task.courseName}'
                   : task.title,
-              style: const TextStyle(fontWeight: FontWeight.w600),
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: titleColor,
+              ),
             ),
             if (gradeText != null) ...[
               const SizedBox(height: 6),
@@ -636,9 +659,63 @@ class _DailyPlannerScreenState extends State<DailyPlannerScreen> {
                 ),
               ),
             ],
+            const SizedBox(height: 10),
+            _buildTaskStatusActions(task),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildTaskStatusActions(Task task) {
+    final provider = context.read<ClassroomProvider>();
+    final isCompleted = task.status == TaskStatus.completed;
+    final isPending = task.status == TaskStatus.pending;
+    final isInProgress = task.status == TaskStatus.inProgress;
+
+    if (isCompleted) {
+      return Align(
+        alignment: Alignment.centerLeft,
+        child: OutlinedButton.icon(
+          onPressed: () async {
+            await provider.reopenTask(task.id);
+            if (!mounted) return;
+            _showStatusSnackBar('Task moved back to pending');
+          },
+          icon: const Icon(Icons.restart_alt, size: 16),
+          label: const Text('Reopen'),
+        ),
+      );
+    }
+
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        if (isPending)
+          ElevatedButton.icon(
+            onPressed: () async {
+              await provider.startTask(task.id);
+              if (!mounted) return;
+              _showStatusSnackBar('Task moved to in progress');
+            },
+            icon: const Icon(Icons.play_arrow, size: 16),
+            label: const Text('Start'),
+          ),
+        ElevatedButton.icon(
+          onPressed: () async {
+            await provider.completeTask(task.id);
+            if (!mounted) return;
+            _showStatusSnackBar('Task marked as completed');
+          },
+          icon: const Icon(Icons.check_circle, size: 16),
+          label: Text(isInProgress ? 'Complete' : 'Mark Complete'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppTheme.successGreen,
+            foregroundColor: AppTheme.white,
+          ),
+        ),
+      ],
     );
   }
 
@@ -648,7 +725,15 @@ class _DailyPlannerScreenState extends State<DailyPlannerScreen> {
         child: Padding(
           padding: const EdgeInsets.all(14),
           child:
-              Text(text, style: const TextStyle(fontWeight: FontWeight.w600)),
+              Text(
+                text,
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? const Color(0xFFE5E7EB)
+                      : null,
+                ),
+              ),
         ),
       );
 }

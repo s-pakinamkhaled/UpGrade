@@ -1,13 +1,15 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../core/theme.dart';
 import '../models/task.dart';
+import '../providers/classroom_provider.dart';
 
 class TaskExecutionScreen extends StatefulWidget {
   final Task task;
-  
+
   const TaskExecutionScreen({super.key, required this.task});
-  
+
   @override
   State<TaskExecutionScreen> createState() => _TaskExecutionScreenState();
 }
@@ -23,19 +25,23 @@ class _TaskExecutionScreenState extends State<TaskExecutionScreen> {
   void initState() {
     super.initState();
   }
-  
+
   @override
   void dispose() {
     _timer?.cancel();
     super.dispose();
   }
-  
-  void _startTimer() {
+
+  Future<void> _startTimer() async {
+    if (widget.task.status == TaskStatus.pending) {
+      await context.read<ClassroomProvider>().startTask(widget.task.id);
+    }
+
     setState(() {
       _isRunning = true;
       _isPaused = false;
     });
-    
+
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (mounted) {
         setState(() {
@@ -44,7 +50,7 @@ class _TaskExecutionScreenState extends State<TaskExecutionScreen> {
       }
     });
   }
-  
+
   void _pauseTimer() {
     setState(() {
       _isRunning = false;
@@ -52,11 +58,11 @@ class _TaskExecutionScreenState extends State<TaskExecutionScreen> {
     });
     _timer?.cancel();
   }
-  
-  void _resumeTimer() {
-    _startTimer();
+
+  Future<void> _resumeTimer() async {
+    await _startTimer();
   }
-  
+
   void _stopTimer() {
     _timer?.cancel();
     setState(() {
@@ -64,8 +70,8 @@ class _TaskExecutionScreenState extends State<TaskExecutionScreen> {
       _isPaused = false;
     });
   }
-  
-  void _completeTask() {
+
+  Future<void> _completeTask() async {
     _stopTimer();
     showDialog(
       context: context,
@@ -78,9 +84,14 @@ class _TaskExecutionScreenState extends State<TaskExecutionScreen> {
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
+              await context
+                  .read<ClassroomProvider>()
+                  .completeTask(widget.task.id);
+              if (!context.mounted) return;
               Navigator.pop(context);
-              Navigator.pop(context, true); // Return true to indicate completion
+              Navigator.pop(
+                  context, true); // Return true to indicate completion
             },
             child: const Text('Complete'),
           ),
@@ -88,7 +99,7 @@ class _TaskExecutionScreenState extends State<TaskExecutionScreen> {
       ),
     );
   }
-  
+
   String _formatDuration(Duration duration) {
     String twoDigits(int n) => n.toString().padLeft(2, '0');
     final hours = twoDigits(duration.inHours);
@@ -96,7 +107,7 @@ class _TaskExecutionScreenState extends State<TaskExecutionScreen> {
     final seconds = twoDigits(duration.inSeconds.remainder(60));
     return '$hours:$minutes:$seconds';
   }
-  
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -197,9 +208,9 @@ class _TaskExecutionScreenState extends State<TaskExecutionScreen> {
                   ),
                 ),
               ),
-              
+
               const SizedBox(height: 32),
-              
+
               // Focus Timer
               Container(
                 padding: const EdgeInsets.all(40),
@@ -230,7 +241,11 @@ class _TaskExecutionScreenState extends State<TaskExecutionScreen> {
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
-                        _isRunning ? 'Focusing...' : _isPaused ? 'Paused' : 'Ready',
+                        _isRunning
+                            ? 'Focusing...'
+                            : _isPaused
+                                ? 'Paused'
+                                : 'Ready',
                         style: const TextStyle(
                           fontSize: 16,
                           color: AppTheme.white,
@@ -241,9 +256,9 @@ class _TaskExecutionScreenState extends State<TaskExecutionScreen> {
                   ],
                 ),
               ),
-              
+
               const SizedBox(height: 32),
-              
+
               // Focus Level Indicator
               Card(
                 child: Padding(
@@ -316,9 +331,9 @@ class _TaskExecutionScreenState extends State<TaskExecutionScreen> {
                   ),
                 ),
               ),
-              
+
               const SizedBox(height: 32),
-              
+
               // Action Buttons
               Row(
                 children: [
@@ -372,9 +387,9 @@ class _TaskExecutionScreenState extends State<TaskExecutionScreen> {
                   ],
                 ],
               ),
-              
+
               const SizedBox(height: 16),
-              
+
               ElevatedButton.icon(
                 onPressed: _completeTask,
                 icon: const Icon(Icons.check_circle),

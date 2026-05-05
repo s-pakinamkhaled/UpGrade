@@ -12,15 +12,18 @@ import '../providers/classroom_provider.dart';
 class PastTasksScreen extends StatelessWidget {
   const PastTasksScreen({super.key});
 
-  static DateTime _dateOnly(DateTime d) =>
-      DateTime(d.year, d.month, d.day);
+  static DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 
   static List<Task> _pastTasks(List<Task> tasks) {
     final today = _dateOnly(DateTime.now());
-    return tasks
-        .where((t) => _dateOnly(t.deadline).isBefore(today))
-        .toList()
+    return tasks.where((t) => _dateOnly(t.deadline).isBefore(today)).toList()
       ..sort((a, b) => b.deadline.compareTo(a.deadline));
+  }
+
+  static bool _isMissed(Task task) {
+    final today = _dateOnly(DateTime.now());
+    return _dateOnly(task.deadline).isBefore(today) &&
+        task.status != TaskStatus.completed;
   }
 
   @override
@@ -38,7 +41,7 @@ class PastTasksScreen extends StatelessWidget {
         builder: (context, provider, _) {
           final allTasks = provider.tasks;
           final past = _pastTasks(allTasks);
-          final missed = past.where((t) => t.status == TaskStatus.missed).toList();
+          final missed = past.where(_isMissed).toList();
 
           if (past.isEmpty) {
             return Center(
@@ -172,7 +175,11 @@ class _PastTaskCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isMissed = task.status == TaskStatus.missed;
+    final today = DateTime.now();
+    final isMissed =
+        DateTime(task.deadline.year, task.deadline.month, task.deadline.day)
+                .isBefore(DateTime(today.year, today.month, today.day)) &&
+            task.status != TaskStatus.completed;
     final hasGrade = task.assignedGrade != null || task.maxPoints != null;
 
     String statusLabel;
@@ -192,7 +199,7 @@ class _PastTaskCard extends StatelessWidget {
     if (hasGrade && task.assignedGrade != null) {
       gradeText = task.maxPoints != null
           ? '${task.assignedGrade!.toStringAsFixed(0)} / ${task.maxPoints}'
-          : '${task.assignedGrade!.toStringAsFixed(0)}';
+          : task.assignedGrade!.toStringAsFixed(0);
     }
 
     return Card(
@@ -253,7 +260,8 @@ class _PastTaskCard extends StatelessWidget {
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
                     color: statusColor.withOpacity(0.12),
                     borderRadius: BorderRadius.circular(8),

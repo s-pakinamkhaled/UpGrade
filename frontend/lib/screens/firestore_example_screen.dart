@@ -10,10 +10,10 @@ Future<void> checkConnection() async {
       'status': 'connected',
       'time': FieldValue.serverTimestamp(),
     });
-    print('🔥 Firebase Connected Successfully!');
+    debugPrint('🔥 Firebase Connected Successfully!');
   } catch (e) {
-    print('❌ Connection Failed:');
-    print(e);
+    debugPrint('❌ Connection Failed:');
+    debugPrint(e.toString());
   }
 }
 
@@ -50,8 +50,6 @@ class _FirestoreExampleScreenState extends State<FirestoreExampleScreen> {
           tooltip: 'Back',
         ),
         title: const Text('Firestore Example'),
-        backgroundColor: AppTheme.white,
-        foregroundColor: AppTheme.darkText,
       ),
       body: Column(
         children: [
@@ -91,23 +89,22 @@ class _FirestoreExampleScreenState extends State<FirestoreExampleScreen> {
               ),
             ),
           ),
-          const Padding(
+          Padding(
             padding: EdgeInsets.symmetric(horizontal: 16.0),
             child: Text(
               'Users in Firestore',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
-                color: AppTheme.darkText,
+                color: Theme.of(context).colorScheme.onSurface,
               ),
             ),
           ),
           const SizedBox(height: 8),
           Expanded(
             child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-              stream: FirebaseFirestore.instance
-                  .collection('users')
-                  .snapshots(),
+              stream:
+                  FirebaseFirestore.instance.collection('users').snapshots(),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(
@@ -129,10 +126,15 @@ class _FirestoreExampleScreenState extends State<FirestoreExampleScreen> {
                   );
                 }
                 if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  return const Center(
+                  return Center(
                     child: Text(
                       'No users yet. Tap "Add user" above.',
-                      style: TextStyle(color: AppTheme.mediumGray),
+                      style: TextStyle(
+                        color: Theme.of(context)
+                            .colorScheme
+                            .onSurface
+                            .withOpacity(0.65),
+                      ),
                     ),
                   );
                 }
@@ -149,15 +151,18 @@ class _FirestoreExampleScreenState extends State<FirestoreExampleScreen> {
                       child: ListTile(
                         title: Text(
                           data['name']?.toString() ?? '—',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontWeight: FontWeight.w600,
-                            color: AppTheme.darkText,
+                            color: Theme.of(context).colorScheme.onSurface,
                           ),
                         ),
                         subtitle: Text(
                           data['email']?.toString() ?? '—',
-                          style: const TextStyle(
-                            color: AppTheme.mediumGray,
+                          style: TextStyle(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onSurface
+                                .withOpacity(0.65),
                           ),
                         ),
                         trailing: Text(

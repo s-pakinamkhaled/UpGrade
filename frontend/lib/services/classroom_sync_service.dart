@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import 'semester_filter_service.dart';
@@ -16,18 +17,21 @@ class ClassroomSyncService {
     };
 
     final coursesUrl = '$baseUrl/courses?studentId=me';
-    if (debug) print('[ClassroomSync] GET $coursesUrl');
+    if (debug) debugPrint('[ClassroomSync] GET $coursesUrl');
     final coursesRes = await http.get(
       Uri.parse(coursesUrl),
       headers: headers,
     );
 
     if (coursesRes.statusCode != 200) {
-      if (debug) print('[ClassroomSync] courses error: ${coursesRes.statusCode} ${coursesRes.body}');
+      if (debug)
+        debugPrint(
+            '[ClassroomSync] courses error: ${coursesRes.statusCode} ${coursesRes.body}');
       throw Exception('Failed to load courses: ${coursesRes.body}');
     }
 
     final body = jsonDecode(coursesRes.body);
+
     final rawCourses = body['courses'] as List<dynamic>? ?? [];
     final courses = rawCourses
         .whereType<Map>()
@@ -62,6 +66,7 @@ class ClassroomSyncService {
               )
               .toList();
 
+
     final List<Map<String, dynamic>> allData = [];
 
     for (final c in coursesList) {
@@ -71,21 +76,25 @@ class ClassroomSyncService {
 
       // 2) Course work (assignments) for this course – no filter so we get all types
       final workUrl = '$baseUrl/courses/$courseId/courseWork';
-      if (debug) print('[ClassroomSync] GET courseWork for $courseName ($courseId)');
+      if (debug)
+        debugPrint(
+            '[ClassroomSync] GET courseWork for $courseName ($courseId)');
       final workRes = await http.get(
         Uri.parse(workUrl),
         headers: headers,
       );
 
       if (workRes.statusCode != 200 && debug) {
-        print('[ClassroomSync] courseWork error: ${workRes.statusCode} ${workRes.body}');
+        debugPrint(
+            '[ClassroomSync] courseWork error: ${workRes.statusCode} ${workRes.body}');
       }
 
       final workList = workRes.statusCode == 200
           ? (jsonDecode(workRes.body)['courseWork'] as List<dynamic>?) ?? []
           : <dynamic>[];
 
-      if (debug) print('[ClassroomSync]   courseWork count: ${workList.length}');
+      if (debug)
+        debugPrint('[ClassroomSync]   courseWork count: ${workList.length}');
 
       final List<Map<String, dynamic>> works = [];
       final List<Map<String, dynamic>> allSubmissions = [];
@@ -96,7 +105,8 @@ class ClassroomSyncService {
         final workId = work['id'] as String? ?? '';
         final title = work['title'] as String? ?? '';
         final due = work['dueDate'];
-        if (debug) print('[ClassroomSync]     work: "$title" dueDate=$due');
+        if (debug)
+          debugPrint('[ClassroomSync]     work: "$title" dueDate=$due');
 
         final subRes = await http.get(
           Uri.parse(
@@ -106,7 +116,9 @@ class ClassroomSyncService {
         );
 
         final subList = subRes.statusCode == 200
-            ? (jsonDecode(subRes.body)['studentSubmissions'] as List<dynamic>?) ?? []
+            ? (jsonDecode(subRes.body)['studentSubmissions']
+                    as List<dynamic>?) ??
+                []
             : <dynamic>[];
 
         for (final s in subList) {
@@ -126,10 +138,12 @@ class ClassroomSyncService {
     }
 
     if (debug) {
-      final totalWorks = allData.fold<int>(0, (n, e) => n + (e['works'] as List).length);
-      print(
-        '[ClassroomSync] done: ${coursesList.length} courses, $totalWorks courseWork items',
-      );
+
+      final totalWorks =
+          allData.fold<int>(0, (n, e) => n + (e['works'] as List).length);
+      debugPrint(
+          '[ClassroomSync] done: ${coursesList.length} courses, $totalWorks courseWork items');
+
     }
 
     return {

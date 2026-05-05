@@ -116,15 +116,12 @@ class _UpGradeAppState extends State<UpGradeApp> {
             const GoogleClassroomSyncScreen(),
         AppConstants.routeDevicePairing: (context) =>
             const DevicePairingScreen(),
-        AppConstants.routeOnboarding: (context) =>
-            const OnboardingScreen(),
-        AppConstants.routeHome: (context) =>
-            const MainNavigationScreen(),
+        AppConstants.routeOnboarding: (context) => const OnboardingScreen(),
+        AppConstants.routeHome: (context) => const MainNavigationScreen(),
 
         // ---------- TASK EXECUTION ----------
         AppConstants.routeTaskExecution: (context) {
-          final task =
-              ModalRoute.of(context)?.settings.arguments as Task?;
+          final task = ModalRoute.of(context)?.settings.arguments as Task?;
           if (task == null) {
             return const Scaffold(
               body: Center(child: Text('Task not found')),
@@ -135,9 +132,8 @@ class _UpGradeAppState extends State<UpGradeApp> {
 
         // ---------- WEEKLY SCHEDULE (NEW) ----------
         AppConstants.routeWeeklySchedule: (context) {
-          final args =
-              ModalRoute.of(context)?.settings.arguments
-                  as Map<String, dynamic>?;
+          final args = ModalRoute.of(context)?.settings.arguments
+              as Map<String, dynamic>?;
 
           if (args == null) {
             return const Scaffold(
@@ -152,33 +148,24 @@ class _UpGradeAppState extends State<UpGradeApp> {
         },
 
         // ---------- OTHER ROUTES ----------
-        AppConstants.routeWarnings: (context) =>
-            const WarningsScreen(),
+        AppConstants.routeWarnings: (context) => const WarningsScreen(),
         AppConstants.routeProgress: (context) =>
             const ProgressDashboardScreen(),
-        AppConstants.routeBurnout: (context) =>
-            const BurnoutRiskScreen(),
-        AppConstants.routeGroupStudy: (context) =>
-            const GroupStudyScreen(),
-        AppConstants.routeAIChatbot: (context) =>
-            const AIChatbotScreen(),
-        AppConstants.routeEndOfDay: (context) =>
-            EndOfDayScreen(),
-        AppConstants.routePastTasks: (context) =>
-            const PastTasksScreen(),
-        AppConstants.routeMissedTasks: (context) =>
-            const MissedTasksScreen(),
+        AppConstants.routeBurnout: (context) => const BurnoutRiskScreen(),
+        AppConstants.routeGroupStudy: (context) => const GroupStudyScreen(),
+        AppConstants.routeAIChatbot: (context) => const AIChatbotScreen(),
+        AppConstants.routeEndOfDay: (context) => EndOfDayScreen(),
+        AppConstants.routePastTasks: (context) => const PastTasksScreen(),
+        AppConstants.routeMissedTasks: (context) => const MissedTasksScreen(),
         AppConstants.routeFirestoreExample: (context) =>
             const FirestoreExampleScreen(),
         AppConstants.routeProfile: (context) => const ProfileScreen(),
+        AppConstants.routePrivacy: (context) => const PrivacySettingsScreen(),
         AppConstants.routePrivacySettings: (context) =>
             const PrivacySettingsScreen(),
-        AppConstants.routeEditProfile: (context) =>
-            const EditProfileScreen(),
-        AppConstants.routeStudyPlan: (context) =>
-            const StudyPlanScreen(),
-        AppConstants.routeQrScanner: (context) =>
-            const QrScannerScreen(),
+        AppConstants.routeEditProfile: (context) => const EditProfileScreen(),
+        AppConstants.routeStudyPlan: (context) => const StudyPlanScreen(),
+        AppConstants.routeQrScanner: (context) => const QrScannerScreen(),
         AppConstants.routeManualCourses: (context) =>
             const ManualCoursesScreen(),
       },
@@ -194,12 +181,10 @@ class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({super.key});
 
   @override
-  State<MainNavigationScreen> createState() =>
-      _MainNavigationScreenState();
+  State<MainNavigationScreen> createState() => _MainNavigationScreenState();
 }
 
-class _MainNavigationScreenState
-    extends State<MainNavigationScreen> {
+class _MainNavigationScreenState extends State<MainNavigationScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   void _openDrawer() => _scaffoldKey.currentState?.openDrawer();
@@ -255,9 +240,7 @@ class _MainNavigationScreenState
           GroupStudyScreen(openDrawer: _openDrawer),
           EndSessionScreen(
             onContinue: () {
-              context
-                  .read<DashboardShellProvider>()
-                  .exitEndSessionContinue();
+              context.read<DashboardShellProvider>().exitEndSessionContinue();
             },
             onEndAndSignOut: _performSignOut,
           ),
@@ -305,6 +288,9 @@ class _MainNavigationScreenState
             ? const SizedBox.shrink()
             : FloatingActionButton(
                 onPressed: () {
+                  context
+                      .read<DashboardShellProvider>()
+                      .selectRoute(AppConstants.routeWarnings);
                   Navigator.of(context).pushNamed(AppConstants.routeWarnings);
                 },
                 backgroundColor: Colors.transparent,
@@ -349,13 +335,25 @@ class _MainNavigationScreenState
   }
 
   Drawer _buildDrawer(BuildContext context) {
+    final shell = context.read<DashboardShellProvider>();
+
+    void selectMainRoute(String route) {
+      Navigator.pop(context);
+      shell.selectRoute(route);
+    }
+
+    void navigateToOverlayRoute(String route) {
+      Navigator.pop(context);
+      shell.selectRoute(route);
+      Navigator.of(context).pushNamed(route);
+    }
+
     return Drawer(
       child: ListView(
         padding: EdgeInsets.zero,
         children: [
           DrawerHeader(
-            decoration:
-                BoxDecoration(gradient: AppTheme.primaryGradient),
+            decoration: BoxDecoration(gradient: AppTheme.primaryGradient),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.center,
@@ -388,101 +386,76 @@ class _MainNavigationScreenState
               ],
             ),
           ),
-
           ListTile(
             leading: const Icon(Icons.person_outline),
             title: const Text('Profile'),
             onTap: () {
-              Navigator.pop(context);
-              Navigator.of(context).pushNamed(AppConstants.routeProfile);
+              navigateToOverlayRoute(AppConstants.routeProfile);
             },
           ),
-
           ListTile(
             leading: const Icon(Icons.playlist_add_outlined),
             title: const Text('My courses'),
             subtitle: const Text('Add classes not in Classroom'),
             onTap: () {
-              Navigator.pop(context);
-              Navigator.of(context)
-                  .pushNamed(AppConstants.routeManualCourses);
+              navigateToOverlayRoute(AppConstants.routeManualCourses);
             },
           ),
-
           ListTile(
             leading: const Icon(Icons.qr_code_scanner),
             title: const Text('Connect Desktop'),
             subtitle: const Text('Scan QR on laptop'),
             onTap: () {
-              Navigator.pop(context);
-              Navigator.of(context).pushNamed(AppConstants.routeQrScanner);
+              navigateToOverlayRoute(AppConstants.routeQrScanner);
             },
           ),
           ListTile(
             leading: const Icon(Icons.auto_awesome),
             title: const Text('AI Assistant'),
             onTap: () {
-              Navigator.pop(context);
-              Navigator.of(context)
-                  .pushNamed(AppConstants.routeAIChatbot);
+              selectMainRoute(AppConstants.routeAIChatbot);
             },
           ),
-
           ListTile(
             leading: const Icon(Icons.history_edu),
             title: const Text('Past Tasks'),
             onTap: () {
-              Navigator.pop(context);
-              Navigator.of(context)
-                  .pushNamed(AppConstants.routePastTasks);
+              navigateToOverlayRoute(AppConstants.routePastTasks);
             },
           ),
-
           ListTile(
             leading: const Icon(Icons.dashboard),
             title: const Text('Progress Dashboard'),
             onTap: () {
-              Navigator.pop(context);
-              context.read<DashboardShellProvider>().selectTab(2);
+              selectMainRoute(AppConstants.routeProgress);
             },
           ),
-
           ListTile(
             leading: const Icon(Icons.health_and_safety),
             title: const Text('Burnout Risk'),
             onTap: () {
-              Navigator.pop(context);
-              Navigator.of(context)
-                  .pushNamed(AppConstants.routeBurnout);
+              navigateToOverlayRoute(AppConstants.routeBurnout);
             },
           ),
-
           ListTile(
             leading: const Icon(Icons.groups),
             title: const Text('Group Study'),
             onTap: () {
-              Navigator.pop(context);
-              context.read<DashboardShellProvider>().selectTab(3);
+              selectMainRoute(AppConstants.routeGroupStudy);
             },
           ),
-
           ListTile(
             leading: const Icon(Icons.rate_review),
             title: const Text('End of Day Review'),
             onTap: () {
-              Navigator.pop(context);
-              Navigator.of(context)
-                  .pushNamed(AppConstants.routeEndOfDay);
+              navigateToOverlayRoute(AppConstants.routeEndOfDay);
             },
           ),
-
           ListTile(
             leading: const Icon(Icons.cloud),
             title: const Text('Firestore Example'),
             onTap: () {
-              Navigator.pop(context);
-              Navigator.of(context)
-                  .pushNamed(AppConstants.routeFirestoreExample);
+              navigateToOverlayRoute(AppConstants.routeFirestoreExample);
             },
           ),
         ],

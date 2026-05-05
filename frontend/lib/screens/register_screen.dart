@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../core/constants.dart';
 import '../widgets/app_logo.dart';
+import '../services/api_service.dart';
 import '../services/firebase_auth_service.dart';
 import '../services/user_matching_profile_sync_service.dart';
 import '../providers/classroom_provider.dart';
@@ -23,8 +24,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
 
-  bool _obscurePassword = true;
-  bool _obscureConfirmPassword = true;
+  final bool _obscurePassword = true;
+  final bool _obscureConfirmPassword = true;
   bool _isLoading = false;
   bool _agreeToTerms = false;
   String? _error;
@@ -61,6 +62,27 @@ class _RegisterScreenState extends State<RegisterScreen> {
       );
 
       if (user == null) throw Exception('Registration failed');
+
+      final registeredName = _nameController.text.trim();
+      if (registeredName.isNotEmpty) {
+        await user.updateDisplayName(registeredName);
+        await user.reload();
+      }
+
+      // Keep backend profile in sync with the name used at registration.
+      try {
+        final uid = user.uid;
+        await ApiService().updateUserProfile(
+          userId: uid,
+          fullName: registeredName,
+          email: _emailController.text.trim(),
+          major: 'Computer Science',
+          academicYear: 'Junior',
+          gpa: '3.85',
+        );
+      } catch (_) {
+        // Backend optional; Firebase displayName is the source of truth for the name.
+      }
 
       if (!mounted) return;
       await user.updateDisplayName(_nameController.text.trim());
@@ -125,7 +147,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const SizedBox(height: 20),
-
                 Align(
                   alignment: Alignment.centerLeft,
                   child: IconButton(
@@ -133,44 +154,35 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     icon: const Icon(Icons.arrow_back),
                   ),
                 ),
-
                 const SizedBox(height: 20),
                 const Center(child: AppLogo.large()),
                 const SizedBox(height: 32),
-
                 const Text(
                   'Create Account',
                   style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
                   textAlign: TextAlign.center,
                 ),
-
                 const SizedBox(height: 16),
-
                 if (_error != null) ...[
                   Text(_error!,
                       style: const TextStyle(color: Colors.red),
                       textAlign: TextAlign.center),
                   const SizedBox(height: 16),
                 ],
-
                 TextFormField(
                   controller: _nameController,
                   decoration: const InputDecoration(labelText: 'Full Name'),
                   validator: (v) =>
                       v == null || v.isEmpty ? 'Enter your name' : null,
                 ),
-
                 const SizedBox(height: 20),
-
                 TextFormField(
                   controller: _emailController,
                   decoration: const InputDecoration(labelText: 'Email'),
                   validator: (v) =>
                       v == null || !v.contains('@') ? 'Invalid email' : null,
                 ),
-
                 const SizedBox(height: 20),
-
                 TextFormField(
                   controller: _passwordController,
                   obscureText: _obscurePassword,
@@ -178,38 +190,31 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   validator: (v) =>
                       v == null || v.length < 6 ? 'Weak password' : null,
                 ),
-
                 const SizedBox(height: 20),
-
                 TextFormField(
                   controller: _confirmPasswordController,
                   obscureText: _obscureConfirmPassword,
                   decoration:
                       const InputDecoration(labelText: 'Confirm Password'),
-                  validator: (v) =>
-                      v != _passwordController.text ? 'Passwords mismatch' : null,
+                  validator: (v) => v != _passwordController.text
+                      ? 'Passwords mismatch'
+                      : null,
                 ),
-
                 const SizedBox(height: 20),
-
                 CheckboxListTile(
                   value: _agreeToTerms,
                   onChanged: (v) => setState(() => _agreeToTerms = v ?? false),
                   title: const Text('I agree to terms & privacy'),
                   controlAffinity: ListTileControlAffinity.leading,
                 ),
-
                 const SizedBox(height: 24),
-
                 ElevatedButton(
                   onPressed: _isLoading ? null : _handleRegister,
                   child: _isLoading
                       ? const CircularProgressIndicator()
                       : const Text('Create Account'),
                 ),
-
                 const SizedBox(height: 16),
-
                 OutlinedButton(
                   onPressed: _isLoading ? null : _handleGoogleRegister,
                   child: const Text('Sign up with Google'),

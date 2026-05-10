@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-import 'package:flutter/material.dart';
-
 import '../models/classroom_course.dart';
 import '../models/task.dart';
 import '../services/classroom_sync_service.dart';

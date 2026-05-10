@@ -174,8 +174,12 @@ AppConstants.routeEditProfile: (context) =>
 
 AppConstants.routeStudyPlan: (context) => const StudyPlanScreen(),
 AppConstants.routeQrScanner: (context) => const QrScannerScreen(),
-AppConstants.routeManualCourses: (context) =>
-    const ManualCoursesScreen(),
+        AppConstants.routeManualCourses: (context) =>
+            const ManualCoursesScreen(),
+      },
+    );
+  }
+}
 
 // =======================================================
 // MAIN NAVIGATION

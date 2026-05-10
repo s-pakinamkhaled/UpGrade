@@ -290,7 +290,7 @@ class ApiService {
         .timeout(const Duration(seconds: 25));
 
     if (response.statusCode != 200) {
-      print('Invite email API error: ${response.statusCode} ${response.body}');
+     debugPrint('Invite email API error: ${response.statusCode} ${response.body}');
       throw Exception('Failed to send invite emails.');
     }
   }

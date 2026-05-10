@@ -549,46 +549,7 @@ Widget _settingRow({
     ),
   );
 }
-        child: Column(
-          children: [
-            Row(
-              children: [
-                Icon(icon, color: const Color(0xFF64748B), size: 22 * scale),
-                SizedBox(width: 12 * scale),
-                Expanded(
-                  child: Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 17 * scale,
-                      fontWeight: FontWeight.w600,
-                      color: isDark ? Colors.white : const Color(0xFF1E293B),
-                    ),
-                  ),
-                ),
-                Container(
-                  padding:
-                      EdgeInsets.symmetric(horizontal: 10 * scale, vertical: 4 * scale),
-                  decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF0B1220) : const Color(0xFFF8FAFC),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFE2E8F0)),
-                  ),
-                  child: Text(
-                    action,
-                    style: TextStyle(
-                      fontSize: 13 * scale,
-                      fontWeight: FontWeight.w600,
-                      color: isDark ? Colors.white : const Color(0xFF0F172A),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+       
 
   Widget _statusBadge(String label, Color bg, Color fg, double s) {
     return Container(

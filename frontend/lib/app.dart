@@ -28,6 +28,7 @@ import 'screens/missed_tasks_screen.dart';
 import 'screens/firestore_example_screen.dart';
 import 'screens/study_plan_screen.dart';
 import 'screens/profile_screen.dart';
+import 'screens/privacy_policy_screen.dart';
 import 'screens/privacy_settings_screen.dart';
 import 'screens/edit_profile_screen.dart';
 import 'screens/end_session_screen.dart';
@@ -171,6 +172,8 @@ class _UpGradeAppState extends State<UpGradeApp> {
         AppConstants.routeFirestoreExample: (context) =>
             const FirestoreExampleScreen(),
         AppConstants.routeProfile: (context) => const ProfileScreen(),
+        AppConstants.routePrivacy: (context) =>
+            const PrivacyPolicyScreen(),
         AppConstants.routePrivacySettings: (context) =>
             const PrivacySettingsScreen(),
         AppConstants.routeEditProfile: (context) =>

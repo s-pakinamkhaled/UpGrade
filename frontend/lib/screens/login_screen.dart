@@ -388,17 +388,24 @@ class _LoginScreenState extends State<LoginScreen> {
                                     );
                                   }
                                 } catch (e) {
-                                  if (mounted) {
-                                    ScaffoldMessenger.of(context)
-                                        .showSnackBar(
-                                      SnackBar(
-                                        content:
-                                            Text('❌ Firestore: $e'),
-                                        backgroundColor:
-                                            AppTheme.errorRed,
-                                      ),
-                                    );
-                                  }
+                                  if (!mounted) return;
+                                  final String msg =
+                                      e is FirebaseException &&
+                                              e.code == 'permission-denied'
+                                          ? 'Firestore: لا يوجد Permission للكتابة. '
+                                              'القواعد على Firebase غالبًا مختلفة عن المشروع.\n\n'
+                                              'الحل: من مجلد frontend شغّل:\n'
+                                              'firebase deploy --only firestore\n\n'
+                                              'أو من Console: Firestore → Rules والصق محتوى frontend/firestore.rules'
+                                          : '❌ Firestore: $e';
+                                  ScaffoldMessenger.of(context)
+                                      .showSnackBar(
+                                    SnackBar(
+                                      content: Text(msg),
+                                      backgroundColor: AppTheme.errorRed,
+                                      duration: const Duration(seconds: 8),
+                                    ),
+                                  );
                                 }
                               },
                               child: const Text('Test Firestore'),

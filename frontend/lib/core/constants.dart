@@ -9,6 +9,10 @@ class AppConstants {
   static const String appName = 'UpGrade';
   static const String appTagline = 'AI-Powered Study Assistant';
 
+  /// Public hosted privacy page (Firebase Hosting); see repo `deploy-privacy.ps1`.
+  static const String publicPrivacyPolicyPageUrl =
+      'https://upgrade-aa19f.firebaseapp.com/privacy';
+
   // ================== ROUTES ==================
   static const String routeLogin = '/login';
   static const String routeRegister = '/register';
@@ -34,6 +38,8 @@ class AppConstants {
   static const String routeStudyPlan = '/study-plan';
   static const String routeQrScanner = '/qr-scanner';
   static const String routeProfile = '/profile';
+  /// In-app full privacy policy text (native); web can use [publicPrivacyPolicyPageUrl].
+  static const String routePrivacy = '/privacy-policy';
   static const String routePrivacySettings = '/privacy-settings';
   static const String routeEditProfile = '/edit-profile';
 

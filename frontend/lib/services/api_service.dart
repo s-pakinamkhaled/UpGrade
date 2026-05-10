@@ -263,6 +263,38 @@ class ApiService {
     }
   }
 
+  /// Send course room invitation emails via backend SMTP service.
+  Future<void> sendCourseRoomInviteEmails({
+    required List<String> recipientEmails,
+    required String courseName,
+    required String inviterName,
+  }) async {
+    final validEmails = recipientEmails
+        .map((e) => e.trim())
+        .where((e) => e.contains('@'))
+        .toSet()
+        .toList();
+    if (validEmails.isEmpty) return;
+
+    final response = await http
+        .post(
+          Uri.parse('$baseUrl/api/notifications/course-room-invite'),
+          headers: {'Content-Type': 'application/json'},
+          body: json.encode({
+            'recipientEmails': validEmails,
+            'courseName': courseName,
+            'inviterName': inviterName,
+            'appUrl': 'http://localhost:5750/#/home',
+          }),
+        )
+        .timeout(const Duration(seconds: 25));
+
+    if (response.statusCode != 200) {
+     debugPrint('Invite email API error: ${response.statusCode} ${response.body}');
+      throw Exception('Failed to send invite emails.');
+    }
+  }
+
   // Add more API methods here as needed:
   // - getUserTasks()
   // - createTask()

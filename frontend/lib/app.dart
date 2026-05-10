@@ -28,6 +28,7 @@ import 'screens/missed_tasks_screen.dart';
 import 'screens/firestore_example_screen.dart';
 import 'screens/study_plan_screen.dart';
 import 'screens/profile_screen.dart';
+import 'screens/privacy_policy_screen.dart';
 import 'screens/privacy_settings_screen.dart';
 import 'screens/edit_profile_screen.dart';
 import 'screens/end_session_screen.dart';
@@ -148,24 +149,31 @@ class _UpGradeAppState extends State<UpGradeApp> {
         },
 
         // ---------- OTHER ROUTES ----------
-        AppConstants.routeWarnings: (context) => const WarningsScreen(),
-        AppConstants.routeProgress: (context) =>
-            const ProgressDashboardScreen(),
-        AppConstants.routeBurnout: (context) => const BurnoutRiskScreen(),
-        AppConstants.routeGroupStudy: (context) => const GroupStudyScreen(),
-        AppConstants.routeAIChatbot: (context) => const AIChatbotScreen(),
-        AppConstants.routeEndOfDay: (context) => EndOfDayScreen(),
-        AppConstants.routePastTasks: (context) => const PastTasksScreen(),
-        AppConstants.routeMissedTasks: (context) => const MissedTasksScreen(),
-        AppConstants.routeFirestoreExample: (context) =>
-            const FirestoreExampleScreen(),
-        AppConstants.routeProfile: (context) => const ProfileScreen(),
-        AppConstants.routePrivacy: (context) => const PrivacySettingsScreen(),
-        AppConstants.routePrivacySettings: (context) =>
-            const PrivacySettingsScreen(),
-        AppConstants.routeEditProfile: (context) => const EditProfileScreen(),
-        AppConstants.routeStudyPlan: (context) => const StudyPlanScreen(),
-        AppConstants.routeQrScanner: (context) => const QrScannerScreen(),
+       AppConstants.routeWarnings: (context) => const WarningsScreen(),
+AppConstants.routeProgress: (context) =>
+    const ProgressDashboardScreen(),
+AppConstants.routeBurnout: (context) => const BurnoutRiskScreen(),
+AppConstants.routeGroupStudy: (context) => const GroupStudyScreen(),
+AppConstants.routeAIChatbot: (context) => const AIChatbotScreen(),
+AppConstants.routeEndOfDay: (context) => EndOfDayScreen(),
+AppConstants.routePastTasks: (context) => const PastTasksScreen(),
+AppConstants.routeMissedTasks: (context) => const MissedTasksScreen(),
+AppConstants.routeFirestoreExample: (context) =>
+    const FirestoreExampleScreen(),
+
+AppConstants.routeProfile: (context) => const ProfileScreen(),
+
+AppConstants.routePrivacy: (context) =>
+    const PrivacyPolicyScreen(),
+
+AppConstants.routePrivacySettings: (context) =>
+    const PrivacySettingsScreen(),
+
+AppConstants.routeEditProfile: (context) =>
+    const EditProfileScreen(),
+
+AppConstants.routeStudyPlan: (context) => const StudyPlanScreen(),
+AppConstants.routeQrScanner: (context) => const QrScannerScreen(),
         AppConstants.routeManualCourses: (context) =>
             const ManualCoursesScreen(),
       },

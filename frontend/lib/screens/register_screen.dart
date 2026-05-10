@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../core/constants.dart';
 import '../widgets/app_logo.dart';
 import '../services/api_service.dart';
 import '../services/firebase_auth_service.dart';
+import '../services/user_matching_profile_sync_service.dart';
+import '../providers/classroom_provider.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -82,6 +85,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
       }
 
       if (!mounted) return;
+      await user.updateDisplayName(_nameController.text.trim());
+      await UserMatchingProfileSyncService.syncCurrentUserProfile(
+        courses: context.read<ClassroomProvider>().courses,
+        tasks: context.read<ClassroomProvider>().tasks,
+        nameOverride: _nameController.text.trim(),
+      );
 
       Navigator.of(context).pushReplacementNamed(
         AppConstants.routeGoogleClassroomSync,
@@ -108,6 +117,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
       if (user == null) throw Exception('Google sign-in cancelled');
 
       if (!mounted) return;
+      await UserMatchingProfileSyncService.syncCurrentUserProfile(
+        courses: context.read<ClassroomProvider>().courses,
+        tasks: context.read<ClassroomProvider>().tasks,
+      );
 
       Navigator.of(context).pushReplacementNamed(
         AppConstants.routeGoogleClassroomSync,

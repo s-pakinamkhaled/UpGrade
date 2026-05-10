@@ -9,6 +9,7 @@ import '../models/task.dart';
 const String _keySyncedAt = 'classroom_synced_at';
 const String _keyCourses = 'classroom_courses';
 const String _keyTasks = 'classroom_tasks';
+const String _keySelectedSemesterId = 'classroom_selected_semester_id';
 
 class ClassroomStorageService {
   static Future<void> save({
@@ -68,5 +69,15 @@ class ClassroomStorageService {
     await prefs.remove(_keySyncedAt);
     await prefs.remove(_keyCourses);
     await prefs.remove(_keyTasks);
+  }
+
+  static Future<void> saveSelectedSemesterId(String semesterId) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keySelectedSemesterId, semesterId);
+  }
+
+  static Future<String?> getSelectedSemesterId() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_keySelectedSemesterId);
   }
 }

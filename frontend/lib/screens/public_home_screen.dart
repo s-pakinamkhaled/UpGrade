@@ -13,7 +13,9 @@ class PublicHomeScreen extends StatelessWidget {
     final theme = Theme.of(context);
     final headlineColor = theme.colorScheme.onSurface;
     final bodyColor = theme.colorScheme.onSurface.withOpacity(0.85);
-    final secondaryColor = theme.colorScheme.onSurface.withOpacity(0.75);
+    final secondaryColor =
+        theme.colorScheme.onSurface.withOpacity(0.75);
+
     return Scaffold(
       body: Center(
         child: ConstrainedBox(
@@ -62,7 +64,10 @@ class PublicHomeScreen extends StatelessWidget {
                   width: double.infinity,
                   child: FilledButton(
                     onPressed: () {
-                      Navigator.pushNamed(context, AppConstants.routeLogin);
+                      Navigator.pushNamed(
+                        context,
+                        AppConstants.routeLogin,
+                      );
                     },
                     style: FilledButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 16),
@@ -76,11 +81,15 @@ class PublicHomeScreen extends StatelessWidget {
                   child: kIsWeb
                       ? Link(
                           uri: Uri.parse(
-                              AppConstants.publicPrivacyPolicyPageUrl),
-                          builder: (context, followLink) => OutlinedButton(
+                            AppConstants.publicPrivacyPolicyPageUrl,
+                          ),
+                          builder: (context, followLink) =>
+                              OutlinedButton(
                             onPressed: followLink,
                             style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 16,
+                              ),
                             ),
                             child: const Text('Privacy Policy'),
                           ),
@@ -93,7 +102,9 @@ class PublicHomeScreen extends StatelessWidget {
                             );
                           },
                           style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 16,
+                            ),
                           ),
                           child: const Text('Privacy Policy'),
                         ),

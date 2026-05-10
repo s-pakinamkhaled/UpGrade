@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../services/user_matching_profile_sync_service.dart';
 
 enum StudyStyle { visual, reading, practice }
 enum DifficultyLevel { easy, balanced, challenging }
@@ -29,6 +30,10 @@ class SettingsProvider extends ChangeNotifier {
 
   bool _loaded = false;
   bool get isLoaded => _loaded;
+  String _availableStart = '18:00';
+  String get availableStart => _availableStart;
+  String _availableEnd = '21:00';
+  String get availableEnd => _availableEnd;
 
   Future<void> load() async {
     final prefs = await SharedPreferences.getInstance();
@@ -69,6 +74,9 @@ class SettingsProvider extends ChangeNotifier {
       default:
         _difficulty = DifficultyLevel.balanced;
     }
+
+    _availableStart = prefs.getString('profile_available_start') ?? '18:00';
+    _availableEnd = prefs.getString('profile_available_end') ?? '21:00';
 
     _loaded = true;
     notifyListeners();
@@ -119,6 +127,7 @@ class SettingsProvider extends ChangeNotifier {
       StudyStyle.practice => 'practice',
     };
     await prefs.setString('settings_study_style', value);
+    await UserMatchingProfileSyncService.syncCurrentUserProfile();
   }
 
   Future<void> setDifficulty(DifficultyLevel level) async {
@@ -131,6 +140,20 @@ class SettingsProvider extends ChangeNotifier {
       DifficultyLevel.challenging => 'challenging',
     };
     await prefs.setString('settings_difficulty', value);
+    await UserMatchingProfileSyncService.syncCurrentUserProfile();
+  }
+
+  Future<void> setAvailability({
+    required String startHHmm,
+    required String endHHmm,
+  }) async {
+    _availableStart = startHHmm;
+    _availableEnd = endHHmm;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('profile_available_start', startHHmm);
+    await prefs.setString('profile_available_end', endHHmm);
+    await UserMatchingProfileSyncService.syncCurrentUserProfile();
   }
 }
 

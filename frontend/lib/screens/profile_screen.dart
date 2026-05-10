@@ -328,33 +328,41 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ],
             ),
           ),
-          DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: AppTheme.primaryGradient,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: ElevatedButton.icon(
-              onPressed: _openEditProfile,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.transparent,
-                shadowColor: Colors.transparent,
-                elevation: 0,
-                foregroundColor: Colors.white,
-                padding:
-                    EdgeInsets.symmetric(horizontal: 18 * s, vertical: 14 * s),
-              ),
-              icon: Icon(Icons.edit_outlined, size: 18 * s),
-              label: Text(
-                'Edit Profile',
-                style: TextStyle(fontSize: 20 * s, fontWeight: FontWeight.w600),
-              ),
-            ),
-          ),
+       DecoratedBox(
+  decoration: BoxDecoration(
+    gradient: AppTheme.primaryGradient,
+    borderRadius: BorderRadius.circular(12),
+  ),
+  child: ElevatedButton.icon(
+    onPressed: _openEditProfile,
+    style: ElevatedButton.styleFrom(
+      backgroundColor: Colors.transparent,
+      shadowColor: Colors.transparent,
+      elevation: 0,
+      foregroundColor: Colors.white,
+      padding: EdgeInsets.symmetric(
+        horizontal: 18 * s,
+        vertical: 14 * s,
+      ),
+    ),
+    icon: Icon(
+      Icons.edit_outlined,
+      size: 18 * s,
+    ),
+    label: Text(
+      'Edit Profile',
+      style: TextStyle(
+        fontSize: 20 * s,
+        fontWeight: FontWeight.w600,
+      ),
+    ),
+  ),
+),
         ],
       ),
     );
-  }
-
+  
+ }
   Widget _buildStatsRow(double s) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     const stats = [
@@ -468,66 +476,82 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _settingRow({
-    required IconData icon,
-    required String title,
-    required String action,
-    required double scale,
-    required bool isDark,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 18 * scale, vertical: 16 * scale),
-        decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF111827) : Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isDark ? const Color(0xFF1F2937) : const Color(0xFFE2E8F0),
-          ),
-        ),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                Icon(icon, color: const Color(0xFF64748B), size: 22 * scale),
-                SizedBox(width: 12 * scale),
-                Expanded(
-                  child: Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 17 * scale,
-                      fontWeight: FontWeight.w600,
-                      color: isDark ? Colors.white : const Color(0xFF1E293B),
-                    ),
-                  ),
-                ),
-                Container(
-                  padding:
-                      EdgeInsets.symmetric(horizontal: 10 * scale, vertical: 4 * scale),
-                  decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF0B1220) : const Color(0xFFF8FAFC),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFE2E8F0)),
-                  ),
-                  child: Text(
-                    action,
-                    style: TextStyle(
-                      fontSize: 13 * scale,
-                      fontWeight: FontWeight.w600,
-                      color: isDark ? Colors.white : const Color(0xFF0F172A),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
+Widget _settingRow({
+  required IconData icon,
+  required String title,
+  required String action,
+  required double scale,
+  required bool isDark,
+  required VoidCallback onTap,
+}) {
+  return InkWell(
+    onTap: onTap,
+    borderRadius: BorderRadius.circular(16),
+    child: Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: 18 * scale,
+        vertical: 16 * scale,
+      ),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF111827) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark
+              ? const Color(0xFF1F2937)
+              : const Color(0xFFE2E8F0),
         ),
       ),
-    );
-  }
+      child: Row(
+        children: [
+          Icon(
+            icon,
+            color: const Color(0xFF64748B),
+            size: 22 * scale,
+          ),
+          SizedBox(width: 12 * scale),
+          Expanded(
+            child: Text(
+              title,
+              style: TextStyle(
+                fontSize: 17 * scale,
+                fontWeight: FontWeight.w600,
+                color: isDark
+                    ? Colors.white
+                    : const Color(0xFF1E293B),
+              ),
+            ),
+          ),
+          Container(
+            padding: EdgeInsets.symmetric(
+              horizontal: 10 * scale,
+              vertical: 4 * scale,
+            ),
+            decoration: BoxDecoration(
+              color: isDark
+                  ? const Color(0xFF0B1220)
+                  : const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: const Color(0xFFE2E8F0),
+              ),
+            ),
+            child: Text(
+              action,
+              style: TextStyle(
+                fontSize: 13 * scale,
+                fontWeight: FontWeight.w600,
+                color: isDark
+                    ? Colors.white
+                    : const Color(0xFF0F172A),
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+       
 
   Widget _statusBadge(String label, Color bg, Color fg, double s) {
     return Container(

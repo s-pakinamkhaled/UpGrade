@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:provider/provider.dart';
+import '../services/user_matching_profile_sync_service.dart';
+import '../providers/classroom_provider.dart';
 
 import '../core/constants.dart';
 import '../core/theme.dart';
 import '../core/profile_display_name.dart';
+
 import '../services/api_service.dart';
+
 import '../widgets/dashboard_secondary_shell.dart';
 
 class EditProfileScreen extends StatefulWidget {
@@ -72,6 +77,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       if (newEmail.isNotEmpty && newEmail != user.email) {
         await user.updateEmail(newEmail);
       }
+      await UserMatchingProfileSyncService.syncCurrentUserProfile(
+        courses: context.read<ClassroomProvider>().courses,
+        tasks: context.read<ClassroomProvider>().tasks,
+        nameOverride: _nameController.text.trim(),
+        emailOverride: newEmail,
+      );
 
       await ApiService().updateUserProfile(
         userId: _userId,

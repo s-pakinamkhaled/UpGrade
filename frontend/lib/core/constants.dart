@@ -9,6 +9,10 @@ class AppConstants {
   static const String appName = 'UpGrade';
   static const String appTagline = 'AI-Powered Study Assistant';
 
+  /// Public hosted privacy page (Firebase Hosting)
+  static const String publicPrivacyPolicyPageUrl =
+      'https://upgrade-e87b3.web.app/privacy.html';
+
   // ================== ROUTES ==================
   static const String routeLogin = '/login';
   static const String routeRegister = '/register';
@@ -34,15 +38,15 @@ class AppConstants {
   static const String routeStudyPlan = '/study-plan';
   static const String routeQrScanner = '/qr-scanner';
   static const String routeProfile = '/profile';
-  static const String routePrivacy = '/privacy';
+
+  /// In-app full privacy policy text
+  static const String routePrivacy = '/privacy-policy';
+
   static const String routePrivacySettings = '/privacy-settings';
   static const String routeEditProfile = '/edit-profile';
   static const String routeEndSession = '/end-session';
 
-  static const String publicPrivacyPolicyPageUrl =
-      'https://upgrade-e87b3.web.app/privacy.html';
-
-  // Deep link (لما الويب يعرض QR أو زر Open App → يفتح التطبيق)
+  // Deep link
   static const String deepLinkScheme = 'studyplanner';
   static const String deepLinkOpen = 'studyplanner://open';
 }

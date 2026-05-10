@@ -2,53 +2,99 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
+import 'semester_filter_service.dart';
+
 class ClassroomSyncService {
   static const String baseUrl = 'https://classroom.googleapis.com/v1';
 
   /// Set to true to print sync debug info in the console (run with flutter run).
   static bool debug = true;
 
-  /// Fetches all courses, course work (assignments), and student submissions.
-  /// Returns data grouped by course: each item has { course, works, submissions }
-  /// so the mapper can build tasks with names, deadlines, and grades.
-  static Future<Map<String, dynamic>> syncAll(String token) async {
+  static Future<List<Map<String, dynamic>>> fetchCourses(String token) async {
     final headers = {
       'Authorization': 'Bearer $token',
       'Content-Type': 'application/json',
     };
 
-    // 1) List courses (student courses)
     final coursesUrl = '$baseUrl/courses?studentId=me';
-    if (debug) debugPrint('[ClassroomSync] GET $coursesUrl');
+
+    if (debug) {
+      debugPrint('[ClassroomSync] GET $coursesUrl');
+    }
+
     final coursesRes = await http.get(
       Uri.parse(coursesUrl),
       headers: headers,
     );
 
     if (coursesRes.statusCode != 200) {
-      if (debug)
+      if (debug) {
         debugPrint(
-            '[ClassroomSync] courses error: ${coursesRes.statusCode} ${coursesRes.body}');
+          '[ClassroomSync] courses error: ${coursesRes.statusCode} ${coursesRes.body}',
+        );
+      }
+
       throw Exception('Failed to load courses: ${coursesRes.body}');
     }
 
     final body = jsonDecode(coursesRes.body);
-    final coursesList = body['courses'] as List<dynamic>? ?? [];
-    if (debug)
-      debugPrint('[ClassroomSync] courses count: ${coursesList.length}');
+
+    final rawCourses = body['courses'] as List<dynamic>? ?? [];
+
+    final courses = rawCourses
+        .whereType<Map>()
+        .map((c) => Map<String, dynamic>.from(c))
+        .toList();
+
+    if (debug) {
+      debugPrint('[ClassroomSync] courses count: ${courses.length}');
+    }
+
+    return courses;
+  }
+
+  /// Fetches all courses, course work (assignments), and student submissions.
+  /// Returns data grouped by course.
+  static Future<Map<String, dynamic>> syncAll(
+    String token, {
+    String? semesterId,
+  }) async {
+    final headers = {
+      'Authorization': 'Bearer $token',
+      'Content-Type': 'application/json',
+    };
+
+    final fetchedCourses = await fetchCourses(token);
+
+    final selectedSemesterId = semesterId;
+
+    final coursesList = selectedSemesterId == null
+        ? fetchedCourses
+        : fetchedCourses.where(
+            (course) {
+              return SemesterFilterService.matchesSemester(
+                course: course,
+                semesterId: selectedSemesterId,
+              );
+            },
+          ).toList();
 
     final List<Map<String, dynamic>> allData = [];
 
     for (final c in coursesList) {
       final course = Map<String, dynamic>.from(c as Map);
+
       final courseId = course['id'] as String? ?? '';
       final courseName = course['name'] as String? ?? '';
 
-      // 2) Course work (assignments) for this course – no filter so we get all types
       final workUrl = '$baseUrl/courses/$courseId/courseWork';
-      if (debug)
+
+      if (debug) {
         debugPrint(
-            '[ClassroomSync] GET courseWork for $courseName ($courseId)');
+          '[ClassroomSync] GET courseWork for $courseName ($courseId)',
+        );
+      }
+
       final workRes = await http.get(
         Uri.parse(workUrl),
         headers: headers,
@@ -56,27 +102,39 @@ class ClassroomSyncService {
 
       if (workRes.statusCode != 200 && debug) {
         debugPrint(
-            '[ClassroomSync] courseWork error: ${workRes.statusCode} ${workRes.body}');
+          '[ClassroomSync] courseWork error: ${workRes.statusCode} ${workRes.body}',
+        );
       }
 
       final workList = workRes.statusCode == 200
-          ? (jsonDecode(workRes.body)['courseWork'] as List<dynamic>?) ?? []
+          ? (jsonDecode(workRes.body)['courseWork']
+                  as List<dynamic>?) ??
+              []
           : <dynamic>[];
 
-      if (debug)
-        debugPrint('[ClassroomSync]   courseWork count: ${workList.length}');
+      if (debug) {
+        debugPrint(
+          '[ClassroomSync] courseWork count: ${workList.length}',
+        );
+      }
 
       final List<Map<String, dynamic>> works = [];
       final List<Map<String, dynamic>> allSubmissions = [];
 
       for (final w in workList) {
         final work = Map<String, dynamic>.from(w as Map);
+
         work['courseId'] = courseId;
+
         final workId = work['id'] as String? ?? '';
         final title = work['title'] as String? ?? '';
         final due = work['dueDate'];
-        if (debug)
-          debugPrint('[ClassroomSync]     work: "$title" dueDate=$due');
+
+        if (debug) {
+          debugPrint(
+            '[ClassroomSync] work: "$title" dueDate=$due',
+          );
+        }
 
         final subRes = await http.get(
           Uri.parse(
@@ -93,10 +151,13 @@ class ClassroomSyncService {
 
         for (final s in subList) {
           final sub = Map<String, dynamic>.from(s as Map);
+
           sub['courseWorkId'] = workId;
           sub['courseId'] = courseId;
+
           allSubmissions.add(sub);
         }
+
         works.add(work);
       }
 
@@ -108,10 +169,14 @@ class ClassroomSyncService {
     }
 
     if (debug) {
-      final totalWorks =
-          allData.fold<int>(0, (n, e) => n + (e['works'] as List).length);
+      final totalWorks = allData.fold<int>(
+        0,
+        (n, e) => n + (e['works'] as List).length,
+      );
+
       debugPrint(
-          '[ClassroomSync] done: ${coursesList.length} courses, $totalWorks courseWork items');
+        '[ClassroomSync] done: ${coursesList.length} courses, $totalWorks courseWork items',
+      );
     }
 
     return {

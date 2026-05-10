@@ -195,7 +195,7 @@ class CourseRoomService {
         .snapshots();
   }
 
-  static Future<void> rejectRequest(String requestId, String _userId) async {
+  static Future<void> rejectRequest(String requestId, String userId) async {
     final requestRef = _db.collection('groupStudyRequests').doc(requestId);
     _logFirestoreOp('WRITE_UPDATE', requestRef.path);
     await requestRef.update({

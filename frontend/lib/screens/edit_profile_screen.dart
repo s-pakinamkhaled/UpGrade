@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
-
-import '../widgets/upgrade_page_shell.dart';
 import '../services/user_matching_profile_sync_service.dart';
 import '../providers/classroom_provider.dart';
 

@@ -328,39 +328,41 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ],
             ),
           ),
-          DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: AppTheme.primaryGradient,
-              borderRadius: BorderRadius.circular(12),
-            ),
-child: ElevatedButton.icon(
-  onPressed: _openEditProfile,
-  style: ElevatedButton.styleFrom(
-    backgroundColor: Colors.transparent,
-    shadowColor: Colors.transparent,
-    elevation: 0,
-    foregroundColor: Colors.white,
-    padding: EdgeInsets.symmetric(
-      horizontal: 18 * s,
-      vertical: 14 * s,
-    ),
+       DecoratedBox(
+  decoration: BoxDecoration(
+    gradient: AppTheme.primaryGradient,
+    borderRadius: BorderRadius.circular(12),
   ),
-  icon: Icon(Icons.edit_outlined, size: 18 * s),
-  label: Text(
-    'Edit Profile',
-    style: TextStyle(
-      fontSize: 20 * s,
-      fontWeight: FontWeight.w600,
+  child: ElevatedButton.icon(
+    onPressed: _openEditProfile,
+    style: ElevatedButton.styleFrom(
+      backgroundColor: Colors.transparent,
+      shadowColor: Colors.transparent,
+      elevation: 0,
+      foregroundColor: Colors.white,
+      padding: EdgeInsets.symmetric(
+        horizontal: 18 * s,
+        vertical: 14 * s,
+      ),
+    ),
+    icon: Icon(
+      Icons.edit_outlined,
+      size: 18 * s,
+    ),
+    label: Text(
+      'Edit Profile',
+      style: TextStyle(
+        fontSize: 20 * s,
+        fontWeight: FontWeight.w600,
+      ),
     ),
   ),
 ),
-            ),
-          ),
         ],
       ),
     );
-  }
-
+  
+ }
   Widget _buildStatsRow(double s) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     const stats = [

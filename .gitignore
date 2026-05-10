@@ -44,3 +44,6 @@ npm-debug.log*
 frontend/android/build/
 frontend/android/.gradle/
 frontend/.dart_tool/
+
+# Local runtime database
+backend/app/data/*.db

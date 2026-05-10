@@ -9,20 +9,20 @@ class AppConstants {
   static const String appName = 'UpGrade';
   static const String appTagline = 'AI-Powered Study Assistant';
 
-  /// Public hosted privacy page (Firebase Hosting); see repo `deploy-privacy.ps1`.
+  /// Public hosted privacy page (Firebase Hosting)
   static const String publicPrivacyPolicyPageUrl =
-      'https://upgrade-aa19f.firebaseapp.com/privacy';
+      'https://upgrade-e87b3.web.app/privacy.html';
 
   // ================== ROUTES ==================
   static const String routeLogin = '/login';
   static const String routeRegister = '/register';
   static const String routeForgotPassword = '/forgot-password';
-  static const String routeGoogleClassroomSync =
-      '/google-classroom-sync';
+  static const String routeGoogleClassroomSync = '/google-classroom-sync';
   static const String routeManualCourses = '/manual-courses';
   static const String routeDevicePairing = '/device-pairing';
   static const String routeOnboarding = '/onboarding';
   static const String routeHome = '/home';
+  static const String routeDailyPlanner = '/daily-planner';
 
   static const String routeTaskExecution = '/task-execution';
   static const String routeWarnings = '/warnings';
@@ -38,12 +38,15 @@ class AppConstants {
   static const String routeStudyPlan = '/study-plan';
   static const String routeQrScanner = '/qr-scanner';
   static const String routeProfile = '/profile';
-  /// In-app full privacy policy text (native); web can use [publicPrivacyPolicyPageUrl].
+
+  /// In-app full privacy policy text
   static const String routePrivacy = '/privacy-policy';
+
   static const String routePrivacySettings = '/privacy-settings';
   static const String routeEditProfile = '/edit-profile';
+  static const String routeEndSession = '/end-session';
 
-  // Deep link (لما الويب يعرض QR أو زر Open App → يفتح التطبيق)
+  // Deep link
   static const String deepLinkScheme = 'studyplanner';
   static const String deepLinkOpen = 'studyplanner://open';
 }

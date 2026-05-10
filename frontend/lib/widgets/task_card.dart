@@ -1,20 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import '../core/theme.dart';
 import '../models/task.dart';
+import '../providers/classroom_provider.dart';
 
 class TaskCard extends StatelessWidget {
   final Task task;
   final VoidCallback? onReschedule;
   final VoidCallback? onTap;
-  
+
   const TaskCard({
     super.key,
     required this.task,
     this.onReschedule,
     this.onTap,
   });
-  
+
   Color _getPriorityColor() {
     switch (task.priority) {
       case TaskPriority.urgent:
@@ -27,18 +29,18 @@ class TaskCard extends StatelessWidget {
         return AppTheme.mediumGray;
     }
   }
-  
+
   @override
   Widget build(BuildContext context) {
     final priorityColor = _getPriorityColor();
     final isOverdue = task.isOverdue;
-    
+
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
         side: BorderSide(
-          color: isOverdue 
+          color: isOverdue
               ? AppTheme.errorRed.withOpacity(0.2)
               : AppTheme.mediumGray.withOpacity(0.1),
           width: 1,
@@ -69,7 +71,8 @@ class TaskCard extends StatelessWidget {
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 6),
                       decoration: BoxDecoration(
                         color: priorityColor.withOpacity(0.15),
                         borderRadius: BorderRadius.circular(10),
@@ -97,7 +100,8 @@ class TaskCard extends StatelessWidget {
                         ),
                         child: TextButton.icon(
                           onPressed: onReschedule,
-                          icon: Icon(Icons.schedule, size: 14, color: AppTheme.primaryBlue),
+                          icon: Icon(Icons.schedule,
+                              size: 14, color: AppTheme.primaryBlue),
                           label: Text(
                             'Reschedule',
                             style: TextStyle(
@@ -107,7 +111,8 @@ class TaskCard extends StatelessWidget {
                             ),
                           ),
                           style: TextButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 6),
                             minimumSize: Size.zero,
                             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                           ),
@@ -173,7 +178,8 @@ class TaskCard extends StatelessWidget {
                       child: Icon(
                         Icons.access_time,
                         size: 14,
-                        color: isOverdue ? AppTheme.errorRed : AppTheme.mediumGray,
+                        color:
+                            isOverdue ? AppTheme.errorRed : AppTheme.mediumGray,
                       ),
                     ),
                     const SizedBox(width: 6),
@@ -181,17 +187,87 @@ class TaskCard extends StatelessWidget {
                       DateFormat('MMM d, h:mm a').format(task.deadline),
                       style: TextStyle(
                         fontSize: 12,
-                        color: isOverdue ? AppTheme.errorRed : AppTheme.mediumGray,
-                        fontWeight: isOverdue ? FontWeight.w700 : FontWeight.w500,
+                        color:
+                            isOverdue ? AppTheme.errorRed : AppTheme.mediumGray,
+                        fontWeight:
+                            isOverdue ? FontWeight.w700 : FontWeight.w500,
                       ),
                     ),
                   ],
                 ),
+                const SizedBox(height: 12),
+                _buildStatusActions(context),
               ],
             ),
           ),
         ),
       ),
+    );
+  }
+
+  void _showStatusSnackBar(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), duration: const Duration(seconds: 2)),
+    );
+  }
+
+  Widget _buildStatusActions(BuildContext context) {
+    final provider = context.read<ClassroomProvider>();
+    final isCompleted = task.status == TaskStatus.completed;
+    final isInProgress = task.status == TaskStatus.inProgress;
+    final isPending = task.status == TaskStatus.pending;
+
+    if (isCompleted) {
+      return Align(
+        alignment: Alignment.centerLeft,
+        child: OutlinedButton.icon(
+          onPressed: () async {
+            await provider.reopenTask(task.id);
+            if (!context.mounted) return;
+            _showStatusSnackBar(context, 'Task moved back to pending');
+          },
+          icon: const Icon(Icons.restart_alt, size: 16),
+          label: const Text('Reopen'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: AppTheme.primaryBlue,
+            side: BorderSide(color: AppTheme.primaryBlue.withOpacity(0.45)),
+          ),
+        ),
+      );
+    }
+
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        if (isPending)
+          ElevatedButton.icon(
+            onPressed: () async {
+              await provider.startTask(task.id);
+              if (!context.mounted) return;
+              _showStatusSnackBar(context, 'Task moved to in progress');
+            },
+            icon: const Icon(Icons.play_arrow, size: 16),
+            label: const Text('Start'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryBlue,
+              foregroundColor: AppTheme.white,
+            ),
+          ),
+        ElevatedButton.icon(
+          onPressed: () async {
+            await provider.completeTask(task.id);
+            if (!context.mounted) return;
+            _showStatusSnackBar(context, 'Task marked as completed');
+          },
+          icon: const Icon(Icons.check_circle, size: 16),
+          label: Text(isInProgress ? 'Complete' : 'Mark Complete'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppTheme.successGreen,
+            foregroundColor: AppTheme.white,
+          ),
+        ),
+      ],
     );
   }
 }

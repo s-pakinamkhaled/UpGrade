@@ -33,7 +33,6 @@ class DashboardSecondaryShell extends StatelessWidget {
           : bg,
       body: DashboardShellRow(
         popOverlayRouteAfterSidebarAction: true,
-        highlightRoute: highlightRoute,
         body: SafeArea(
           child: LayoutBuilder(
             builder: (context, constraints) {

@@ -10,6 +10,12 @@ class PublicHomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final headlineColor = theme.colorScheme.onSurface;
+    final bodyColor = theme.colorScheme.onSurface.withOpacity(0.85);
+    final secondaryColor =
+        theme.colorScheme.onSurface.withOpacity(0.75);
+
     return Scaffold(
       body: Center(
         child: ConstrainedBox(
@@ -21,36 +27,36 @@ class PublicHomeScreen extends StatelessWidget {
               children: [
                 Text(
                   AppConstants.appName,
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.darkText,
-                      ),
+                  style: theme.textTheme.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: headlineColor,
+                  ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 12),
                 Text(
                   '${AppConstants.appTagline}. Plan study time, sync with Classroom, and stay on track with AI-powered guidance.',
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: AppTheme.darkText.withOpacity(0.85),
-                        height: 1.4,
-                      ),
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    color: bodyColor,
+                    height: 1.4,
+                  ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 8),
                 Text(
                   'No sign-in is required to read about the app or review our Privacy Policy.',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppTheme.darkText.withOpacity(0.75),
-                        height: 1.35,
-                      ),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: secondaryColor,
+                    height: 1.35,
+                  ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 24),
                 SelectableText(
                   AppConstants.publicPrivacyPolicyPageUrl,
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: AppTheme.primaryBlue,
-                      ),
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: AppTheme.primaryBlue,
+                  ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 8),
@@ -58,7 +64,10 @@ class PublicHomeScreen extends StatelessWidget {
                   width: double.infinity,
                   child: FilledButton(
                     onPressed: () {
-                      Navigator.pushNamed(context, '/login');
+                      Navigator.pushNamed(
+                        context,
+                        AppConstants.routeLogin,
+                      );
                     },
                     style: FilledButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 16),
@@ -71,13 +80,16 @@ class PublicHomeScreen extends StatelessWidget {
                   width: double.infinity,
                   child: kIsWeb
                       ? Link(
-                          uri:
-                              Uri.parse(AppConstants.publicPrivacyPolicyPageUrl),
-                          builder: (context, followLink) => OutlinedButton(
+                          uri: Uri.parse(
+                            AppConstants.publicPrivacyPolicyPageUrl,
+                          ),
+                          builder: (context, followLink) =>
+                              OutlinedButton(
                             onPressed: followLink,
                             style: OutlinedButton.styleFrom(
-                              padding:
-                                  const EdgeInsets.symmetric(vertical: 16),
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 16,
+                              ),
                             ),
                             child: const Text('Privacy Policy'),
                           ),
@@ -90,8 +102,9 @@ class PublicHomeScreen extends StatelessWidget {
                             );
                           },
                           style: OutlinedButton.styleFrom(
-                            padding:
-                                const EdgeInsets.symmetric(vertical: 16),
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 16,
+                            ),
                           ),
                           child: const Text('Privacy Policy'),
                         ),

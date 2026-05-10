@@ -72,6 +72,7 @@ class DashboardStats {
   final int totalTasks;
   final int completedTasks;
   final int pendingTasks;
+  final int inProgressTasks;
   final int missedTasks;
   final int dueToday;
   final int upcoming48Hours;
@@ -97,6 +98,7 @@ class DashboardStats {
     required this.totalTasks,
     required this.completedTasks,
     required this.pendingTasks,
+    required this.inProgressTasks,
     required this.missedTasks,
     required this.dueToday,
     required this.upcoming48Hours,

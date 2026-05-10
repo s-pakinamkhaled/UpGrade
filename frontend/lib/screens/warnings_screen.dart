@@ -182,6 +182,7 @@ class _WarningsScreenState extends State<WarningsScreen> {
     Color surface,
     Color onSurface,
   ) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return LayoutBuilder(
       builder: (context, constraints) {
         final isNarrow = constraints.maxWidth < 600;
@@ -193,7 +194,7 @@ class _WarningsScreenState extends State<WarningsScreen> {
                 icon: Icons.warning_amber_rounded,
                 label: 'Critical',
                 value: '$_criticalCount',
-                bg: _criticalBg,
+                bg: isDark ? _criticalFg.withOpacity(0.18) : _criticalBg,
                 fg: _criticalFg,
                 surface: surface,
               ),
@@ -203,7 +204,7 @@ class _WarningsScreenState extends State<WarningsScreen> {
                 icon: Icons.error_outline,
                 label: 'High Priority',
                 value: '$_highCount',
-                bg: _highBg,
+                bg: isDark ? _highFg.withOpacity(0.18) : _highBg,
                 fg: _highFg,
                 surface: surface,
               ),
@@ -213,7 +214,7 @@ class _WarningsScreenState extends State<WarningsScreen> {
                 icon: Icons.check_circle_outline,
                 label: 'Resolved Today',
                 value: '$_resolvedTodayCount',
-                bg: _resolvedBg,
+                bg: isDark ? _resolvedFg.withOpacity(0.18) : _resolvedBg,
                 fg: _resolvedFg,
                 surface: surface,
               ),
@@ -228,7 +229,7 @@ class _WarningsScreenState extends State<WarningsScreen> {
                 icon: Icons.warning_amber_rounded,
                 label: 'Critical',
                 value: '$_criticalCount',
-                bg: _criticalBg,
+                bg: isDark ? _criticalFg.withOpacity(0.18) : _criticalBg,
                 fg: _criticalFg,
                 surface: surface,
               ),
@@ -240,7 +241,7 @@ class _WarningsScreenState extends State<WarningsScreen> {
                 icon: Icons.error_outline,
                 label: 'High Priority',
                 value: '$_highCount',
-                bg: _highBg,
+                bg: isDark ? _highFg.withOpacity(0.18) : _highBg,
                 fg: _highFg,
                 surface: surface,
               ),
@@ -252,7 +253,7 @@ class _WarningsScreenState extends State<WarningsScreen> {
                 icon: Icons.check_circle_outline,
                 label: 'Resolved Today',
                 value: '$_resolvedTodayCount',
-                bg: _resolvedBg,
+                bg: isDark ? _resolvedFg.withOpacity(0.18) : _resolvedBg,
                 fg: _resolvedFg,
                 surface: surface,
               ),
@@ -272,12 +273,17 @@ class _WarningsScreenState extends State<WarningsScreen> {
     required Color fg,
     required Color surface,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _borderLight),
+        border: Border.all(
+          color: isDark
+              ? Colors.white.withOpacity(0.08)
+              : _borderLight,
+        ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.04),

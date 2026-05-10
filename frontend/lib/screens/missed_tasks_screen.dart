@@ -19,7 +19,7 @@ class MissedTasksScreen extends StatelessWidget {
     return tasks
         .where((t) =>
             _dateOnly(t.deadline).isBefore(today) &&
-            t.status == TaskStatus.missed)
+            t.status != TaskStatus.completed)
         .toList()
       ..sort((a, b) => a.deadline.compareTo(b.deadline));
   }

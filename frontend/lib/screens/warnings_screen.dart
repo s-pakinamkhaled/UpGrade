@@ -1,11 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/constants.dart';
+import '../core/dashboard_shell_navigation.dart';
 import '../core/theme.dart';
+import '../models/task.dart';
+import '../providers/classroom_provider.dart';
 import '../widgets/dashboard_secondary_shell.dart';
+import '../widgets/upgrade_visual_system.dart';
 
-/// Warnings & Alerts page: summary stats (Critical, High Priority, Resolved Today)
-/// and a list of active alert cards with Take Action / Dismiss.
+/// Warnings derived from synced / manual tasks only (no mock alerts).
 class WarningsScreen extends StatefulWidget {
   const WarningsScreen({super.key});
 
@@ -14,7 +20,8 @@ class WarningsScreen extends StatefulWidget {
 }
 
 class _WarningsScreenState extends State<WarningsScreen> {
-  // Design colors from spec
+  static const String _kDismissPrefsKey = 'upgrade_warning_dismissals_v1';
+
   static const Color _criticalBg = Color(0xFFFFF1F2);
   static const Color _criticalFg = Color(0xFFEF4444);
   static const Color _highBg = Color(0xFFFFF7ED);
@@ -25,62 +32,223 @@ class _WarningsScreenState extends State<WarningsScreen> {
   static const Color _mediumFg = Color(0xFF3B82F6);
   static const Color _borderLight = Color(0xFFE2E8F0);
 
-  final List<Warning> _warnings = [
-    const Warning(
-      type: WarningType.missedTask,
-      title: 'Chemistry Assignment Overdue',
-      message: 'Lab report was due 2 days ago. Submit as soon as possible to avoid further impact on your grade.',
-      severity: WarningSeverity.urgent,
-      action: 'Take Action',
-      category: 'CHEM101',
-      timeAgo: '2 days ago',
-    ),
-    const Warning(
-      type: WarningType.deadline,
-      title: 'Math Assignment Due Soon',
-      message: 'Assignment 5 is due in 5 hours. Consider prioritizing this task today.',
-      severity: WarningSeverity.high,
-      action: 'Prioritize this task',
-      category: 'MATH201',
-      timeAgo: '5 hours ago',
-    ),
-    const Warning(
-      type: WarningType.workload,
-      title: 'Heavy Workload Today',
-      message: 'You have 8 tasks scheduled for today. Consider rescheduling some to reduce stress.',
-      severity: WarningSeverity.medium,
-      action: 'Review schedule',
-      category: 'Multiple',
-      timeAgo: '1 hour ago',
-    ),
-  ];
+  Set<String> _dismissed = {};
 
-  int _resolvedTodayCount = 8;
+  @override
+  void initState() {
+    super.initState();
+    _loadDismissed();
+  }
 
-  int get _criticalCount =>
-      _warnings.where((w) => w.severity == WarningSeverity.urgent).length;
-  int get _highCount =>
-      _warnings.where((w) => w.severity == WarningSeverity.high).length;
+  Future<void> _loadDismissed() async {
+    final p = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() {
+      _dismissed = p.getStringList(_kDismissPrefsKey)?.toSet() ?? {};
+    });
+  }
+
+  Future<void> _persistDismissed() async {
+    final p = await SharedPreferences.getInstance();
+    await p.setStringList(_kDismissPrefsKey, _dismissed.toList());
+  }
+
+  static DateTime _dateOnly(DateTime d) =>
+      DateTime(d.year, d.month, d.day);
+
+  static bool _deadlineIsToday(Task t) {
+    final d = _dateOnly(t.deadline);
+    final n = _dateOnly(DateTime.now());
+    return d == n;
+  }
+
+  static String _formatPast(DateTime d) {
+    final diff = DateTime.now().difference(d);
+    if (diff.inDays >= 1) {
+      return '${diff.inDays} day${diff.inDays == 1 ? '' : 's'} ago';
+    }
+    if (diff.inHours >= 1) {
+      return '${diff.inHours} hour${diff.inHours == 1 ? '' : 's'} ago';
+    }
+    if (diff.inMinutes >= 1) {
+      return '${diff.inMinutes} min ago';
+    }
+    return 'Just now';
+  }
+
+  static String _formatUntil(DateTime deadline) {
+    final diff = deadline.difference(DateTime.now());
+    if (diff.isNegative) return 'now';
+    if (diff.inMinutes < 60) {
+      return 'in ${diff.inMinutes} min';
+    }
+    if (diff.inHours < 48) {
+      return 'in ${diff.inHours} hour${diff.inHours == 1 ? '' : 's'}';
+    }
+    return 'in ${diff.inDays} day${diff.inDays == 1 ? '' : 's'}';
+  }
+
+  static final _deadlineFmt = DateFormat('MMM d, yyyy · h:mm a');
+
+  int _resolvedTodayCount(List<Task> tasks) {
+    final n = _dateOnly(DateTime.now());
+    return tasks.where((t) {
+      final c = t.completedAt;
+      if (c == null) return false;
+      return _dateOnly(c) == n;
+    }).length;
+  }
+
+  /// Overdue / missed → urgent. Due within 48h → high. Heavy today → one medium card.
+  List<Warning> _warningsFromTasks(List<Task> tasks) {
+    final now = DateTime.now();
+    final dismissed = _dismissed;
+    final out = <Warning>[];
+
+    final open =
+        tasks.where((t) => t.status != TaskStatus.completed).toList();
+
+    for (final t in open) {
+      final overdue =
+          t.status == TaskStatus.missed || t.isOverdue;
+      if (!overdue) continue;
+      final id = 'overdue_${t.id}';
+      if (dismissed.contains(id)) continue;
+
+      final course = t.courseName.isNotEmpty ? t.courseName : t.courseId;
+      out.add(
+        Warning(
+          id: id,
+          task: t,
+          type: WarningType.missedTask,
+          title: 'Overdue: ${t.title}',
+          message:
+              'Deadline was ${_deadlineFmt.format(t.deadline)} (${_formatPast(t.deadline)}).',
+          severity: WarningSeverity.urgent,
+          action: 'Open task',
+          category: course,
+          timeAgo: _formatPast(t.deadline),
+        ),
+      );
+    }
+
+    for (final t in open) {
+      if (t.status == TaskStatus.missed || t.isOverdue) continue;
+      if (t.deadline.isBefore(now)) continue;
+      final hours = t.deadline.difference(now).inHours;
+      if (hours > 48) continue;
+      final id = 'dueSoon_${t.id}';
+      if (dismissed.contains(id)) continue;
+
+      final course = t.courseName.isNotEmpty ? t.courseName : t.courseId;
+      out.add(
+        Warning(
+          id: id,
+          task: t,
+          type: WarningType.deadline,
+          title: 'Due soon: ${t.title}',
+          message:
+              'Deadline ${_deadlineFmt.format(t.deadline)} (${_formatUntil(t.deadline)}).',
+          severity: WarningSeverity.high,
+          action: 'Open task',
+          category: course,
+          timeAgo: _formatUntil(t.deadline),
+        ),
+      );
+    }
+
+    final dueTodayCount = open
+        .where(
+          (t) =>
+              t.status != TaskStatus.missed &&
+              !t.isOverdue &&
+              _deadlineIsToday(t),
+        )
+        .length;
+    final workloadId =
+        'workload_${now.year}_${now.month}_${now.day}';
+    if (dueTodayCount >= 6 && !dismissed.contains(workloadId)) {
+      out.add(
+        Warning(
+          id: workloadId,
+          task: null,
+          type: WarningType.workload,
+          title: 'Heavy workload today',
+          message:
+              'You have $dueTodayCount open tasks due today. Consider prioritizing or rescheduling.',
+          severity: WarningSeverity.medium,
+          action: 'View My Tasks',
+          category: 'Multiple',
+          timeAgo: 'Today',
+        ),
+      );
+    }
+
+    int sevRank(WarningSeverity s) {
+      switch (s) {
+        case WarningSeverity.urgent:
+          return 0;
+        case WarningSeverity.high:
+          return 1;
+        case WarningSeverity.medium:
+          return 2;
+        case WarningSeverity.low:
+          return 3;
+      }
+    }
+
+    out.sort((a, b) {
+      final c = sevRank(a.severity).compareTo(sevRank(b.severity));
+      if (c != 0) return c;
+      return a.title.compareTo(b.title);
+    });
+    return out;
+  }
 
   void _dismiss(Warning warning) {
-    setState(() {
-      _warnings.remove(warning);
-      _resolvedTodayCount += 1;
-    });
+    setState(() => _dismissed.add(warning.id));
+    _persistDismissed();
+  }
+
+  void _onTakeAction(BuildContext context, Warning w) {
+    if (w.task != null) {
+      Navigator.of(context).pushNamed(
+        AppConstants.routeTaskExecution,
+        arguments: w.task,
+      );
+    } else {
+      selectMainShellRoute(context, AppConstants.routeDailyPlanner);
+    }
   }
 
   Widget _buildMainContent(
     BuildContext context,
+    List<Task> tasks,
     Color surface,
     Color onSurface,
     Color secondary,
+    UpGradeRem rem,
   ) {
+    final warnings = _warningsFromTasks(tasks);
+    final criticalCount =
+        warnings.where((w) => w.severity == WarningSeverity.urgent).length;
+    final highCount =
+        warnings.where((w) => w.severity == WarningSeverity.high).length;
+    final resolvedToday = _resolvedTodayCount(tasks);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildHeader(onSurface, secondary),
+        _buildHeader(context, secondary, rem),
         const SizedBox(height: 28),
-        _buildSummaryRow(context, surface, onSurface),
+        _buildSummaryRow(
+          context,
+          surface,
+          onSurface,
+          criticalCount: criticalCount,
+          highCount: highCount,
+          resolvedToday: resolvedToday,
+        ),
         const SizedBox(height: 28),
         Text(
           'Active Warnings',
@@ -91,10 +259,10 @@ class _WarningsScreenState extends State<WarningsScreen> {
           ),
         ),
         const SizedBox(height: 16),
-        if (_warnings.isEmpty)
+        if (warnings.isEmpty)
           _buildEmptyState(secondary)
         else
-          ..._warnings.map(
+          ...warnings.map(
             (w) => Padding(
               padding: const EdgeInsets.only(bottom: 16),
               child: _buildAlertCard(
@@ -102,7 +270,7 @@ class _WarningsScreenState extends State<WarningsScreen> {
                 warning: w,
                 onSurface: onSurface,
                 secondary: secondary,
-                onTakeAction: () {},
+                onTakeAction: () => _onTakeAction(context, w),
                 onDismiss: () => _dismiss(w),
               ),
             ),
@@ -116,13 +284,31 @@ class _WarningsScreenState extends State<WarningsScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final bg = isDark ? theme.scaffoldBackgroundColor : const Color(0xFFF8FAFC);
     final surface = theme.colorScheme.surface;
     final onSurface = theme.colorScheme.onSurface;
     final secondary = isDark ? const Color(0xFF9CA3AF) : AppTheme.mediumGray;
+    final tasks = context.watch<ClassroomProvider>().tasks;
+
+    Widget page(double width) {
+      final rem = UpGradeRem(width);
+      return DecoratedBox(
+        decoration: UpGradePageDecor.pageBackground(isDark),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: _buildMainContent(
+            context,
+            tasks,
+            surface,
+            onSurface,
+            secondary,
+            rem,
+          ),
+        ),
+      );
+    }
 
     final narrow = Scaffold(
-      backgroundColor: bg,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
@@ -133,43 +319,38 @@ class _WarningsScreenState extends State<WarningsScreen> {
         elevation: 0,
         scrolledUnderElevation: 0,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: _buildMainContent(context, surface, onSurface, secondary),
+      body: LayoutBuilder(
+        builder: (context, c) => page(c.maxWidth),
       ),
     );
 
     return DashboardSecondaryShell(
-      highlightRoute: AppConstants.routeWarnings,
       narrow: narrow,
-      wideBody: ColoredBox(
-        color: bg,
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: _buildMainContent(context, surface, onSurface, secondary),
-        ),
+      wideBody: LayoutBuilder(
+        builder: (context, c) => page(c.maxWidth),
       ),
     );
   }
 
-  Widget _buildHeader(Color onSurface, Color secondary) {
+  Widget _buildHeader(
+    BuildContext context,
+    Color secondary,
+    UpGradeRem rem,
+  ) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
+        UpGradeGradientTitle(
           'Warnings & Alerts',
-          style: TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.bold,
-            color: onSurface,
-            letterSpacing: -0.5,
-          ),
+          rem: rem,
+          isDark: isDark,
         ),
-        const SizedBox(height: 6),
+        SizedBox(height: rem.space(0.4)),
         Text(
-          'Proactive notifications to keep you on track',
+          'Based on your courses and deadlines',
           style: TextStyle(
-            fontSize: 14,
+            fontSize: rem.pageSubtitle,
             color: secondary,
           ),
         ),
@@ -180,8 +361,11 @@ class _WarningsScreenState extends State<WarningsScreen> {
   Widget _buildSummaryRow(
     BuildContext context,
     Color surface,
-    Color onSurface,
-  ) {
+    Color onSurface, {
+    required int criticalCount,
+    required int highCount,
+    required int resolvedToday,
+  }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -193,7 +377,7 @@ class _WarningsScreenState extends State<WarningsScreen> {
                 context,
                 icon: Icons.warning_amber_rounded,
                 label: 'Critical',
-                value: '$_criticalCount',
+                value: '$criticalCount',
                 bg: isDark ? _criticalFg.withOpacity(0.18) : _criticalBg,
                 fg: _criticalFg,
                 surface: surface,
@@ -203,7 +387,7 @@ class _WarningsScreenState extends State<WarningsScreen> {
                 context,
                 icon: Icons.error_outline,
                 label: 'High Priority',
-                value: '$_highCount',
+                value: '$highCount',
                 bg: isDark ? _highFg.withOpacity(0.18) : _highBg,
                 fg: _highFg,
                 surface: surface,
@@ -213,7 +397,7 @@ class _WarningsScreenState extends State<WarningsScreen> {
                 context,
                 icon: Icons.check_circle_outline,
                 label: 'Resolved Today',
-                value: '$_resolvedTodayCount',
+                value: '$resolvedToday',
                 bg: isDark ? _resolvedFg.withOpacity(0.18) : _resolvedBg,
                 fg: _resolvedFg,
                 surface: surface,
@@ -228,7 +412,7 @@ class _WarningsScreenState extends State<WarningsScreen> {
                 context,
                 icon: Icons.warning_amber_rounded,
                 label: 'Critical',
-                value: '$_criticalCount',
+                value: '$criticalCount',
                 bg: isDark ? _criticalFg.withOpacity(0.18) : _criticalBg,
                 fg: _criticalFg,
                 surface: surface,
@@ -240,7 +424,7 @@ class _WarningsScreenState extends State<WarningsScreen> {
                 context,
                 icon: Icons.error_outline,
                 label: 'High Priority',
-                value: '$_highCount',
+                value: '$highCount',
                 bg: isDark ? _highFg.withOpacity(0.18) : _highBg,
                 fg: _highFg,
                 surface: surface,
@@ -252,7 +436,7 @@ class _WarningsScreenState extends State<WarningsScreen> {
                 context,
                 icon: Icons.check_circle_outline,
                 label: 'Resolved Today',
-                value: '$_resolvedTodayCount',
+                value: '$resolvedToday',
                 bg: isDark ? _resolvedFg.withOpacity(0.18) : _resolvedBg,
                 fg: _resolvedFg,
                 surface: surface,
@@ -280,9 +464,7 @@ class _WarningsScreenState extends State<WarningsScreen> {
         color: surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isDark
-              ? Colors.white.withOpacity(0.08)
-              : _borderLight,
+          color: isDark ? Colors.white.withOpacity(0.08) : _borderLight,
         ),
         boxShadow: [
           BoxShadow(
@@ -318,10 +500,11 @@ class _WarningsScreenState extends State<WarningsScreen> {
                 const SizedBox(height: 4),
                 Text(
                   value,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
                     letterSpacing: -0.5,
+                    color: Theme.of(context).colorScheme.onSurface,
                   ),
                 ),
               ],
@@ -493,9 +676,9 @@ class _WarningsScreenState extends State<WarningsScreen> {
                         horizontal: 20,
                         vertical: 12,
                       ),
-                      child: const Text(
-                        'Take Action',
-                        style: TextStyle(
+                      child: Text(
+                        warning.task != null ? 'Take Action' : warning.action,
+                        style: const TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
                           color: AppTheme.white,
@@ -560,7 +743,7 @@ class _WarningsScreenState extends State<WarningsScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              'You\'re all caught up. We\'ll notify you when something needs attention.',
+              'Nothing needs attention right now based on your task deadlines.',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 14, color: secondary),
             ),
@@ -571,9 +754,9 @@ class _WarningsScreenState extends State<WarningsScreen> {
   }
 }
 
-// ─── Data models ───────────────────────────────────────────────────────────
-
 class Warning {
+  final String id;
+  final Task? task;
   final WarningType type;
   final String title;
   final String message;
@@ -582,7 +765,9 @@ class Warning {
   final String? category;
   final String? timeAgo;
 
-  const Warning({
+  Warning({
+    required this.id,
+    this.task,
     required this.type,
     required this.title,
     required this.message,

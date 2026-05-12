@@ -4,13 +4,13 @@ import 'package:provider/provider.dart';
 import '../services/user_matching_profile_sync_service.dart';
 import '../providers/classroom_provider.dart';
 
-import '../core/constants.dart';
 import '../core/theme.dart';
 import '../core/profile_display_name.dart';
 
 import '../services/api_service.dart';
 
 import '../widgets/dashboard_secondary_shell.dart';
+import '../widgets/upgrade_visual_system.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -134,16 +134,18 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           _emailController.text = fe;
         }
       }
-      _majorController.text = (profile['major'] as String?)?.trim().isNotEmpty == true
-          ? profile['major'] as String
-          : _majorController.text;
+      _majorController.text =
+          (profile['major'] as String?)?.trim().isNotEmpty == true
+              ? profile['major'] as String
+              : _majorController.text;
       _yearController.text =
           (profile['academicYear'] as String?)?.trim().isNotEmpty == true
               ? profile['academicYear'] as String
               : _yearController.text;
-      _gpaController.text = (profile['gpa'] as String?)?.trim().isNotEmpty == true
-          ? profile['gpa'] as String
-          : _gpaController.text;
+      _gpaController.text =
+          (profile['gpa'] as String?)?.trim().isNotEmpty == true
+              ? profile['gpa'] as String
+              : _gpaController.text;
     }
 
     setState(() {
@@ -155,9 +157,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   Widget build(BuildContext context) {
     final page = _buildPage(context);
     return DashboardSecondaryShell(
-      highlightRoute: AppConstants.routeProfile,
       narrow: Scaffold(
-        backgroundColor: const Color(0xFFF1F5F9),
+        backgroundColor: Colors.transparent,
         appBar: AppBar(title: const Text('Edit Profile')),
         body: page,
       ),
@@ -170,176 +171,174 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final wide = constraints.maxWidth > 760;
-        return SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Edit Profile',
-                  style: TextStyle(
-                    fontSize: 42,
-                    fontWeight: FontWeight.w700,
-                    color: isDark ? Colors.white : const Color(0xFF1E293B),
+        final rem = UpGradeRem(constraints.maxWidth);
+        return DecoratedBox(
+          decoration: UpGradePageDecor.pageBackground(isDark),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  UpGradeGradientTitle('Edit Profile',
+                      rem: rem, isDark: isDark),
+                  SizedBox(height: rem.space(0.35)),
+                  UpGradeMutedSubtitle(
+                    'Update your personal information',
+                    rem: rem,
+                    isDark: isDark,
                   ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'Update your personal information',
-                  style: TextStyle(
-                    fontSize: 24,
-                    color: isDark ? const Color(0xFF9CA3AF) : AppTheme.darkText.withOpacity(0.7),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF111827) : Colors.white,
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(
-                      color: isDark ? const Color(0xFF1F2937) : const Color(0xFFE2E8F0),
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      if (_isLoadingProfile) ...[
-                        const LinearProgressIndicator(minHeight: 2),
-                        const SizedBox(height: 10),
-                      ],
-                      if (_error != null) ...[
-                        Text(_error!, style: const TextStyle(color: AppTheme.errorRed)),
-                        const SizedBox(height: 10),
-                      ],
-                      _fieldLabel('Full Name', isDark),
-                      _styledField(
-                        controller: _nameController,
-                        icon: Icons.person_outline,
-                        hint: 'John Doe',
-                        validator: (value) => value == null || value.trim().isEmpty
-                            ? 'Enter your full name'
-                            : null,
-                      ),
-                      const SizedBox(height: 14),
-                      _fieldLabel('Email Address', isDark),
-                      _styledField(
-                        controller: _emailController,
-                        icon: Icons.mail_outline,
-                        hint: 'john.doe@university.edu',
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) return 'Enter your email';
-                          if (!value.contains('@')) return 'Enter a valid email';
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 14),
-                      if (wide)
+                  SizedBox(height: rem.space(1.0)),
+                  UpGradeGradientFrameCard(
+                    rem: rem,
+                    isDark: isDark,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (_isLoadingProfile) ...[
+                          const LinearProgressIndicator(minHeight: 2),
+                          const SizedBox(height: 10),
+                        ],
+                        if (_error != null) ...[
+                          Text(_error!,
+                              style: const TextStyle(color: AppTheme.errorRed)),
+                          const SizedBox(height: 10),
+                        ],
+                        _fieldLabel('Full Name', isDark),
+                        _styledField(
+                          controller: _nameController,
+                          icon: Icons.person_outline,
+                          hint: 'John Doe',
+                          validator: (value) =>
+                              value == null || value.trim().isEmpty
+                                  ? 'Enter your full name'
+                                  : null,
+                        ),
+                        const SizedBox(height: 14),
+                        _fieldLabel('Email Address', isDark),
+                        _styledField(
+                          controller: _emailController,
+                          icon: Icons.mail_outline,
+                          hint: 'john.doe@university.edu',
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return 'Enter your email';
+                            }
+                            if (!value.contains('@')) {
+                              return 'Enter a valid email';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 14),
+                        if (wide)
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    _fieldLabel('Major', isDark),
+                                    _styledField(
+                                      controller: _majorController,
+                                      icon: Icons.school_outlined,
+                                      hint: 'Computer Science',
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    _fieldLabel('Academic Year', isDark),
+                                    _styledField(
+                                      controller: _yearController,
+                                      hint: 'Junior',
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          )
+                        else ...[
+                          _fieldLabel('Major', isDark),
+                          _styledField(
+                            controller: _majorController,
+                            icon: Icons.school_outlined,
+                            hint: 'Computer Science',
+                          ),
+                          const SizedBox(height: 14),
+                          _fieldLabel('Academic Year', isDark),
+                          _styledField(
+                            controller: _yearController,
+                            hint: 'Junior',
+                          ),
+                        ],
+                        const SizedBox(height: 14),
+                        _fieldLabel('GPA', isDark),
+                        _styledField(
+                          controller: _gpaController,
+                          hint: '3.85',
+                        ),
+                        const SizedBox(height: 16),
                         Row(
                           children: [
                             Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  _fieldLabel('Major', isDark),
-                                  _styledField(
-                                    controller: _majorController,
-                                    icon: Icons.school_outlined,
-                                    hint: 'Computer Science',
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  gradient: AppTheme.primaryGradient,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: ElevatedButton.icon(
+                                  onPressed: _isSaving ? null : _save,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.transparent,
+                                    shadowColor: Colors.transparent,
+                                    elevation: 0,
+                                    foregroundColor: Colors.white,
+                                    minimumSize: const Size.fromHeight(46),
                                   ),
-                                ],
+                                  icon: _isSaving
+                                      ? const SizedBox(
+                                          width: 16,
+                                          height: 16,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: Colors.white,
+                                          ),
+                                        )
+                                      : const Icon(Icons.save_outlined,
+                                          size: 18),
+                                  label: Text(
+                                      _isSaving ? 'Saving...' : 'Save Changes'),
+                                ),
                               ),
                             ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  _fieldLabel('Academic Year', isDark),
-                                  _styledField(
-                                    controller: _yearController,
-                                    hint: 'Junior',
+                            const SizedBox(width: 10),
+                            SizedBox(
+                              height: 46,
+                              child: OutlinedButton(
+                                onPressed: () => Navigator.of(context).pop(),
+                                style: OutlinedButton.styleFrom(
+                                  side: const BorderSide(
+                                      color: Color(0xFFE2E8F0)),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
                                   ),
-                                ],
+                                ),
+                                child: const Text('Cancel'),
                               ),
                             ),
                           ],
-                        )
-                      else ...[
-                        _fieldLabel('Major', isDark),
-                        _styledField(
-                          controller: _majorController,
-                          icon: Icons.school_outlined,
-                          hint: 'Computer Science',
-                        ),
-                        const SizedBox(height: 14),
-                        _fieldLabel('Academic Year', isDark),
-                        _styledField(
-                          controller: _yearController,
-                          hint: 'Junior',
                         ),
                       ],
-                      const SizedBox(height: 14),
-                      _fieldLabel('GPA', isDark),
-                      _styledField(
-                        controller: _gpaController,
-                        hint: '3.85',
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: DecoratedBox(
-                              decoration: BoxDecoration(
-                                gradient: AppTheme.primaryGradient,
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: ElevatedButton.icon(
-                                onPressed: _isSaving ? null : _save,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.transparent,
-                                  shadowColor: Colors.transparent,
-                                  elevation: 0,
-                                  foregroundColor: Colors.white,
-                                  minimumSize: const Size.fromHeight(46),
-                                ),
-                                icon: _isSaving
-                                    ? const SizedBox(
-                                        width: 16,
-                                        height: 16,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          color: Colors.white,
-                                        ),
-                                      )
-                                    : const Icon(Icons.save_outlined, size: 18),
-                                label: Text(_isSaving ? 'Saving...' : 'Save Changes'),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          SizedBox(
-                            height: 46,
-                            child: OutlinedButton(
-                              onPressed: () => Navigator.of(context).pop(),
-                              style: OutlinedButton.styleFrom(
-                                side: const BorderSide(color: Color(0xFFE2E8F0)),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                              child: const Text('Cancel'),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         );
@@ -373,7 +372,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       validator: validator,
       decoration: InputDecoration(
         hintText: hint,
-        prefixIcon: icon != null ? Icon(icon, color: const Color(0xFF9CA3AF)) : null,
+        prefixIcon:
+            icon != null ? Icon(icon, color: const Color(0xFF9CA3AF)) : null,
         filled: true,
         fillColor: isDark ? const Color(0xFF0B1220) : const Color(0xFFF3F4F6),
         border: OutlineInputBorder(
@@ -393,4 +393,3 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
   }
 }
-

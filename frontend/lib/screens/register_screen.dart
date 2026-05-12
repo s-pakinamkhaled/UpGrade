@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../core/constants.dart';
+import '../core/post_auth_navigation.dart';
 import '../widgets/app_logo.dart';
 import '../services/api_service.dart';
 import '../services/firebase_auth_service.dart';
@@ -86,15 +86,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
       if (!mounted) return;
       await user.updateDisplayName(_nameController.text.trim());
+      if (!mounted) return;
       await UserMatchingProfileSyncService.syncCurrentUserProfile(
         courses: context.read<ClassroomProvider>().courses,
         tasks: context.read<ClassroomProvider>().tasks,
         nameOverride: _nameController.text.trim(),
       );
 
-      Navigator.of(context).pushReplacementNamed(
-        AppConstants.routeGoogleClassroomSync,
-      );
+      if (!mounted) return;
+      openWelcomeSyncChoiceAfterAuth(context);
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -113,8 +113,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
     });
 
     try {
-      final user = await _authService.signInWithGoogle();
-      if (user == null) throw Exception('Google sign-in cancelled');
+      final googleResult = await _authService.signInWithGoogle();
+      if (googleResult == null) throw Exception('Google sign-in cancelled');
 
       if (!mounted) return;
       await UserMatchingProfileSyncService.syncCurrentUserProfile(
@@ -122,9 +122,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
         tasks: context.read<ClassroomProvider>().tasks,
       );
 
-      Navigator.of(context).pushReplacementNamed(
-        AppConstants.routeGoogleClassroomSync,
-      );
+      if (!mounted) return;
+      openWelcomeSyncChoiceAfterAuth(context);
     } catch (e) {
       if (!mounted) return;
       setState(() {

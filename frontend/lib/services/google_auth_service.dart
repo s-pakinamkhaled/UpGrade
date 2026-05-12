@@ -13,40 +13,69 @@ class GoogleAuthService {
   /// Access the underlying GoogleSignIn instance (for token refresh, etc.)
   static GoogleSignIn get instance => _googleSignIn;
 
-  static Future<String?> signInAndGetToken() async {
+  /// Interactive Google sign-in with Classroom scopes (always shows account UI if needed).
+  static Future<String?> signInAndGetToken() =>
+      signInForClassroom(trySilentFirst: false);
+
+  /// Obtain an access token for Classroom APIs.
+  ///
+  /// Production flow: optional [signInSilently] first (e.g. Firebase user linked with
+  /// Google), then interactive [signIn]. On web, silent sign-in often returns an
+  /// account without a usable `accessToken` — we then [signOut] and run a fresh
+  /// interactive sign-in so scopes + token are aligned with this [GoogleSignIn] instance.
+  static Future<String?> signInForClassroom({
+    bool trySilentFirst = false,
+  }) async {
     try {
-      // On web, signIn() triggers the popup and returns the account
-      final account = await _googleSignIn.signIn();
+      GoogleSignInAccount? account;
+
+      if (trySilentFirst) {
+        try {
+          account = await _googleSignIn.signInSilently(suppressErrors: true);
+        } catch (e) {
+          debugPrint('[GoogleAuth] silent error: $e');
+        }
+      }
+
+      account ??= await _googleSignIn.signIn();
       if (account == null) {
         debugPrint('[GoogleAuth] Sign-in cancelled by user');
         return null;
       }
+
       debugPrint('[GoogleAuth] Signed in as: ${account.email}');
 
-      // Get the authentication tokens
-      final auth = await account.authentication;
-      final token = auth.accessToken;
-      final idToken = auth.idToken;
-
+      var auth = await account.authentication;
+      var token = auth.accessToken;
       debugPrint(
-          '[GoogleAuth] accessToken is ${token != null ? "present (${token.length} chars)" : "NULL"}');
+        '[GoogleAuth] accessToken is ${token != null ? "present (${token.length} chars)" : "NULL"}',
+      );
       debugPrint(
-          '[GoogleAuth] idToken is ${idToken != null ? "present" : "NULL"}');
+        '[GoogleAuth] idToken is ${auth.idToken != null ? "present" : "NULL"}',
+      );
 
       if (token == null) {
         debugPrint(
-            '[GoogleAuth] WARNING: accessToken is null — trying to refresh...');
-        // Force re-authentication to get a fresh token
-        final reAuth = await account.authentication;
-        final refreshedToken = reAuth.accessToken;
+          '[GoogleAuth] accessToken null after sign-in → signOut + interactive retry',
+        );
+        await _googleSignIn.signOut();
+
+        final newAccount = await _googleSignIn.signIn();
+        if (newAccount == null) {
+          debugPrint('[GoogleAuth] Interactive retry cancelled');
+          return null;
+        }
+        debugPrint('[GoogleAuth] Retry signed in as: ${newAccount.email}');
+        final newAuth = await newAccount.authentication;
+        token = newAuth.accessToken;
         debugPrint(
-            '[GoogleAuth] After refresh: accessToken is ${refreshedToken != null ? "present" : "still NULL"}');
-        return refreshedToken;
+          '[GoogleAuth] after retry accessToken is ${token != null ? "present (${token.length} chars)" : "NULL"}',
+        );
       }
 
       return token;
     } catch (e) {
-      debugPrint('[GoogleAuth] Sign-in error: $e');
+      debugPrint('[GoogleAuth] error: $e');
       return null;
     }
   }

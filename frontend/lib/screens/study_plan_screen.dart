@@ -12,8 +12,8 @@
 //
 // HOW TO REACH THIS SCREEN
 // ------------------------
-// Daily Planner screen → tap the "Generate AI Plan" button
-// → Navigator.pushNamed(context, AppConstants.routeStudyPlan)
+// My Tasks screen → tap the "Generate AI Plan" button
+// → selectMainShellRoute(context, AppConstants.routeStudyPlan)
 // → this screen opens and immediately starts generating.
 //
 // WORKFLOW
@@ -61,25 +61,24 @@
 //
 // STATES
 // ------
-// _loading=true  → shows spinner + "Llama 3.3 is analysing your tasks..."
-// _error≠null    → shows error message + retry button
-// _plan≠null     → shows full plan UI
+// _loading=true  → shows spinner + "Generating your study plan..."
+// _plan≠null     → shows full plan UI (Upcoming Tasks uses plan items when present)
 // ═══════════════════════════════════════════════════════════════════
 
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
 
-import '../core/constants.dart';
 import '../core/theme.dart';
 import '../models/task.dart';
 import '../models/study_plan.dart';
 import '../providers/classroom_provider.dart';
 import '../services/api_service.dart';
 import '../widgets/dashboard_secondary_shell.dart';
+import '../widgets/upgrade_visual_system.dart';
 
 /// Study Plan page matching the dashboard design: header, summary cards,
-/// My Courses / Weekly Plan tabs, course cards with gradient progress,
+/// My Courses / Upcoming Tasks tabs, course cards with gradient progress,
 /// and AI recommendation card.
 class StudyPlanScreen extends StatefulWidget {
   const StudyPlanScreen({super.key});
@@ -89,9 +88,8 @@ class StudyPlanScreen extends StatefulWidget {
 }
 
 class _StudyPlanScreenState extends State<StudyPlanScreen> {
-  int _tabIndex = 0; // 0 = My Courses, 1 = Weekly Plan
+  int _tabIndex = 0; // 0 = My Courses, 1 = Upcoming Tasks
   bool _loading = true;
-  String? _error;
   StudyPlan? _plan;
 
   @override
@@ -103,7 +101,6 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
   Future<void> _generate() async {
     setState(() {
       _loading = true;
-      _error = null;
       _plan = null;
     });
 
@@ -134,14 +131,12 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
         });
       } else {
         setState(() {
-          _error = 'Failed to generate plan. Check your backend connection.';
           _loading = false;
         });
       }
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = e.toString();
         _loading = false;
       });
     }
@@ -151,81 +146,96 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final bg = isDark ? theme.scaffoldBackgroundColor : const Color(0xFFF8FAFC);
     final surface = theme.colorScheme.surface;
     final onSurface = theme.colorScheme.onSurface;
     final secondary = isDark ? const Color(0xFF9CA3AF) : AppTheme.mediumGray;
 
     Widget planContent() {
-      return Consumer<ClassroomProvider>(
-        builder: (context, provider, _) {
-          final tasks = provider.tasks;
-          final stats = _computeStats(tasks);
-          final courseStats = _computeCourseStats(tasks);
-          final upcomingTasks = _upcomingTasks(tasks);
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          final rawW = constraints.maxWidth;
+          final layoutW = rawW.isFinite && rawW > 0
+              ? rawW
+              : MediaQuery.sizeOf(context).width - 48;
+          final rem = UpGradeRem(layoutW);
 
-          if (_loading && _plan == null && _error == null) {
-            return Padding(
-              padding: const EdgeInsets.symmetric(vertical: 48),
-              child: _buildLoading(),
-            );
-          }
+          return Consumer<ClassroomProvider>(
+            builder: (context, provider, _) {
+              final tasks = provider.tasks;
+              final stats = _computeStats(tasks);
+              final courseStats = _computeCourseStats(tasks);
+              final upcomingTasks = _upcomingTasks(tasks);
 
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildHeader(context, onSurface, secondary),
-              const SizedBox(height: 28),
-              _buildSummaryCards(
-                context,
-                stats: stats,
-                courseCount: courseStats.length,
-                surface: surface,
-                onSurface: onSurface,
-                secondary: secondary,
-              ),
-              const SizedBox(height: 24),
-              _buildTabBar(context, surface, onSurface, secondary),
-              const SizedBox(height: 20),
-              if (_tabIndex == 0)
-                _buildMyCourses(
-                  context,
-                  courseStats: courseStats,
-                  surface: surface,
-                  onSurface: onSurface,
-                  secondary: secondary,
-                )
-              else
-                _buildUpcomingTasks(
-                  context,
-                  plan: _plan,
-                  fallbackTasks: upcomingTasks,
-                  surface: surface,
-                  onSurface: onSurface,
-                  secondary: secondary,
-                ),
-              if (_plan != null && _plan!.summary.isNotEmpty) ...[
-                const SizedBox(height: 24),
-                _buildAIRecommendationCard(
-                  context,
-                  plan: _plan!,
-                  onSurface: onSurface,
-                  secondary: secondary,
-                ),
-              ],
-              if (_error != null) ...[
-                const SizedBox(height: 24),
-                _buildErrorBanner(context),
-              ],
-              const SizedBox(height: 32),
-            ],
+              if (_loading && _plan == null) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 48),
+                  child: _buildLoading(rem: rem, isDark: isDark),
+                );
+              }
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildHeader(context, isDark, rem),
+                  SizedBox(height: rem.space(1.65)),
+                  _buildSummaryCards(
+                    context,
+                    rem: rem,
+                    isDark: isDark,
+                    stats: stats,
+                    courseCount: courseStats.length,
+                    secondary: secondary,
+                  ),
+                  SizedBox(height: rem.space(1.4)),
+                  _buildTabBar(
+                    context,
+                    rem: rem,
+                    isDark: isDark,
+                    surface: surface,
+                    onSurface: onSurface,
+                  ),
+                  SizedBox(height: rem.space(1.15)),
+                  if (_tabIndex == 0)
+                    _buildMyCourses(
+                      context,
+                      rem: rem,
+                      isDark: isDark,
+                      courseStats: courseStats,
+                      onSurface: onSurface,
+                      secondary: secondary,
+                    )
+                  else
+                    _buildUpcomingTasks(
+                      context,
+                      rem: rem,
+                      isDark: isDark,
+                      plan: _plan,
+                      fallbackTasks: upcomingTasks,
+                      onSurface: onSurface,
+                      secondary: secondary,
+                    ),
+                  if (_plan != null && _plan!.summary.isNotEmpty) ...[
+                    SizedBox(height: rem.space(1.4)),
+                    _buildAIRecommendationCard(
+                      context,
+                      rem: rem,
+                      isDark: isDark,
+                      plan: _plan!,
+                      onSurface: onSurface,
+                      secondary: secondary,
+                    ),
+                  ],
+                  SizedBox(height: rem.space(1.85)),
+                ],
+              );
+            },
           );
         },
       );
     }
 
     final narrow = Scaffold(
-      backgroundColor: bg,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
@@ -236,17 +246,19 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
         elevation: 0,
         scrolledUnderElevation: 0,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: planContent(),
+      body: DecoratedBox(
+        decoration: UpGradePageDecor.pageBackground(isDark),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: planContent(),
+        ),
       ),
     );
 
     return DashboardSecondaryShell(
-      highlightRoute: AppConstants.routeStudyPlan,
       narrow: narrow,
-      wideBody: ColoredBox(
-        color: bg,
+      wideBody: DecoratedBox(
+        decoration: UpGradePageDecor.pageBackground(isDark),
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: planContent(),
@@ -257,8 +269,8 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
 
   Widget _buildHeader(
     BuildContext context,
-    Color onSurface,
-    Color secondary,
+    bool isDark,
+    UpGradeRem rem,
   ) {
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -267,36 +279,22 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              'Study Plan',
-              style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-                color: onSurface,
-                letterSpacing: -0.5,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
+            UpGradeGradientTitle('Study Plan', rem: rem, isDark: isDark),
+            SizedBox(height: rem.space(0.45)),
+            UpGradeMutedSubtitle(
               'AI-powered personalized study schedule',
-              style: TextStyle(
-                fontSize: 14,
-                color: secondary,
-              ),
+              rem: rem,
+              isDark: isDark,
             ),
           ],
         );
-        final button = FilledButton.icon(
+        final button = UpGradeGradientFilledButton(
           onPressed: _loading ? null : _generate,
           icon: const Icon(Icons.add, size: 20),
           label: const Text('Create New Plan'),
-          style: FilledButton.styleFrom(
-            backgroundColor: AppTheme.primaryBlue,
-            foregroundColor: AppTheme.white,
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
+          padding: EdgeInsets.symmetric(
+            horizontal: rem.space(1.35),
+            vertical: rem.space(0.85),
           ),
         );
         if (isNarrow) {
@@ -304,7 +302,7 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               titleSection,
-              const SizedBox(height: 16),
+              SizedBox(height: rem.space(1.0)),
               button,
             ],
           );
@@ -321,10 +319,10 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
 
   Widget _buildSummaryCards(
     BuildContext context, {
+    required UpGradeRem rem,
+    required bool isDark,
     required _StudyPlanStats stats,
     required int courseCount,
-    required Color surface,
-    required Color onSurface,
     required Color secondary,
   }) {
     final hoursThisWeek = stats.hoursThisWeek;
@@ -344,37 +342,37 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
             children: [
               _statCard(
                 context,
+                rem: rem,
+                isDark: isDark,
                 icon: Icons.calendar_today,
                 iconBg: AppTheme.primaryBlue.withOpacity(0.12),
                 iconColor: AppTheme.primaryBlue,
                 label: 'This Week',
                 value: hoursStr,
-                surface: surface,
-                onSurface: onSurface,
                 secondary: secondary,
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: rem.space(0.75)),
               _statCard(
                 context,
+                rem: rem,
+                isDark: isDark,
                 icon: Icons.menu_book,
                 iconBg: AppTheme.secondaryPurple.withOpacity(0.12),
                 iconColor: AppTheme.secondaryPurple,
                 label: 'Active Courses',
                 value: '$courseCount',
-                surface: surface,
-                onSurface: onSurface,
                 secondary: secondary,
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: rem.space(0.75)),
               _statCard(
                 context,
+                rem: rem,
+                isDark: isDark,
                 icon: Icons.flag,
                 iconBg: AppTheme.successGreen.withOpacity(0.12),
                 iconColor: AppTheme.successGreen,
                 label: 'Completion',
                 value: completionStr,
-                surface: surface,
-                onSurface: onSurface,
                 secondary: secondary,
               ),
             ],
@@ -384,45 +382,45 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
           children: [
             Expanded(
               child: _statCard(
-            context,
-            icon: Icons.calendar_today,
-            iconBg: AppTheme.primaryBlue.withOpacity(0.12),
-            iconColor: AppTheme.primaryBlue,
-            label: 'This Week',
-            value: hoursStr,
-            surface: surface,
-            onSurface: onSurface,
-            secondary: secondary,
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: _statCard(
-            context,
-            icon: Icons.menu_book,
-            iconBg: AppTheme.secondaryPurple.withOpacity(0.12),
-            iconColor: AppTheme.secondaryPurple,
-            label: 'Active Courses',
-            value: '$courseCount',
-            surface: surface,
-            onSurface: onSurface,
-            secondary: secondary,
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: _statCard(
-            context,
-            icon: Icons.flag,
-            iconBg: AppTheme.successGreen.withOpacity(0.12),
-            iconColor: AppTheme.successGreen,
-            label: 'Completion',
-            value: completionStr,
-            surface: surface,
-            onSurface: onSurface,
-            secondary: secondary,
-          ),
-        ),
+                context,
+                rem: rem,
+                isDark: isDark,
+                icon: Icons.calendar_today,
+                iconBg: AppTheme.primaryBlue.withOpacity(0.12),
+                iconColor: AppTheme.primaryBlue,
+                label: 'This Week',
+                value: hoursStr,
+                secondary: secondary,
+              ),
+            ),
+            SizedBox(width: rem.space(1.0)),
+            Expanded(
+              child: _statCard(
+                context,
+                rem: rem,
+                isDark: isDark,
+                icon: Icons.menu_book,
+                iconBg: AppTheme.secondaryPurple.withOpacity(0.12),
+                iconColor: AppTheme.secondaryPurple,
+                label: 'Active Courses',
+                value: '$courseCount',
+                secondary: secondary,
+              ),
+            ),
+            SizedBox(width: rem.space(1.0)),
+            Expanded(
+              child: _statCard(
+                context,
+                rem: rem,
+                isDark: isDark,
+                icon: Icons.flag,
+                iconBg: AppTheme.successGreen.withOpacity(0.12),
+                iconColor: AppTheme.successGreen,
+                label: 'Completion',
+                value: completionStr,
+                secondary: secondary,
+              ),
+            ),
           ],
         );
       },
@@ -431,26 +429,46 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
 
   Widget _statCard(
     BuildContext context, {
+    required UpGradeRem rem,
+    required bool isDark,
     required IconData icon,
     required Color iconBg,
     required Color iconColor,
     required String label,
     required String value,
-    required Color surface,
-    required Color onSurface,
     required Color secondary,
   }) {
+    final valueFg = isDark ? Colors.white : iconColor;
+
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.all(rem.space(1.15)),
       decoration: BoxDecoration(
-        color: surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: secondary.withOpacity(0.3)),
+        gradient: isDark
+            ? LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  const Color(0xFF1E293B),
+                  iconColor.withOpacity(0.14),
+                ],
+              )
+            : LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  iconBg,
+                  Colors.white,
+                ],
+              ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: iconColor.withOpacity(isDark ? 0.45 : 0.22),
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
+            color: iconColor.withOpacity(isDark ? 0.22 : 0.12),
+            blurRadius: 14,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
@@ -458,30 +476,31 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: const EdgeInsets.all(10),
+            padding: EdgeInsets.all(rem.space(0.65)),
             decoration: BoxDecoration(
               color: iconBg,
               shape: BoxShape.circle,
+              border: Border.all(color: iconColor.withOpacity(0.22)),
             ),
-            child: Icon(icon, color: iconColor, size: 22),
+            child: Icon(icon, color: iconColor, size: rem.iconSmall * 1.05),
           ),
-          const SizedBox(height: 14),
+          SizedBox(height: rem.space(0.85)),
           Text(
             label,
             style: TextStyle(
-              fontSize: 13,
+              fontSize: rem.listSubtitle,
               color: secondary,
-              fontWeight: FontWeight.w500,
+              fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 4),
+          SizedBox(height: rem.space(0.25)),
           Text(
             value,
             style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: onSurface,
-              letterSpacing: -0.5,
+              fontSize: rem.cardTitle * 1.35,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.45,
+              color: valueFg,
             ),
           ),
         ],
@@ -490,21 +509,48 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
   }
 
   Widget _buildTabBar(
-    BuildContext context,
-    Color surface,
-    Color onSurface,
-    Color secondary,
-  ) {
+    BuildContext context, {
+    required UpGradeRem rem,
+    required bool isDark,
+    required Color surface,
+    required Color onSurface,
+  }) {
     return Container(
-      padding: const EdgeInsets.all(4),
+      padding: EdgeInsets.all(rem.space(0.35)),
       decoration: BoxDecoration(
-        color: secondary.withOpacity(0.12),
-        borderRadius: BorderRadius.circular(12),
+        gradient: isDark
+            ? LinearGradient(
+                colors: [
+                  const Color(0xFF1E293B),
+                  const Color(0xFF111827),
+                ],
+              )
+            : LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  AppTheme.primaryBlue.withOpacity(0.1),
+                  AppTheme.secondaryPurple.withOpacity(0.08),
+                ],
+              ),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: AppTheme.primaryBlue.withOpacity(isDark ? 0.35 : 0.18),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.primaryBlue.withOpacity(0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Row(
         children: [
           Expanded(
             child: _tabChip(
+              rem: rem,
+              isDark: isDark,
               label: 'My Courses',
               selected: _tabIndex == 0,
               onTap: () => setState(() => _tabIndex = 0),
@@ -514,7 +560,9 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
           ),
           Expanded(
             child: _tabChip(
-              label: 'Weekly Plan',
+              rem: rem,
+              isDark: isDark,
+              label: 'Upcoming Tasks',
               selected: _tabIndex == 1,
               onTap: () => setState(() => _tabIndex = 1),
               surface: surface,
@@ -527,6 +575,8 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
   }
 
   Widget _tabChip({
+    required UpGradeRem rem,
+    required bool isDark,
     required String label,
     required bool selected,
     required VoidCallback onTap,
@@ -537,17 +587,48 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(10),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 12),
+        borderRadius: BorderRadius.circular(12),
+        splashColor: AppTheme.primaryBlue.withOpacity(0.12),
+        highlightColor: AppTheme.secondaryPurple.withOpacity(0.06),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+          padding: EdgeInsets.symmetric(vertical: rem.space(0.75)),
           decoration: BoxDecoration(
-            color: selected ? surface : Colors.transparent,
-            borderRadius: BorderRadius.circular(10),
+            gradient: selected
+                ? (isDark
+                    ? LinearGradient(
+                        colors: [
+                          const Color(0xFF334155),
+                          const Color(0xFF1E293B),
+                        ],
+                      )
+                    : LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          Colors.white,
+                          const Color(0xFFF5F3FF),
+                        ],
+                      ))
+                : null,
+            color: selected ? null : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+            border: selected
+                ? Border.all(
+                    color: AppTheme.primaryBlue.withOpacity(isDark ? 0.5 : 0.28),
+                  )
+                : null,
             boxShadow: selected
                 ? [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.06),
-                      blurRadius: 8,
+                      color: AppTheme.primaryBlue.withOpacity(isDark ? 0.2 : 0.1),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                    BoxShadow(
+                      color: AppTheme.secondaryPurple.withOpacity(0.06),
+                      blurRadius: 10,
                       offset: const Offset(0, 2),
                     ),
                   ]
@@ -557,8 +638,8 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
             child: Text(
               label,
               style: TextStyle(
-                fontSize: 14,
-                fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                fontSize: rem.listTitle,
+                fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
                 color: onSurface,
               ),
             ),
@@ -568,16 +649,45 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
     );
   }
 
+  Widget _sectionTitle(String title, UpGradeRem rem, Color onSurface) {
+    return Row(
+      children: [
+        Container(
+          width: 4,
+          height: rem.sectionTitle * 1.25,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(4),
+            gradient: AppTheme.primaryGradient,
+            boxShadow: AppTheme.softShadow,
+          ),
+        ),
+        SizedBox(width: rem.space(0.7)),
+        Text(
+          title,
+          style: TextStyle(
+            fontSize: rem.sectionTitle * 1.05,
+            fontWeight: FontWeight.w800,
+            letterSpacing: -0.35,
+            color: onSurface,
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildMyCourses(
     BuildContext context, {
+    required UpGradeRem rem,
+    required bool isDark,
     required List<_CourseStat> courseStats,
-    required Color surface,
     required Color onSurface,
     required Color secondary,
   }) {
     if (courseStats.isEmpty) {
       return _emptySection(
         context,
+        rem: rem,
+        isDark: isDark,
         icon: Icons.menu_book,
         message: 'No courses yet. Sync Google Classroom or add tasks.',
         secondary: secondary,
@@ -587,22 +697,16 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'My Courses',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: onSurface,
-          ),
-        ),
-        const SizedBox(height: 16),
+        _sectionTitle('My Courses', rem, onSurface),
+        SizedBox(height: rem.space(1.0)),
         ...courseStats.map(
           (c) => Padding(
-            padding: const EdgeInsets.only(bottom: 16),
+            padding: EdgeInsets.only(bottom: rem.space(1.0)),
             child: _courseCard(
               context,
+              rem: rem,
+              isDark: isDark,
               course: c,
-              surface: surface,
               onSurface: onSurface,
               secondary: secondary,
             ),
@@ -614,8 +718,9 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
 
   Widget _courseCard(
     BuildContext context, {
+    required UpGradeRem rem,
+    required bool isDark,
     required _CourseStat course,
-    required Color surface,
     required Color onSurface,
     required Color secondary,
   }) {
@@ -624,16 +729,38 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
     final hoursPerWeek = (course.total * 30 / 60).ceil(); // rough: 30 min per task
 
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.all(rem.space(1.15)),
       decoration: BoxDecoration(
-        color: surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: secondary.withOpacity(0.3)),
+        gradient: isDark
+            ? null
+            : const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color(0xFFFFFFFF),
+                  Color(0xFFF7F2FC),
+                ],
+              ),
+        color: isDark ? const Color(0xFF111827) : null,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isDark ? const Color(0xFF334155) : const Color(0xFFE8E0EF),
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
+            color: AppTheme.primaryBlue.withOpacity(isDark ? 0.14 : 0.08),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+          BoxShadow(
+            color: AppTheme.secondaryPurple.withOpacity(isDark ? 0.1 : 0.05),
+            blurRadius: 24,
+            offset: const Offset(0, 10),
+          ),
+          BoxShadow(
+            color: Colors.black.withOpacity(isDark ? 0.2 : 0.04),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
@@ -649,23 +776,37 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
                     Text(
                       course.courseName,
                       style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.bold,
+                        fontSize: rem.cardTitle * 1.15,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.3,
                         color: onSurface,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    SizedBox(height: rem.space(0.35)),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: rem.space(0.45),
+                        vertical: rem.space(0.25),
+                      ),
                       decoration: BoxDecoration(
                         color: AppTheme.primaryBlue.withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: AppTheme.primaryBlue.withOpacity(0.22),
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppTheme.primaryBlue.withOpacity(0.06),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                       ),
                       child: Text(
                         code,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
+                        style: TextStyle(
+                          fontSize: rem.listSubtitle,
+                          fontWeight: FontWeight.w700,
                           color: AppTheme.primaryBlue,
                         ),
                       ),
@@ -675,32 +816,32 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
               ),
               IconButton(
                 onPressed: () {},
-                icon: Icon(Icons.edit_outlined, size: 20, color: secondary),
+                icon: Icon(Icons.edit_outlined, size: rem.iconSmall, color: secondary),
                 tooltip: 'Edit',
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: rem.space(1.0)),
           Row(
             children: [
-              Icon(Icons.schedule, size: 16, color: secondary),
-              const SizedBox(width: 6),
+              Icon(Icons.schedule, size: rem.listSubtitle * 1.1, color: secondary),
+              SizedBox(width: rem.space(0.35)),
               Text(
                 '${hoursPerWeek}h/week',
-                style: TextStyle(fontSize: 13, color: secondary),
+                style: TextStyle(fontSize: rem.listSubtitle, color: secondary, fontWeight: FontWeight.w500),
               ),
-              const SizedBox(width: 20),
-              Icon(Icons.flag, size: 16, color: secondary),
-              const SizedBox(width: 6),
+              SizedBox(width: rem.space(1.15)),
+              Icon(Icons.flag, size: rem.listSubtitle * 1.1, color: secondary),
+              SizedBox(width: rem.space(0.35)),
               Text(
                 '${(progress * 100).toInt()}% complete',
-                style: TextStyle(fontSize: 13, color: secondary),
+                style: TextStyle(fontSize: rem.listSubtitle, color: secondary, fontWeight: FontWeight.w500),
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          SizedBox(height: rem.space(0.85)),
           ClipRRect(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(10),
             child: SizedBox(
               height: 10,
               child: LayoutBuilder(
@@ -710,7 +851,7 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
                     children: [
                       Container(
                         width: constraints.maxWidth,
-                        color: secondary.withOpacity(0.2),
+                        color: secondary.withOpacity(0.18),
                       ),
                       SizedBox(
                         width: w,
@@ -726,14 +867,14 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
               ),
             ),
           ),
-          const SizedBox(height: 12),
-          Row(
+          SizedBox(height: rem.space(0.75)),
+          Wrap(
+            spacing: rem.space(0.45),
+            runSpacing: rem.space(0.45),
             children: [
-              _scheduleChip('Mon 9-11 AM', secondary),
-              const SizedBox(width: 8),
-              _scheduleChip('Wed 2-4 PM', secondary),
-              const SizedBox(width: 8),
-              _scheduleChip('Fri 10-12 PM', secondary),
+              _scheduleChip('Mon 9-11 AM', 0, rem, isDark),
+              _scheduleChip('Wed 2-4 PM', 1, rem, isDark),
+              _scheduleChip('Fri 10-12 PM', 2, rem, isDark),
             ],
           ),
         ],
@@ -741,16 +882,49 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
     );
   }
 
-  Widget _scheduleChip(String label, Color secondary) {
+  Widget _scheduleChip(String label, int variant, UpGradeRem rem, bool isDark) {
+    final accents = [
+      (
+        AppTheme.primaryBlue,
+        isDark ? AppTheme.primaryBlue.withOpacity(0.18) : const Color(0xFFEFF6FF),
+      ),
+      (
+        AppTheme.secondaryPurple,
+        isDark ? AppTheme.secondaryPurple.withOpacity(0.18) : const Color(0xFFF5F3FF),
+      ),
+      (
+        AppTheme.successGreen,
+        isDark ? AppTheme.successGreen.withOpacity(0.18) : const Color(0xFFECFDF5),
+      ),
+    ];
+    final i = variant % accents.length;
+    final fg = accents[i].$1;
+    final bg = accents[i].$2;
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: EdgeInsets.symmetric(
+        horizontal: rem.space(0.55),
+        vertical: rem.space(0.35),
+      ),
       decoration: BoxDecoration(
-        color: secondary.withOpacity(0.15),
-        borderRadius: BorderRadius.circular(8),
+        color: bg,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: fg.withOpacity(0.22)),
+        boxShadow: [
+          BoxShadow(
+            color: fg.withOpacity(0.07),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Text(
         label,
-        style: TextStyle(fontSize: 12, color: secondary),
+        style: TextStyle(
+          fontSize: rem.listSubtitle * 0.95,
+          fontWeight: FontWeight.w600,
+          color: fg,
+        ),
       ),
     );
   }
@@ -766,9 +940,10 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
 
   Widget _buildUpcomingTasks(
     BuildContext context, {
+    required UpGradeRem rem,
+    required bool isDark,
     StudyPlan? plan,
     required List<Task> fallbackTasks,
-    required Color surface,
     required Color onSurface,
     required Color secondary,
   }) {
@@ -778,6 +953,8 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
     if (!usePlan && fallbackTasks.isEmpty) {
       return _emptySection(
         context,
+        rem: rem,
+        isDark: isDark,
         icon: Icons.assignment_outlined,
         message: 'No upcoming tasks. Create a plan or add assignments.',
         secondary: secondary,
@@ -787,30 +964,23 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Weekly Plan',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: onSurface,
-          ),
-        ),
-        const SizedBox(height: 16),
+        _sectionTitle('Upcoming Tasks', rem, onSurface),
+        SizedBox(height: rem.space(1.0)),
         if (usePlan)
           ...items.map(
             (item) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
+              padding: EdgeInsets.only(bottom: rem.space(0.75)),
               child: _upcomingTaskCard(
                 context,
+                rem: rem,
+                isDark: isDark,
                 title: item.taskTitle,
-                courseCode: item.courseName.isNotEmpty
-                    ? _courseCode(item.courseName)
+                courseName: item.courseName.trim().isNotEmpty
+                    ? item.courseName.trim()
                     : '—',
                 dueText: 'Due ${item.suggestedDate}',
                 priority: item.priority,
-                surface: surface,
                 onSurface: onSurface,
-                secondary: secondary,
               ),
             ),
           )
@@ -825,16 +995,18 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
                           ? 'Due today'
                           : 'Due in $days days';
               return Padding(
-                padding: const EdgeInsets.only(bottom: 12),
+                padding: EdgeInsets.only(bottom: rem.space(0.75)),
                 child: _upcomingTaskCard(
                   context,
+                  rem: rem,
+                  isDark: isDark,
                   title: task.title,
-                  courseCode: _courseCode(task.courseName),
+                  courseName: task.courseName.trim().isNotEmpty
+                      ? task.courseName.trim()
+                      : '—',
                   dueText: dueText,
                   priority: task.priority.name,
-                  surface: surface,
                   onSurface: onSurface,
-                  secondary: secondary,
                 ),
               );
             },
@@ -845,27 +1017,57 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
 
   Widget _upcomingTaskCard(
     BuildContext context, {
+    required UpGradeRem rem,
+    required bool isDark,
     required String title,
-    required String courseCode,
+    required String courseName,
     required String dueText,
     required String priority,
-    required Color surface,
     required Color onSurface,
-    required Color secondary,
   }) {
     final priorityColor = _priorityColor(priority);
+    final courseLineColor = isDark
+        ? const Color(0xFF94A3B8)
+        : const Color(0xFF334155);
+    final dueBg = isDark
+        ? AppTheme.primaryBlue.withOpacity(0.16)
+        : const Color(0xFFEFF6FF);
+    final dueFg = isDark ? const Color(0xFF93C5FD) : AppTheme.primaryBlue;
 
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.all(rem.space(1.05)),
       decoration: BoxDecoration(
-        color: surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: secondary.withOpacity(0.3)),
+        gradient: isDark
+            ? LinearGradient(
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+                colors: [
+                  priorityColor.withOpacity(0.12),
+                  const Color(0xFF111827),
+                ],
+              )
+            : LinearGradient(
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+                colors: [
+                  priorityColor.withOpacity(0.08),
+                  Colors.white,
+                ],
+              ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: priorityColor.withOpacity(isDark ? 0.35 : 0.22),
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+            color: priorityColor.withOpacity(isDark ? 0.15 : 0.1),
+            blurRadius: 14,
+            offset: const Offset(0, 5),
+          ),
+          BoxShadow(
+            color: AppTheme.primaryBlue.withOpacity(0.04),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
@@ -878,15 +1080,21 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
                 Text(
                   title,
                   style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
+                    fontSize: rem.listTitle,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.2,
                     color: onSurface,
                   ),
                 ),
-                const SizedBox(height: 4),
+                SizedBox(height: rem.space(0.35)),
                 Text(
-                  courseCode,
-                  style: TextStyle(fontSize: 13, color: secondary),
+                  courseName,
+                  style: TextStyle(
+                    fontSize: rem.listSubtitle,
+                    color: courseLineColor,
+                    fontWeight: FontWeight.w600,
+                    height: 1.35,
+                  ),
                 ),
               ],
             ),
@@ -895,28 +1103,54 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: EdgeInsets.symmetric(
+                  horizontal: rem.space(0.5),
+                  vertical: rem.space(0.32),
+                ),
                 decoration: BoxDecoration(
-                  color: secondary.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(8),
+                  color: dueBg,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: dueFg.withOpacity(0.25)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: dueFg.withOpacity(0.06),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
                 ),
                 child: Text(
                   dueText,
-                  style: TextStyle(fontSize: 12, color: secondary),
+                  style: TextStyle(
+                    fontSize: rem.listSubtitle * 0.92,
+                    fontWeight: FontWeight.w600,
+                    color: dueFg,
+                  ),
                 ),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: rem.space(0.45)),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: EdgeInsets.symmetric(
+                  horizontal: rem.space(0.5),
+                  vertical: rem.space(0.32),
+                ),
                 decoration: BoxDecoration(
-                  color: priorityColor.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(8),
+                  color: priorityColor.withOpacity(isDark ? 0.22 : 0.14),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: priorityColor.withOpacity(0.35)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: priorityColor.withOpacity(0.08),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
                 ),
                 child: Text(
                   priority.toLowerCase(),
                   style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
+                    fontSize: rem.listSubtitle * 0.92,
+                    fontWeight: FontWeight.w700,
                     color: priorityColor,
                   ),
                 ),
@@ -945,88 +1179,79 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
 
   Widget _buildAIRecommendationCard(
     BuildContext context, {
+    required UpGradeRem rem,
+    required bool isDark,
     required StudyPlan plan,
     required Color onSurface,
     required Color secondary,
   }) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: AppTheme.secondaryPurple.withOpacity(0.08),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: AppTheme.secondaryPurple.withOpacity(0.4),
-        ),
-      ),
+    return UpGradeGradientFrameCard(
+      rem: rem,
+      isDark: isDark,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(12),
+                padding: EdgeInsets.all(rem.space(0.75)),
                 decoration: BoxDecoration(
-                  color: AppTheme.secondaryPurple.withOpacity(0.2),
+                  gradient: LinearGradient(
+                    colors: [
+                      AppTheme.secondaryPurple.withOpacity(0.25),
+                      AppTheme.primaryBlue.withOpacity(0.2),
+                    ],
+                  ),
                   shape: BoxShape.circle,
+                  border: Border.all(
+                    color: AppTheme.secondaryPurple.withOpacity(0.35),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppTheme.secondaryPurple.withOpacity(0.15),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
                 child: Icon(
                   Icons.auto_awesome,
                   color: AppTheme.secondaryPurple,
-                  size: 24,
+                  size: rem.iconSmall * 1.15,
                 ),
               ),
-              const SizedBox(width: 16),
-              Text(
-                'AI Study Recommendation',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: onSurface,
+              SizedBox(width: rem.space(0.95)),
+              Expanded(
+                child: Text(
+                  'AI Study Recommendation',
+                  style: TextStyle(
+                    fontSize: rem.sectionTitle,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.35,
+                    color: onSurface,
+                  ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: rem.space(0.95)),
           Text(
             plan.summary,
             style: TextStyle(
-              fontSize: 14,
+              fontSize: rem.cardBody,
               color: secondary,
-              height: 1.5,
+              height: 1.55,
+              fontWeight: FontWeight.w500,
             ),
           ),
-          const SizedBox(height: 20),
-          Container(
-            decoration: BoxDecoration(
-              gradient: AppTheme.primaryGradient,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: AppTheme.softShadow,
-            ),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: () => setState(() => _tabIndex = 1),
-                borderRadius: BorderRadius.circular(12),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: const [
-                      Icon(Icons.check_circle_outline,
-                          color: AppTheme.white, size: 20),
-                      SizedBox(width: 10),
-                      Text(
-                        'Apply Recommendation',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          color: AppTheme.white,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+          SizedBox(height: rem.space(1.1)),
+          UpGradeGradientFilledButton(
+            onPressed: () => setState(() => _tabIndex = 1),
+            icon: const Icon(Icons.check_circle_outline, size: 20),
+            label: const Text('Apply Recommendation'),
+            padding: EdgeInsets.symmetric(
+              horizontal: rem.space(1.35),
+              vertical: rem.space(0.85),
             ),
           ),
         ],
@@ -1036,101 +1261,118 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
 
   Widget _emptySection(
     BuildContext context, {
+    required UpGradeRem rem,
+    required bool isDark,
     required IconData icon,
     required String message,
     required Color secondary,
   }) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 48),
-        child: Column(
-          children: [
-            Icon(icon, size: 48, color: secondary.withOpacity(0.6)),
-            const SizedBox(height: 16),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 14, color: secondary),
+        padding: EdgeInsets.symmetric(vertical: rem.space(2.75)),
+        child: Container(
+          padding: EdgeInsets.all(rem.space(1.85)),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(22),
+            gradient: isDark
+                ? LinearGradient(
+                    colors: [
+                      const Color(0xFF1E293B),
+                      AppTheme.primaryBlue.withOpacity(0.08),
+                    ],
+                  )
+                : LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      const Color(0xFFEFF6FF),
+                      const Color(0xFFF5F3FF),
+                    ],
+                  ),
+            border: Border.all(
+              color: AppTheme.primaryBlue.withOpacity(isDark ? 0.35 : 0.2),
             ),
-          ],
+            boxShadow: [
+              BoxShadow(
+                color: AppTheme.primaryBlue.withOpacity(0.08),
+                blurRadius: 18,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              Container(
+                padding: EdgeInsets.all(rem.space(0.85)),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: AppTheme.primaryGradient,
+                  boxShadow: AppTheme.softShadow,
+                ),
+                child: Icon(icon, size: rem.iconSmall * 1.35, color: Colors.white),
+              ),
+              SizedBox(height: rem.space(1.0)),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: rem.cardBody,
+                  color: secondary,
+                  fontWeight: FontWeight.w500,
+                  height: 1.45,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildLoading() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+  Widget _buildLoading({
+    required UpGradeRem rem,
+    required bool isDark,
+  }) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(32),
+        padding: EdgeInsets.all(rem.space(1.85)),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              padding: const EdgeInsets.all(24),
+              padding: EdgeInsets.all(rem.space(1.35)),
               decoration: BoxDecoration(
-                gradient: AppTheme.softGradient,
+                gradient: AppTheme.primaryGradient,
                 shape: BoxShape.circle,
+                boxShadow: AppTheme.softShadow,
               ),
-              child: const CircularProgressIndicator(strokeWidth: 3),
+              child: SizedBox(
+                width: rem.iconSmall * 1.6,
+                height: rem.iconSmall * 1.6,
+                child: CircularProgressIndicator(
+                  strokeWidth: 3,
+                  color: Colors.white,
+                  backgroundColor: Colors.white.withOpacity(0.25),
+                ),
+              ),
             ),
-            const SizedBox(height: 24),
-            const Text(
+            SizedBox(height: rem.space(1.35)),
+            Text(
               'Generating your study plan...',
               style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
+                fontSize: rem.cardTitle,
+                fontWeight: FontWeight.w700,
+                color: isDark ? Colors.white : const Color(0xFF0F172A),
               ),
             ),
-            const SizedBox(height: 8),
-            Text(
+            SizedBox(height: rem.space(0.45)),
+            UpGradeMutedSubtitle(
               'AI-powered personalized schedule',
-              style: TextStyle(
-                fontSize: 14,
-                color: isDark
-                    ? const Color(0xFF9CA3AF)
-                    : AppTheme.darkText.withOpacity(0.6),
-              ),
+              rem: rem,
+              isDark: isDark,
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildErrorBanner(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: isDark
-            ? const Color(0xFF3B1219)
-            : AppTheme.errorRed.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: isDark
-              ? const Color(0xFF7F1D1D)
-              : AppTheme.errorRed.withOpacity(0.3),
-        ),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.error_outline, color: AppTheme.errorRed, size: 24),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              _error!,
-              style: TextStyle(
-                fontSize: 14,
-                color: isDark ? const Color(0xFFFCA5A5) : AppTheme.darkText,
-              ),
-            ),
-          ),
-          TextButton(
-            onPressed: _generate,
-            child: const Text('Retry'),
-          ),
-        ],
       ),
     );
   }

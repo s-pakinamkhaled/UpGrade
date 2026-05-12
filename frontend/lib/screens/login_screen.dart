@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 import '../core/theme.dart';
 import '../core/constants.dart';
+import '../core/post_auth_navigation.dart';
 import '../widgets/app_logo.dart';
 import '../services/firebase_auth_service.dart';
 import '../services/api_service.dart';
@@ -61,9 +62,8 @@ class _LoginScreenState extends State<LoginScreen> {
         tasks: context.read<ClassroomProvider>().tasks,
       );
 
-      Navigator.of(context).pushReplacementNamed(
-        AppConstants.routeGoogleClassroomSync,
-      );
+      if (!mounted) return;
+      openWelcomeSyncChoiceAfterAuth(context);
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -84,9 +84,9 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      final user = await _authService.signInWithGoogle();
+      final googleResult = await _authService.signInWithGoogle();
 
-      if (user == null) {
+      if (googleResult == null) {
         throw Exception('Google sign-in cancelled');
       }
 
@@ -96,9 +96,8 @@ class _LoginScreenState extends State<LoginScreen> {
         tasks: context.read<ClassroomProvider>().tasks,
       );
 
-      Navigator.of(context).pushReplacementNamed(
-        AppConstants.routeGoogleClassroomSync,
-      );
+      if (!mounted) return;
+      openWelcomeSyncChoiceAfterAuth(context);
     } catch (e) {
       if (!mounted) return;
       setState(() {

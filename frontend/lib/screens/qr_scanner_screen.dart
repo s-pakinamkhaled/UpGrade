@@ -174,7 +174,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
             left: 24,
             right: 24,
             child: Text(
-              'Point camera at a QR code with a web link',
+              'Pairing QR from your laptop, or any valid web link',
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: AppTheme.white,

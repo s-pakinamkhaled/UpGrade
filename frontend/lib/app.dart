@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 
 import 'core/theme.dart';
 import 'core/constants.dart';
+import 'core/dashboard_shell_navigation.dart';
 
 import 'screens/login_screen.dart';
 import 'screens/qr_scanner_screen.dart';
@@ -14,6 +15,7 @@ import 'screens/forgot_password_screen.dart';
 import 'screens/google_classroom_sync_screen.dart';
 import 'screens/device_pairing_screen.dart';
 import 'screens/onboarding_screen.dart';
+import 'screens/welcome_sync_choice_screen.dart';
 import 'screens/daily_planner_screen.dart';
 import 'screens/weekly_schedule_screen.dart';
 import 'screens/task_execution_screen.dart';
@@ -37,6 +39,7 @@ import 'screens/manual_courses_screen.dart';
 import 'models/task.dart';
 import 'widgets/app_logo.dart';
 import 'widgets/dashboard_shell_row.dart';
+import 'widgets/upgrade_visual_system.dart';
 import 'providers/dashboard_shell_provider.dart';
 import 'providers/settings_provider.dart';
 
@@ -113,12 +116,36 @@ class _UpGradeAppState extends State<UpGradeApp> {
         AppConstants.routeRegister: (context) => const RegisterScreen(),
         AppConstants.routeForgotPassword: (context) =>
             const ForgotPasswordScreen(),
-        AppConstants.routeGoogleClassroomSync: (context) =>
-            const GoogleClassroomSyncScreen(),
+        AppConstants.routeGoogleClassroomSync: (context) {
+          final args = ModalRoute.of(context)?.settings.arguments;
+          final fromPostLogin = args == true;
+          return GoogleClassroomSyncScreen(fromPostLoginSetup: fromPostLogin);
+        },
+        AppConstants.routeWelcomeSyncChoice: (context) =>
+            const WelcomeSyncChoiceScreen(),
         AppConstants.routeDevicePairing: (context) =>
             const DevicePairingScreen(),
         AppConstants.routeOnboarding: (context) => const OnboardingScreen(),
         AppConstants.routeHome: (context) => const MainNavigationScreen(),
+
+        AppConstants.routeDailyPlanner: (context) =>
+            const DailyPlannerScreen(),
+
+        AppConstants.routeEndSession: (context) => EndSessionScreen(
+              onContinue: () {
+                Navigator.of(context).pop();
+              },
+              onEndAndSignOut: () async {
+                await FirebaseAuth.instance.signOut();
+                if (!context.mounted) return;
+                context.read<DashboardShellProvider>().resetForNewSession();
+                if (!context.mounted) return;
+                Navigator.of(context).pushNamedAndRemoveUntil(
+                  AppConstants.routeLogin,
+                  (route) => false,
+                );
+              },
+            ),
 
         // ---------- TASK EXECUTION ----------
         AppConstants.routeTaskExecution: (context) {
@@ -151,7 +178,7 @@ class _UpGradeAppState extends State<UpGradeApp> {
         // ---------- OTHER ROUTES ----------
        AppConstants.routeWarnings: (context) => const WarningsScreen(),
 AppConstants.routeProgress: (context) =>
-    const ProgressDashboardScreen(),
+    const ProgressDashboardScreen(showAppBar: false),
 AppConstants.routeBurnout: (context) => const BurnoutRiskScreen(),
 AppConstants.routeGroupStudy: (context) => const GroupStudyScreen(),
 AppConstants.routeAIChatbot: (context) => const AIChatbotScreen(),
@@ -163,8 +190,7 @@ AppConstants.routeFirestoreExample: (context) =>
 
 AppConstants.routeProfile: (context) => const ProfileScreen(),
 
-AppConstants.routePrivacy: (context) =>
-    const PrivacyPolicyScreen(),
+AppConstants.routePrivacy: (context) => const PrivacyPolicyScreen(),
 
 AppConstants.routePrivacySettings: (context) =>
     const PrivacySettingsScreen(),
@@ -175,8 +201,42 @@ AppConstants.routeEditProfile: (context) =>
 AppConstants.routeStudyPlan: (context) => const StudyPlanScreen(),
 AppConstants.routeQrScanner: (context) => const QrScannerScreen(),
         AppConstants.routeManualCourses: (context) =>
-            const ManualCoursesScreen(),
+            const _RedirectManualCoursesToShellTab(),
       },
+    );
+  }
+}
+
+// =======================================================
+// MANUAL COURSES: fold named-route opens into shell tab
+// =======================================================
+
+/// If anything still calls [Navigator.pushNamed] for [AppConstants.routeManualCourses],
+/// we switch the [IndexedStack] tab and pop back to [routeHome] so the sidebar stays visible.
+class _RedirectManualCoursesToShellTab extends StatefulWidget {
+  const _RedirectManualCoursesToShellTab();
+
+  @override
+  State<_RedirectManualCoursesToShellTab> createState() =>
+      _RedirectManualCoursesToShellTabState();
+}
+
+class _RedirectManualCoursesToShellTabState
+    extends State<_RedirectManualCoursesToShellTab> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      selectMainShellRoute(context, AppConstants.routeManualCourses);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      backgroundColor: Colors.transparent,
+      body: SizedBox.shrink(),
     );
   }
 }
@@ -195,87 +255,100 @@ class MainNavigationScreen extends StatefulWidget {
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
-  void _openDrawer() => _scaffoldKey.currentState?.openDrawer();
-
-  Future<void> _performSignOut() async {
-    await FirebaseAuth.instance.signOut();
-    if (!mounted) return;
-    context.read<DashboardShellProvider>().resetForNewSession();
-    if (!mounted) return;
-    Navigator.of(context).pushNamedAndRemoveUntil(
-      AppConstants.routeLogin,
-      (route) => false,
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final shell = context.watch<DashboardShellProvider>();
-    final useSidebarLayout = MediaQuery.sizeOf(context).width >= 700;
+    final width = MediaQuery.sizeOf(context).width;
 
-    if (useSidebarLayout) {
-      return Scaffold(
-        body: DashboardShellRow(
-          body: IndexedStack(
-            index: shell.currentIndex,
-            children: [
-              DailyPlannerScreen(openDrawer: null),
-              AIChatbotScreen(openDrawer: null),
-              const ProgressDashboardScreen(showAppBar: false),
-              GroupStudyScreen(openDrawer: null),
-              EndSessionScreen(
-                onContinue: () {
-                  context
-                      .read<DashboardShellProvider>()
-                      .exitEndSessionContinue();
-                },
-                onEndAndSignOut: _performSignOut,
-              ),
-            ],
+    final isDesktop = width >= 900;
+    final isTablet = width >= 600;
+    // Mobile layout: width < 600.
+
+    Widget mainIndexedStack() {
+      return IndexedStack(
+        index: shell.currentIndex,
+        children: [
+          const ProgressDashboardScreen(showAppBar: false),
+          const DailyPlannerScreen(),
+          const AIChatbotScreen(),
+          const StudyPlanScreen(),
+          const GroupStudyScreen(),
+          const WarningsScreen(),
+          const ProfileScreen(),
+          GoogleClassroomSyncScreen(
+            fromPostLoginSetup: shell.googleClassroomFromPostLoginSetup,
           ),
+          const ManualCoursesScreen(embeddedInShell: true),
+          EndSessionScreen(
+            onContinue: () {
+              context.read<DashboardShellProvider>().exitEndSessionContinue();
+            },
+            onEndAndSignOut: () async {
+              await FirebaseAuth.instance.signOut();
+              if (!context.mounted) return;
+              context.read<DashboardShellProvider>().resetForNewSession();
+              if (!context.mounted) return;
+              Navigator.of(context).pushNamedAndRemoveUntil(
+                AppConstants.routeLogin,
+                (route) => false,
+              );
+            },
+          ),
+        ],
+      );
+    }
+
+    if (isDesktop || isTablet) {
+      return Scaffold(
+        backgroundColor: Colors.transparent,
+        body: DashboardShellRow(
+          body: mainIndexedStack(),
         ),
       );
     }
 
     return Scaffold(
       key: _scaffoldKey,
-      body: IndexedStack(
-        index: shell.currentIndex,
-        children: [
-          DailyPlannerScreen(openDrawer: _openDrawer),
-          AIChatbotScreen(openDrawer: _openDrawer),
-          ProgressDashboardScreen(openDrawer: _openDrawer),
-          GroupStudyScreen(openDrawer: _openDrawer),
-          EndSessionScreen(
-            onContinue: () {
-              context.read<DashboardShellProvider>().exitEndSessionContinue();
-            },
-            onEndAndSignOut: _performSignOut,
-          ),
-        ],
+      backgroundColor: Colors.transparent,
+      drawer: _buildDrawer(context),
+      appBar: AppBar(
+        title: const Text('UpGrade'),
       ),
-      bottomNavigationBar: shell.currentIndex == 4
+      body: DecoratedBox(
+        decoration: UpGradePageDecor.pageBackground(
+          Theme.of(context).brightness == Brightness.dark,
+        ),
+        child: mainIndexedStack(),
+      ),
+      bottomNavigationBar: shell.currentIndex >= 8 ||
+              !const {0, 1, 2, 4}.contains(shell.currentIndex)
           ? null
           : NavigationBar(
-              selectedIndex: shell.currentIndex,
+              selectedIndex: shell.currentIndex == 4 ? 3 : shell.currentIndex,
               onDestinationSelected: (index) {
-                context.read<DashboardShellProvider>().selectTab(index);
+                final stackIndex = switch (index) {
+                  0 => 0,
+                  1 => 1,
+                  2 => 2,
+                  _ => 4,
+                };
+                context.read<DashboardShellProvider>().selectTab(stackIndex);
               },
               destinations: const [
                 NavigationDestination(
+                  icon: Icon(Icons.dashboard_outlined),
+                  selectedIcon: Icon(Icons.dashboard),
+                  label: 'Dashboard',
+                ),
+                NavigationDestination(
                   icon: Icon(Icons.calendar_today_outlined),
                   selectedIcon: Icon(Icons.calendar_today),
-                  label: 'Planner',
+                  label: 'My Tasks',
                 ),
                 NavigationDestination(
                   icon: Icon(Icons.auto_awesome_outlined),
                   selectedIcon: Icon(Icons.auto_awesome),
                   label: 'AI Chat',
-                ),
-                NavigationDestination(
-                  icon: Icon(Icons.dashboard_outlined),
-                  selectedIcon: Icon(Icons.dashboard),
-                  label: 'Progress',
                 ),
                 NavigationDestination(
                   icon: Icon(Icons.groups_outlined),
@@ -285,75 +358,66 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
               ],
             ),
       floatingActionButton: Container(
-        decoration: shell.currentIndex == 4
-            ? null
-            : BoxDecoration(
-                gradient: AppTheme.primaryGradient,
-                shape: BoxShape.circle,
-                boxShadow: AppTheme.mediumShadow,
+        decoration: BoxDecoration(
+          gradient: AppTheme.primaryGradient,
+          shape: BoxShape.circle,
+          boxShadow: AppTheme.mediumShadow,
+        ),
+        child: FloatingActionButton(
+          onPressed: () {
+            selectMainShellRoute(
+              context,
+              AppConstants.routeWarnings,
+            );
+          },
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          child: Stack(
+            children: [
+              const Icon(
+                Icons.notifications_rounded,
+                color: AppTheme.white,
+                size: 24,
               ),
-        child: shell.currentIndex == 4
-            ? const SizedBox.shrink()
-            : FloatingActionButton(
-                onPressed: () {
-                  context
-                      .read<DashboardShellProvider>()
-                      .selectRoute(AppConstants.routeWarnings);
-                  Navigator.of(context).pushNamed(AppConstants.routeWarnings);
-                },
-                backgroundColor: Colors.transparent,
-                elevation: 0,
-                child: Stack(
-                  children: [
-                    const Icon(
-                      Icons.notifications_rounded,
+              Positioned(
+                right: 0,
+                top: 0,
+                child: Container(
+                  padding: const EdgeInsets.all(5),
+                  decoration: const BoxDecoration(
+                    color: AppTheme.errorRed,
+                    shape: BoxShape.circle,
+                  ),
+                  constraints: const BoxConstraints(
+                    minWidth: 18,
+                    minHeight: 18,
+                  ),
+                  child: const Text(
+                    '3',
+                    style: TextStyle(
                       color: AppTheme.white,
-                      size: 24,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
                     ),
-                    Positioned(
-                      right: 0,
-                      top: 0,
-                      child: Container(
-                        padding: const EdgeInsets.all(5),
-                        decoration: const BoxDecoration(
-                          color: AppTheme.errorRed,
-                          shape: BoxShape.circle,
-                        ),
-                        constraints: const BoxConstraints(
-                          minWidth: 18,
-                          minHeight: 18,
-                        ),
-                        child: const Text(
-                          '3',
-                          style: TextStyle(
-                            color: AppTheme.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    ),
-                  ],
+                    textAlign: TextAlign.center,
+                  ),
                 ),
               ),
+            ],
+          ),
+        ),
       ),
-      drawer: _buildDrawer(context),
     );
   }
 
   Drawer _buildDrawer(BuildContext context) {
-    final shell = context.read<DashboardShellProvider>();
-
-    void selectMainRoute(String route) {
+    void pushRoute(String route) {
       Navigator.pop(context);
-      shell.selectRoute(route);
-    }
-
-    void navigateToOverlayRoute(String route) {
-      Navigator.pop(context);
-      shell.selectRoute(route);
-      Navigator.of(context).pushNamed(route);
+      if (DashboardShellProvider.isMainShellTabRoute(route)) {
+        selectMainShellRoute(context, route);
+      } else {
+        Navigator.of(context).pushNamed(route);
+      }
     }
 
     return Drawer(
@@ -398,7 +462,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
             leading: const Icon(Icons.person_outline),
             title: const Text('Profile'),
             onTap: () {
-              navigateToOverlayRoute(AppConstants.routeProfile);
+              pushRoute(AppConstants.routeProfile);
             },
           ),
           ListTile(
@@ -406,7 +470,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
             title: const Text('My courses'),
             subtitle: const Text('Add classes not in Classroom'),
             onTap: () {
-              navigateToOverlayRoute(AppConstants.routeManualCourses);
+              pushRoute(AppConstants.routeManualCourses);
             },
           ),
           ListTile(
@@ -414,56 +478,56 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
             title: const Text('Connect Desktop'),
             subtitle: const Text('Scan QR on laptop'),
             onTap: () {
-              navigateToOverlayRoute(AppConstants.routeQrScanner);
+              pushRoute(AppConstants.routeQrScanner);
             },
           ),
           ListTile(
             leading: const Icon(Icons.auto_awesome),
             title: const Text('AI Assistant'),
             onTap: () {
-              selectMainRoute(AppConstants.routeAIChatbot);
+              pushRoute(AppConstants.routeAIChatbot);
             },
           ),
           ListTile(
             leading: const Icon(Icons.history_edu),
             title: const Text('Past Tasks'),
             onTap: () {
-              navigateToOverlayRoute(AppConstants.routePastTasks);
+              pushRoute(AppConstants.routePastTasks);
             },
           ),
           ListTile(
             leading: const Icon(Icons.dashboard),
             title: const Text('Progress Dashboard'),
             onTap: () {
-              selectMainRoute(AppConstants.routeProgress);
+              pushRoute(AppConstants.routeProgress);
             },
           ),
           ListTile(
             leading: const Icon(Icons.health_and_safety),
             title: const Text('Burnout Risk'),
             onTap: () {
-              navigateToOverlayRoute(AppConstants.routeBurnout);
+              pushRoute(AppConstants.routeBurnout);
             },
           ),
           ListTile(
             leading: const Icon(Icons.groups),
-            title: const Text('Group Study'),
+            title: const Text('Study Group'),
             onTap: () {
-              selectMainRoute(AppConstants.routeGroupStudy);
+              pushRoute(AppConstants.routeGroupStudy);
             },
           ),
           ListTile(
             leading: const Icon(Icons.rate_review),
             title: const Text('End of Day Review'),
             onTap: () {
-              navigateToOverlayRoute(AppConstants.routeEndOfDay);
+              pushRoute(AppConstants.routeEndOfDay);
             },
           ),
           ListTile(
             leading: const Icon(Icons.cloud),
             title: const Text('Firestore Example'),
             onTap: () {
-              navigateToOverlayRoute(AppConstants.routeFirestoreExample);
+              pushRoute(AppConstants.routeFirestoreExample);
             },
           ),
         ],

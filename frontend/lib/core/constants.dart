@@ -13,6 +13,20 @@ class AppConstants {
   static const String publicPrivacyPolicyPageUrl =
       'https://upgrade-e87b3.web.app/privacy.html';
 
+  /// Encoded in the desktop pairing QR. Opens in the phone browser if the app is not
+  /// installed; that page tries `upgrade://pair` then sends the user to the store.
+  /// Deploy `frontend/public/pair.html` with Firebase Hosting (same site as privacy).
+  static const String pairingQrLandingPageUrl =
+      'https://upgrade-e87b3.web.app/pair.html';
+
+  /// Google Play listing — keep in sync with `applicationId` in `android/app/build.gradle.kts`.
+  static const String playStoreListingUrl =
+      'https://play.google.com/store/apps/details?id=com.example.frontend';
+
+  /// App Store — replace with `https://apps.apple.com/app/idXXXXXXXX` when published.
+  static const String appStoreListingUrl =
+      'https://apps.apple.com/search?term=UpGrade';
+
   // ================== ROUTES ==================
   static const String routeLogin = '/login';
   static const String routeRegister = '/register';
@@ -21,6 +35,8 @@ class AppConstants {
   static const String routeManualCourses = '/manual-courses';
   static const String routeDevicePairing = '/device-pairing';
   static const String routeOnboarding = '/onboarding';
+  /// Shown right after login/register: sync Google Classroom or skip to device pairing.
+  static const String routeWelcomeSyncChoice = '/welcome-sync-choice';
   static const String routeHome = '/home';
   static const String routeDailyPlanner = '/daily-planner';
 

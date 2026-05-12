@@ -158,7 +158,8 @@ class _DevicePairingScreenState extends State<DevicePairingScreen> {
     // أثناء الـ onboarding / فتح الويب: نستخدم الـ shell الجديد
     return UpGradePageShell(
       title: 'Connect Desktop',
-      subtitle: 'Scan this QR from your UpGrade mobile app',
+      subtitle:
+          'Scan with the UpGrade app, or with your phone camera — we\'ll open the app or the store',
       child: _buildBody(),
     );
   }
@@ -271,7 +272,8 @@ class _DevicePairingScreenState extends State<DevicePairingScreen> {
     required Color hintTextColor,
     required Color subHintTextColor,
   }) {
-    final link = 'upgrade://pair?session=$sessionId';
+    final link =
+        '${AppConstants.pairingQrLandingPageUrl}?session=${Uri.encodeComponent(sessionId!)}';
 
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -281,10 +283,11 @@ class _DevicePairingScreenState extends State<DevicePairingScreen> {
           data: link,
           size: 180,
           backgroundColor: AppTheme.white,
+          errorCorrectionLevel: QrErrorCorrectLevel.M,
         ),
         const SizedBox(height: 8),
         Text(
-          'In UpGrade app: Menu → Connect Desktop',
+          'UpGrade app: Menu → Scan QR on laptop',
           style: TextStyle(
             fontSize: 12,
             color: hintTextColor,
@@ -292,11 +295,12 @@ class _DevicePairingScreenState extends State<DevicePairingScreen> {
         ),
         const SizedBox(height: 4),
         Text(
-          'Then scan this QR with your phone',
+          'Or use the phone camera — install from Play Store / App Store if needed',
           style: TextStyle(
             fontSize: 11,
             color: subHintTextColor,
           ),
+          textAlign: TextAlign.center,
         ),
       ],
     );

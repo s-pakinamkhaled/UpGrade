@@ -60,13 +60,12 @@ class _ProgressDashboardScreenState extends State<ProgressDashboardScreen> {
         final isDark = theme.brightness == Brightness.dark;
 
         return Scaffold(
+          backgroundColor: Colors.transparent,
           appBar: (widget.showAppBar && widget.openDrawer != null)
               ? _buildTopAppBar(context)
               : null,
           body: Container(
-            color: isDark
-                ? AppTheme.darkBackground
-                : theme.scaffoldBackgroundColor,
+            color: Colors.transparent,
             child: allTasks.isEmpty
                 ? _buildEmptyState(context)
                 : SingleChildScrollView(

@@ -6,13 +6,29 @@ import '../core/constants.dart';
 import '../core/theme.dart';
 import '../models/classroom_course.dart';
 import '../providers/classroom_provider.dart';
-import '../widgets/dashboard_shell_row.dart';
-import '../widgets/gradient_card.dart';
-import '../widgets/upgrade_page_shell.dart';
+import '../widgets/dashboard_secondary_shell.dart';
+import '../widgets/upgrade_visual_system.dart';
+
+/// Accent pairs for synced course tiles: [soft bg, strong accent].
+const List<List<Color>> _syncedTileAccents = [
+  [Color(0xFFEEF2FF), Color(0xFF4F46E5)],
+  [Color(0xFFFCE7F3), Color(0xFFC026D3)],
+  [Color(0xFFD1FAE5), Color(0xFF059669)],
+  [Color(0xFFFEF3C7), Color(0xFFD97706)],
+  [Color(0xFFE0F2FE), Color(0xFF0284C7)],
+  [Color(0xFFF3E8FF), Color(0xFF7C3AED)],
+];
+
+List<Color> _accentForCourse(String id) {
+  return _syncedTileAccents[id.hashCode.abs() % _syncedTileAccents.length];
+}
 
 /// Lets users add courses that are not from Google Classroom, without signing in again.
 class ManualCoursesScreen extends StatefulWidget {
-  const ManualCoursesScreen({super.key});
+  /// When true, shown inside [MainNavigationScreen]'s [IndexedStack] (no back bar / secondary shell).
+  final bool embeddedInShell;
+
+  const ManualCoursesScreen({super.key, this.embeddedInShell = false});
 
   @override
   State<ManualCoursesScreen> createState() => _ManualCoursesScreenState();
@@ -52,10 +68,13 @@ class _ManualCoursesScreenState extends State<ManualCoursesScreen> {
     final provider = context.read<ClassroomProvider>();
     final courses = provider.courses;
 
-    if (title.isEmpty || _selectedDeadline == null || _selectedCourseId == null) {
+    if (title.isEmpty ||
+        _selectedDeadline == null ||
+        _selectedCourseId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Enter a task name, choose a course, and pick a deadline'),
+          content:
+              Text('Enter a task name, choose a course, and pick a deadline'),
         ),
       );
       return;
@@ -108,432 +127,833 @@ class _ManualCoursesScreenState extends State<ManualCoursesScreen> {
     );
   }
 
-  InputDecoration _fieldDecoration(String hint, {Widget? prefix}) {
-    return InputDecoration(
-      hintText: hint,
-      prefixIcon: prefix,
-      filled: true,
-      fillColor: AppTheme.primaryBlue.withOpacity(0.06),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide.none,
-      ),
-      contentPadding: const EdgeInsets.symmetric(
-        horizontal: 16,
-        vertical: 14,
-      ),
+  Widget _buildSyncedCoursesBlock(
+    BuildContext context,
+    UpGradeRem t,
+    bool isDark,
+  ) {
+    final onSurfaceMuted =
+        Theme.of(context).colorScheme.onSurface.withOpacity(0.65);
+    final onSurfaceStrong =
+        Theme.of(context).colorScheme.onSurface.withOpacity(0.88);
+
+    return Consumer<ClassroomProvider>(
+      builder: (context, provider, _) {
+        final synced =
+            provider.courses.where((c) => !c.id.startsWith('manual_')).toList();
+
+        return UpGradeGradientFrameCard(
+          rem: t,
+          isDark: isDark,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: EdgeInsets.all(t.space(0.45)),
+                    decoration: BoxDecoration(
+                      gradient: AppTheme.primaryGradient,
+                      borderRadius: BorderRadius.circular(14),
+                      boxShadow: AppTheme.softShadow,
+                    ),
+                    child: Icon(
+                      Icons.cloud_done_rounded,
+                      size: t.iconSmall * 1.25,
+                      color: Colors.white,
+                    ),
+                  ),
+                  SizedBox(width: t.space(0.55)),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Synced from Google Classroom',
+                          style: TextStyle(
+                            fontSize: t.sectionTitle,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.35,
+                            color:
+                                isDark ? Colors.white : const Color(0xFF0F172A),
+                          ),
+                        ),
+                        SizedBox(height: t.space(0.35)),
+                        Text(
+                          synced.isEmpty
+                              ? 'Sync from the Google Classroom page to see your classes here.'
+                              : '${synced.length} course${synced.length == 1 ? '' : 's'} shown on My Tasks.',
+                          style: TextStyle(
+                            fontSize: t.cardBody,
+                            height: 1.35,
+                            color: onSurfaceMuted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (synced.isNotEmpty)
+                    Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: t.space(0.55),
+                        vertical: t.space(0.35),
+                      ),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            AppTheme.primaryBlue.withOpacity(0.15),
+                            AppTheme.secondaryPurple.withOpacity(0.18),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(
+                          color: AppTheme.primaryBlue.withOpacity(0.25),
+                        ),
+                      ),
+                      child: Text(
+                        '${synced.length}',
+                        style: TextStyle(
+                          fontSize: t.listTitle,
+                          fontWeight: FontWeight.w800,
+                          color: isDark ? Colors.white : AppTheme.primaryBlue,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              SizedBox(height: t.space(0.95)),
+              if (synced.isEmpty)
+                Container(
+                  width: double.infinity,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: t.space(0.85),
+                    vertical: t.space(1.0),
+                  ),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    color: isDark
+                        ? const Color(0xFF1E293B)
+                        : const Color(0xFFF5F3FF),
+                    border: Border.all(
+                      color: AppTheme.secondaryPurple.withOpacity(0.22),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.auto_awesome,
+                        size: t.iconSmall * 1.2,
+                        color: AppTheme.secondaryPurple,
+                      ),
+                      SizedBox(width: t.space(0.55)),
+                      Expanded(
+                        child: Text(
+                          'No synced courses yet — head to Google Classroom and tap Sync.',
+                          style: TextStyle(
+                            fontSize: t.listSubtitle,
+                            fontWeight: FontWeight.w600,
+                            height: 1.35,
+                            color: onSurfaceStrong,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                LayoutBuilder(
+                  builder: (context, c) {
+                    final w = c.maxWidth;
+                    final gap = t.space(0.65);
+                    int cols = 1;
+                    if (w >= 900) {
+                      cols = 3;
+                    } else if (w >= 520) {
+                      cols = 2;
+                    }
+                    final tileW = (w - gap * (cols - 1)) / cols;
+
+                    return Wrap(
+                      spacing: gap,
+                      runSpacing: gap,
+                      children: synced.map((course) {
+                        final sub = (course.section?.trim().isNotEmpty ?? false)
+                            ? course.section!.trim()
+                            : 'Google Classroom';
+                        final accent = _accentForCourse(course.id);
+                        final softBg = accent[0];
+                        final bold = accent[1];
+
+                        return SizedBox(
+                          width: tileW,
+                          child: Container(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: t.space(0.75),
+                              vertical: t.space(0.7),
+                            ),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: isDark
+                                    ? [
+                                        const Color(0xFF1E293B),
+                                        const Color(0xFF172033),
+                                      ]
+                                    : [
+                                        softBg,
+                                        Colors.white,
+                                      ],
+                              ),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: bold.withOpacity(isDark ? 0.35 : 0.22),
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: bold.withOpacity(0.12),
+                                  blurRadius: 12,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: t.iconSmall * 2.35,
+                                  height: t.iconSmall * 2.35,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    gradient: LinearGradient(
+                                      colors: [
+                                        bold,
+                                        Color.lerp(
+                                              bold,
+                                              AppTheme.secondaryPurple,
+                                              0.35,
+                                            ) ??
+                                            bold,
+                                      ],
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: bold.withOpacity(0.35),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 3),
+                                      ),
+                                    ],
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: Icon(
+                                    Icons.cast_for_education_rounded,
+                                    size: t.iconSmall * 1.05,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                SizedBox(width: t.space(0.55)),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        course.name,
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontSize: t.listTitle,
+                                          fontWeight: FontWeight.w700,
+                                          height: 1.2,
+                                          color: isDark
+                                              ? Colors.white
+                                              : const Color(0xFF0F172A),
+                                        ),
+                                      ),
+                                      SizedBox(height: t.space(0.2)),
+                                      Text(
+                                        sub,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontSize: t.listSubtitle,
+                                          color: onSurfaceMuted,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    );
+                  },
+                ),
+            ],
+          ),
+        );
+      },
     );
   }
 
-  Widget _buildCoursesColumn(BuildContext context) {
+  Widget _buildAddCourseCard(
+    BuildContext context,
+    UpGradeRem t,
+    bool isDark,
+  ) {
     final theme = Theme.of(context);
     final onSurfaceMuted = theme.colorScheme.onSurface.withOpacity(0.65);
-    final onSurfaceStrong = theme.colorScheme.onSurface.withOpacity(0.85);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        GradientCard(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+    return UpGradeAccentStripeCard(
+      rem: t,
+      isDark: isDark,
+      stripeGradient: const [
+        AppTheme.secondaryPurple,
+        AppTheme.primaryBlue,
+      ],
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
             children: [
-              const Text(
-                'Add a course',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                ),
+              Icon(
+                Icons.menu_book_rounded,
+                size: t.iconSmall * 1.35,
+                color: AppTheme.secondaryPurple,
               ),
-              const SizedBox(height: 8),
-              Text(
-                'Courses you create here are only yours (not from Google Classroom).',
-                style: TextStyle(fontSize: 12, color: onSurfaceMuted),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _nameController,
-                textInputAction: TextInputAction.done,
-                onSubmitted: (_) => _submit(context),
-                decoration: _fieldDecoration('e.g. Linear Algebra, Piano lessons',
-                    prefix: const Icon(Icons.menu_book_outlined)),
-              ),
-              const SizedBox(height: 14),
-              FilledButton.icon(
-                onPressed: () => _submit(context),
-                icon: const Icon(Icons.add, size: 20),
-                label: const Text('Add course'),
-                style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  backgroundColor: AppTheme.primaryBlue,
+              SizedBox(width: t.space(0.45)),
+              Expanded(
+                child: Text(
+                  'Add a course',
+                  style: TextStyle(
+                    fontSize: t.cardTitle,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.2,
+                    color: isDark ? Colors.white : const Color(0xFF0F172A),
+                  ),
                 ),
               ),
             ],
           ),
-        ),
-        const SizedBox(height: 16),
-        Consumer<ClassroomProvider>(
-          builder: (context, provider, _) {
-            final courses = provider.courses;
-            final hasCourses = courses.isNotEmpty;
+          SizedBox(height: t.space(0.45)),
+          Text(
+            'Courses you create here are only yours (not from Google Classroom).',
+            style: TextStyle(
+              fontSize: t.cardBody,
+              height: 1.35,
+              color: onSurfaceMuted,
+            ),
+          ),
+          SizedBox(height: t.space(0.75)),
+          TextField(
+            controller: _nameController,
+            style: TextStyle(fontSize: t.inputText),
+            textInputAction: TextInputAction.done,
+            onSubmitted: (_) => _submit(context),
+            decoration: UpGradeInputDecor.themed(
+              context,
+              t,
+              'e.g. Linear Algebra, Piano lessons',
+              prefix: Icon(Icons.menu_book_outlined, size: t.iconSmall),
+              fillTint: AppTheme.secondaryPurple.withOpacity(0.07),
+            ),
+          ),
+          SizedBox(height: t.space(0.75)),
+          UpGradeGradientFilledButton(
+            onPressed: () => _submit(context),
+            icon: Icon(Icons.add_rounded, size: t.iconSmall),
+            label: Text(
+              'Add course',
+              style: TextStyle(
+                fontSize: t.buttonLabel,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            padding: EdgeInsets.symmetric(vertical: t.space(0.85)),
+          ),
+        ],
+      ),
+    );
+  }
 
-            return GradientCard(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+  Widget _buildAddTaskCard(
+    BuildContext context,
+    UpGradeRem t,
+    bool isDark,
+  ) {
+    final theme = Theme.of(context);
+    final onSurfaceMuted = theme.colorScheme.onSurface.withOpacity(0.65);
+
+    return Consumer<ClassroomProvider>(
+      builder: (context, provider, _) {
+        final courses = provider.courses;
+        final hasCourses = courses.isNotEmpty;
+
+        return UpGradeAccentStripeCard(
+          rem: t,
+          isDark: isDark,
+          stripeGradient: const [
+            Color(0xFF10B981),
+            Color(0xFF06B6D4),
+          ],
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
                 children: [
-                  const Text(
-                    'Add a task',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                    ),
+                  Icon(
+                    Icons.edit_calendar_rounded,
+                    size: t.iconSmall * 1.35,
+                    color: const Color(0xFF0D9488),
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    hasCourses
-                        ? 'Choose any course (yours or synced), set a due date, and it appears in your planner.'
-                        : 'Add a course above or sync Google Classroom first — you need at least one course to attach tasks.',
-                    style: TextStyle(fontSize: 12, color: onSurfaceMuted),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: _taskNameController,
-                    enabled: hasCourses,
-                    textInputAction: TextInputAction.next,
-                    decoration: _fieldDecoration(
-                      'Task name (e.g. Essay draft, Quiz prep)',
-                      prefix: const Icon(Icons.assignment_outlined),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
-                    initialValue: _selectedCourseId != null &&
-                            courses.any((c) => c.id == _selectedCourseId)
-                        ? _selectedCourseId
-                        : null,
-                    decoration: _fieldDecoration(
-                      'Select course',
-                      prefix: const Icon(Icons.book_outlined),
-                    ),
-                    items: courses
-                        .map(
-                          (c) => DropdownMenuItem(
-                            value: c.id,
-                            child: Text(
-                              c.name,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: hasCourses
-                        ? (v) => setState(() => _selectedCourseId = v)
-                        : null,
-                  ),
-                  const SizedBox(height: 12),
-                  InkWell(
-                    onTap: hasCourses ? _pickDeadline : null,
-                    borderRadius: BorderRadius.circular(12),
-                    child: InputDecorator(
-                      decoration: _fieldDecoration(
-                        'Deadline',
-                        prefix: const Icon(Icons.calendar_today_outlined),
+                  SizedBox(width: t.space(0.45)),
+                  Expanded(
+                    child: Text(
+                      'Add a task',
+                      style: TextStyle(
+                        fontSize: t.cardTitle,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.2,
+                        color: isDark ? Colors.white : const Color(0xFF0F172A),
                       ),
-                      child: Text(
-                        _selectedDeadline != null
-                            ? DateFormat('EEE, MMM d, y')
-                                .format(_selectedDeadline!)
-                            : 'Tap to pick deadline',
-                        style: TextStyle(
-                          color: _selectedDeadline != null
-                              ? theme.colorScheme.onSurface
-                              : onSurfaceMuted,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  FilledButton.icon(
-                    onPressed: hasCourses ? () => _addTask(context) : null,
-                    icon: const Icon(Icons.add_task, size: 20),
-                    label: const Text('Add task'),
-                    style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      backgroundColor: AppTheme.primaryBlue,
                     ),
                   ),
                 ],
               ),
-            );
-          },
-        ),
-        const SizedBox(height: 24),
-        Consumer<ClassroomProvider>(
-          builder: (context, provider, _) {
-            final manual = provider.courses
-                .where((c) => c.id.startsWith('manual_'))
-                .toList();
-
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Your manual courses',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: onSurfaceStrong,
+              SizedBox(height: t.space(0.45)),
+              Text(
+                hasCourses
+                    ? 'Choose any course (yours or synced), set a due date, and it appears on My Tasks.'
+                    : 'Add a course above or sync Google Classroom first — you need at least one course to attach tasks.',
+                style: TextStyle(
+                  fontSize: t.cardBody,
+                  height: 1.35,
+                  color: onSurfaceMuted,
+                ),
+              ),
+              SizedBox(height: t.space(0.75)),
+              TextField(
+                controller: _taskNameController,
+                style: TextStyle(fontSize: t.inputText),
+                enabled: hasCourses,
+                textInputAction: TextInputAction.next,
+                decoration: UpGradeInputDecor.themed(
+                  context,
+                  t,
+                  'Task name (e.g. Essay draft, Quiz prep)',
+                  prefix: Icon(Icons.assignment_outlined, size: t.iconSmall),
+                  fillTint: const Color(0xFF06B6D4).withOpacity(0.06),
+                ),
+              ),
+              SizedBox(height: t.space(0.65)),
+              DropdownButtonFormField<String>(
+                value: _selectedCourseId != null &&
+                        courses.any((c) => c.id == _selectedCourseId)
+                    ? _selectedCourseId
+                    : null,
+                isExpanded: true,
+                style: TextStyle(
+                  fontSize: t.inputText,
+                  color: theme.colorScheme.onSurface,
+                ),
+                decoration: UpGradeInputDecor.themed(
+                  context,
+                  t,
+                  'Select course',
+                  prefix: Icon(Icons.book_outlined, size: t.iconSmall),
+                  fillTint: AppTheme.primaryBlue.withOpacity(0.06),
+                ),
+                items: courses
+                    .map(
+                      (c) => DropdownMenuItem(
+                        value: c.id,
+                        child: Text(
+                          c.name,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontSize: t.inputText),
+                        ),
+                      ),
+                    )
+                    .toList(),
+                onChanged: hasCourses
+                    ? (v) => setState(() => _selectedCourseId = v)
+                    : null,
+              ),
+              SizedBox(height: t.space(0.65)),
+              InkWell(
+                onTap: hasCourses ? _pickDeadline : null,
+                borderRadius: BorderRadius.circular(12),
+                child: InputDecorator(
+                  decoration: UpGradeInputDecor.themed(
+                    context,
+                    t,
+                    'Deadline',
+                    prefix:
+                        Icon(Icons.calendar_today_outlined, size: t.iconSmall),
+                    fillTint: AppTheme.warningOrange.withOpacity(0.07),
+                  ),
+                  child: Text(
+                    _selectedDeadline != null
+                        ? DateFormat('EEE, MMM d, y').format(_selectedDeadline!)
+                        : 'Tap to pick deadline',
+                    style: TextStyle(
+                      fontSize: t.inputText,
+                      color: _selectedDeadline != null
+                          ? theme.colorScheme.onSurface
+                          : onSurfaceMuted,
+                    ),
                   ),
                 ),
-                const SizedBox(height: 10),
-                if (manual.isEmpty)
-                  Text(
-                    'No manual courses yet. Add one in the first card or sync '
-                    "${AppConstants.appName} with Google Classroom.",
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: onSurfaceMuted,
+              ),
+              SizedBox(height: t.space(0.85)),
+              UpGradeGradientFilledButton(
+                onPressed: hasCourses ? () => _addTask(context) : null,
+                icon: Icon(Icons.add_task_rounded, size: t.iconSmall),
+                label: Text(
+                  'Add task',
+                  style: TextStyle(
+                    fontSize: t.buttonLabel,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                padding: EdgeInsets.symmetric(vertical: t.space(0.85)),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildManualCoursesList(
+    BuildContext context,
+    UpGradeRem t,
+    bool isDark,
+  ) {
+    final theme = Theme.of(context);
+    final onSurfaceMuted = theme.colorScheme.onSurface.withOpacity(0.65);
+    final onSurfaceStrong = theme.colorScheme.onSurface.withOpacity(0.88);
+
+    return Consumer<ClassroomProvider>(
+      builder: (context, provider, _) {
+        final manual =
+            provider.courses.where((c) => c.id.startsWith('manual_')).toList();
+
+        return UpGradeListSectionPanel(
+          rem: t,
+          isDark: isDark,
+          tintTop: const Color(0xFFEDE9FE),
+          borderAccent: AppTheme.secondaryPurple,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    Icons.auto_stories_rounded,
+                    color: AppTheme.secondaryPurple,
+                    size: t.iconSmall * 1.25,
+                  ),
+                  SizedBox(width: t.space(0.45)),
+                  Expanded(
+                    child: Text(
+                      'Your manual courses',
+                      style: TextStyle(
+                        fontSize: t.sectionTitle,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.3,
+                        color: isDark ? Colors.white : const Color(0xFF0F172A),
+                      ),
                     ),
-                  )
-                else
-                  ...manual.map(
-                    (c) => Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Material(
-                        color: Colors.transparent,
-                        child: ListTile(
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                  ),
+                ],
+              ),
+              SizedBox(height: t.space(0.55)),
+              if (manual.isEmpty)
+                Text(
+                  'No manual courses yet. Add one in the card above or sync '
+                  "${AppConstants.appName} with Google Classroom.",
+                  style: TextStyle(
+                    fontSize: t.cardBody,
+                    height: 1.4,
+                    color: onSurfaceMuted,
+                  ),
+                )
+              else
+                ...manual.map(
+                  (c) => Padding(
+                    padding: EdgeInsets.only(bottom: t.space(0.5)),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: ListTile(
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: t.space(0.85),
+                          vertical: t.space(0.15),
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        tileColor: isDark
+                            ? const Color(0xFF1E293B)
+                            : AppTheme.primaryBlue.withOpacity(0.06),
+                        leading: Icon(
+                          Icons.menu_book_outlined,
+                          size: t.iconSmall * 1.2,
+                          color: AppTheme.primaryBlue.withOpacity(0.9),
+                        ),
+                        title: Text(
+                          c.name,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: t.listTitle,
+                            color: onSurfaceStrong,
                           ),
-                          tileColor: AppTheme.primaryBlue.withOpacity(0.06),
-                          leading: Icon(
-                            Icons.menu_book_outlined,
-                            color: AppTheme.primaryBlue.withOpacity(0.9),
+                        ),
+                        subtitle: Text(
+                          'Not from Classroom',
+                          style: TextStyle(fontSize: t.listSubtitle),
+                        ),
+                        trailing: IconButton(
+                          icon: Icon(
+                            Icons.delete_outline,
+                            size: t.iconSmall * 1.15,
+                            color: AppTheme.errorRed.withOpacity(0.85),
                           ),
-                          title: Text(
-                            c.name,
-                            style: const TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                          subtitle: const Text('Not from Classroom'),
-                          trailing: IconButton(
-                            icon: Icon(
-                              Icons.delete_outline,
-                              color: AppTheme.errorRed.withOpacity(0.85),
-                            ),
-                            tooltip: 'Remove course',
-                            onPressed: () async {
-                              final ok = await showDialog<bool>(
-                                context: context,
-                                builder: (ctx) => AlertDialog(
-                                  title: const Text('Remove course?'),
-                                  content: Text(
-                                    'Remove "${c.name}" and any tasks linked to it?',
-                                  ),
-                                  actions: [
-                                    TextButton(
-                                      onPressed: () =>
-                                          Navigator.pop(ctx, false),
-                                      child: const Text('Cancel'),
-                                    ),
-                                    FilledButton(
-                                      onPressed: () =>
-                                          Navigator.pop(ctx, true),
-                                      child: const Text('Remove'),
-                                    ),
-                                  ],
+                          tooltip: 'Remove course',
+                          onPressed: () async {
+                            final ok = await showDialog<bool>(
+                              context: context,
+                              builder: (ctx) => AlertDialog(
+                                title: const Text('Remove course?'),
+                                content: Text(
+                                  'Remove "${c.name}" and any tasks linked to it?',
                                 ),
-                              );
-                              if (ok == true && context.mounted) {
-                                await context
-                                    .read<ClassroomProvider>()
-                                    .removeManualCourse(c.id);
-                              }
-                            },
-                          ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(ctx, false),
+                                    child: const Text('Cancel'),
+                                  ),
+                                  FilledButton(
+                                    onPressed: () => Navigator.pop(ctx, true),
+                                    child: const Text('Remove'),
+                                  ),
+                                ],
+                              ),
+                            );
+                            if (ok == true && context.mounted) {
+                              await context
+                                  .read<ClassroomProvider>()
+                                  .removeManualCourse(c.id);
+                            }
+                          },
                         ),
                       ),
                     ),
                   ),
-              ],
-            );
-          },
-        ),
-        const SizedBox(height: 24),
-        Consumer<ClassroomProvider>(
-          builder: (context, provider, _) {
-            final manualTasks = provider.tasks
-                .where((t) => t.id.startsWith('manual_'))
-                .toList()
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildManualTasksList(
+    BuildContext context,
+    UpGradeRem t,
+    bool isDark,
+  ) {
+    final theme = Theme.of(context);
+    final onSurfaceMuted = theme.colorScheme.onSurface.withOpacity(0.65);
+    final onSurfaceStrong = theme.colorScheme.onSurface.withOpacity(0.88);
+
+    return Consumer<ClassroomProvider>(
+      builder: (context, provider, _) {
+        final manualTasks =
+            provider.tasks.where((t) => t.id.startsWith('manual_')).toList()
               ..sort(
                 (a, b) => a.deadline.compareTo(b.deadline),
               );
 
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Tasks you added',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: onSurfaceStrong,
+        return UpGradeListSectionPanel(
+          rem: t,
+          isDark: isDark,
+          tintTop: const Color(0xFFFFF7ED),
+          borderAccent: AppTheme.warningOrange,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    Icons.task_alt_rounded,
+                    color: AppTheme.warningOrange,
+                    size: t.iconSmall * 1.25,
                   ),
-                ),
-                const SizedBox(height: 10),
-                if (manualTasks.isEmpty)
-                  Text(
-                    'No manual tasks yet. Use “Add a task” above — they show up in your daily planner.',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: onSurfaceMuted,
+                  SizedBox(width: t.space(0.45)),
+                  Expanded(
+                    child: Text(
+                      'Tasks you added',
+                      style: TextStyle(
+                        fontSize: t.sectionTitle,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.3,
+                        color: isDark ? Colors.white : const Color(0xFF0F172A),
+                      ),
                     ),
-                  )
-                else
-                  ...manualTasks.map(
-                    (t) => Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Material(
-                        color: Colors.transparent,
-                        child: ListTile(
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                  ),
+                ],
+              ),
+              SizedBox(height: t.space(0.55)),
+              if (manualTasks.isEmpty)
+                Text(
+                  'No manual tasks yet. Use “Add a task” above — they show up on My Tasks.',
+                  style: TextStyle(
+                    fontSize: t.cardBody,
+                    height: 1.4,
+                    color: onSurfaceMuted,
+                  ),
+                )
+              else
+                ...manualTasks.map(
+                  (task) => Padding(
+                    padding: EdgeInsets.only(bottom: t.space(0.5)),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: ListTile(
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: t.space(0.85),
+                          vertical: t.space(0.15),
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        tileColor: isDark
+                            ? const Color(0xFF1E293B)
+                            : AppTheme.warningOrange.withOpacity(0.08),
+                        leading: Icon(
+                          Icons.event_outlined,
+                          size: t.iconSmall * 1.2,
+                          color: AppTheme.warningOrange.withOpacity(0.95),
+                        ),
+                        title: Text(
+                          task.title,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: t.listTitle,
+                            color: onSurfaceStrong,
                           ),
-                          tileColor: AppTheme.warningOrange.withOpacity(0.08),
-                          leading: Icon(
-                            Icons.event_outlined,
-                            color: AppTheme.warningOrange.withOpacity(0.95),
+                        ),
+                        subtitle: Text(
+                          '${task.courseName} · Due ${DateFormat('MMM d, y').format(task.deadline)}',
+                          style: TextStyle(fontSize: t.listSubtitle),
+                        ),
+                        trailing: IconButton(
+                          icon: Icon(
+                            Icons.delete_outline,
+                            size: t.iconSmall * 1.15,
+                            color: AppTheme.errorRed.withOpacity(0.85),
                           ),
-                          title: Text(
-                            t.title,
-                            style: const TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                          subtitle: Text(
-                            '${t.courseName} · Due ${DateFormat('MMM d, y').format(t.deadline)}',
-                          ),
-                          trailing: IconButton(
-                            icon: Icon(
-                              Icons.delete_outline,
-                              color: AppTheme.errorRed.withOpacity(0.85),
-                            ),
-                            tooltip: 'Remove task',
-                            onPressed: () async {
-                              final ok = await showDialog<bool>(
-                                context: context,
-                                builder: (ctx) => AlertDialog(
-                                  title: const Text('Remove task?'),
-                                  content: Text('Remove "${t.title}"?'),
-                                  actions: [
-                                    TextButton(
-                                      onPressed: () =>
-                                          Navigator.pop(ctx, false),
-                                      child: const Text('Cancel'),
-                                    ),
-                                    FilledButton(
-                                      onPressed: () =>
-                                          Navigator.pop(ctx, true),
-                                      child: const Text('Remove'),
-                                    ),
-                                  ],
-                                ),
-                              );
-                              if (ok == true && context.mounted) {
-                                await context
-                                    .read<ClassroomProvider>()
-                                    .removeManualTask(t.id);
-                              }
-                            },
-                          ),
+                          tooltip: 'Remove task',
+                          onPressed: () async {
+                            final ok = await showDialog<bool>(
+                              context: context,
+                              builder: (ctx) => AlertDialog(
+                                title: const Text('Remove task?'),
+                                content: Text('Remove "${task.title}"?'),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(ctx, false),
+                                    child: const Text('Cancel'),
+                                  ),
+                                  FilledButton(
+                                    onPressed: () => Navigator.pop(ctx, true),
+                                    child: const Text('Remove'),
+                                  ),
+                                ],
+                              ),
+                            );
+                            if (ok == true && context.mounted) {
+                              await context
+                                  .read<ClassroomProvider>()
+                                  .removeManualTask(task.id);
+                            }
+                          },
                         ),
                       ),
                     ),
                   ),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildPage(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final t = UpGradeRem(width);
+        final side = t.space(1.15);
+
+        return Container(
+          decoration: UpGradePageDecor.pageBackground(isDark),
+          child: SingleChildScrollView(
+            padding: EdgeInsets.all(side),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                UpGradeGradientTitle('My courses', rem: t, isDark: isDark),
+                SizedBox(height: t.space(0.35)),
+                UpGradeMutedSubtitle(_subtitle, rem: t, isDark: isDark),
+                SizedBox(height: t.space(1.2)),
+                _buildSyncedCoursesBlock(context, t, isDark),
+                SizedBox(height: t.space(0.85)),
+                _buildAddCourseCard(context, t, isDark),
+                SizedBox(height: t.space(0.85)),
+                _buildAddTaskCard(context, t, isDark),
+                SizedBox(height: t.space(1.1)),
+                _buildManualCoursesList(context, t, isDark),
+                SizedBox(height: t.space(1.1)),
+                _buildManualTasksList(context, t, isDark),
               ],
-            );
-          },
-        ),
-      ],
+            ),
+          ),
+        );
+      },
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final wide = MediaQuery.sizeOf(context).width >= 700;
-
-    if (wide) {
-      final theme = Theme.of(context);
-      return Scaffold(
-        backgroundColor: theme.colorScheme.surfaceContainerHighest
-            .withOpacity(theme.brightness == Brightness.dark ? 0.35 : 1),
-        body: DashboardShellRow(
-          popOverlayRouteAfterSidebarAction: true,
-          body: SafeArea(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                return SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 16,
-                  ),
-                  child: Align(
-                    alignment: Alignment.topCenter,
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        maxWidth: 640,
-                        minHeight: constraints.maxHeight - 32,
-                      ),
-                      child: Material(
-                        color: theme.colorScheme.surface,
-                        elevation: 2,
-                        shadowColor: Colors.black26,
-                        borderRadius: BorderRadius.circular(28),
-                        clipBehavior: Clip.antiAlias,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 24,
-                            vertical: 28,
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Text(
-                                'My courses',
-                                textAlign: TextAlign.center,
-                                style: theme.textTheme.headlineSmall?.copyWith(
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: -0.5,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                _subtitle,
-                                textAlign: TextAlign.center,
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: theme.colorScheme.onSurface
-                                      .withOpacity(0.72),
-                                  height: 1.35,
-                                ),
-                              ),
-                              const SizedBox(height: 24),
-                              _buildCoursesColumn(context),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-        ),
-      );
+    final page = _buildPage(context);
+    if (widget.embeddedInShell) {
+      return page;
     }
-
-    return UpGradePageShell(
-      title: 'My courses',
-      subtitle: _subtitle,
-      child: _buildCoursesColumn(context),
+    return DashboardSecondaryShell(
+      narrow: Scaffold(
+        backgroundColor: Colors.transparent,
+        appBar: AppBar(
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () => Navigator.maybePop(context),
+            tooltip: 'Back',
+          ),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+        ),
+        body: page,
+      ),
+      wideBody: page,
     );
   }
 }

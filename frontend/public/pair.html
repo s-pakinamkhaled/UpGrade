@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>UpGrade — Connect device</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: linear-gradient(135deg, #2563eb, #7c3aed);
+      color: #fff;
+    }
+    .card {
+      max-width: 420px;
+      width: 100%;
+      background: rgba(255, 255, 255, 0.96);
+      color: #0f172a;
+      border-radius: 20px;
+      padding: 28px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+    }
+    h1 { font-size: 1.35rem; margin: 0 0 8px; }
+    p { margin: 0 0 16px; line-height: 1.45; font-size: 0.95rem; color: #475569; }
+    .row { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
+    a.btn {
+      display: block;
+      text-align: center;
+      text-decoration: none;
+      padding: 14px 16px;
+      border-radius: 12px;
+      font-weight: 600;
+      font-size: 0.95rem;
+    }
+    .primary {
+      background: linear-gradient(135deg, #2563eb, #7c3aed);
+      color: #fff;
+    }
+    .secondary {
+      background: #f1f5f9;
+      color: #0f172a;
+      border: 1px solid #e2e8f0;
+    }
+    .muted { font-size: 0.8rem; color: #94a3b8; margin-top: 16px; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Open UpGrade</h1>
+    <p id="msg">We’re opening the UpGrade app to finish pairing with your laptop. If nothing happens, install the app from your store.</p>
+    <div class="row">
+      <a class="btn primary" id="openApp" href="#">Open UpGrade app</a>
+      <a class="btn secondary" id="play" href="https://play.google.com/store/apps/details?id=com.example.frontend" target="_blank" rel="noopener">Get on Google Play</a>
+      <a class="btn secondary" id="ios" href="https://apps.apple.com/search?term=UpGrade" target="_blank" rel="noopener">Download on the App Store</a>
+    </div>
+    <p class="muted">Keep this page if you already installed the app — tap “Open UpGrade app”.</p>
+  </div>
+  <script>
+    (function () {
+      var params = new URLSearchParams(window.location.search);
+      var session = params.get("session");
+      if (!session) {
+        document.getElementById("msg").textContent =
+          "Missing pairing code. On your laptop, open UpGrade and show the Connect Desktop QR again.";
+        return;
+      }
+      var appLink = "upgrade://pair?session=" + encodeURIComponent(session);
+
+      var openApp = document.getElementById("openApp");
+      openApp.href = appLink;
+
+      var ANDROID_STORE = "https://play.google.com/store/apps/details?id=com.example.frontend";
+      var IOS_STORE = "https://apps.apple.com/search?term=UpGrade";
+
+      var ua = navigator.userAgent || "";
+      var isIOS = /iPad|iPhone|iPod/i.test(ua) ||
+        (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+
+      function storeUrl() {
+        return isIOS ? IOS_STORE : ANDROID_STORE;
+      }
+
+      function tryApp() {
+        window.location.href = appLink;
+      }
+
+      tryApp();
+
+      setTimeout(function () {
+        if (document.visibilityState === "visible") {
+          document.getElementById("msg").textContent =
+            "If UpGrade did not open, install it from your store, then use the in-app QR scanner to pair.";
+          window.location.href = storeUrl();
+        }
+      }, 3200);
+    })();
+  </script>
+</body>
+</html>

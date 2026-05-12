@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../core/theme.dart';
 import '../core/constants.dart';
+import '../core/dashboard_shell_navigation.dart';
 import '../models/task.dart';
 import '../providers/classroom_provider.dart';
 
@@ -217,8 +218,10 @@ class _BuildAIPlanButton extends StatelessWidget {
           width: double.infinity,
           child: ElevatedButton.icon(
             onPressed: () {
-              Navigator.of(context).pop();
-              Navigator.of(context).pushNamed(AppConstants.routeAIChatbot);
+              selectMainShellRoute(
+                context,
+                AppConstants.routeAIChatbot,
+              );
             },
             icon: const Icon(Icons.auto_awesome),
             label: Text(

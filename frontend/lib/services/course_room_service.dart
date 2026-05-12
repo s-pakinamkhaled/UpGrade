@@ -191,7 +191,6 @@ class CourseRoomService {
         .collection('course_study_rooms')
         .doc(roomId)
         .collection('messages')
-        .orderBy('createdAt')
         .snapshots();
   }
 

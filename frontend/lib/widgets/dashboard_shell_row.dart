@@ -1,70 +1,51 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../core/constants.dart';
+import '../core/dashboard_shell_navigation.dart';
 import '../providers/dashboard_shell_provider.dart';
 import 'dashboard_sidebar.dart';
+import 'upgrade_visual_system.dart';
 
-/// Left sidebar / rail + main content. Used on home (wide) and on routes that should keep the shell.
+/// Sidebar + main body for [MainNavigationScreen] only.
+/// Main tabs switch via [DashboardShellProvider.selectRoute]; auxiliary items use [Navigator.pushNamed].
 class DashboardShellRow extends StatelessWidget {
   final Widget body;
 
-  /// When this route is shown inside the shell (e.g. Manual Courses), pop the overlay route after sidebar actions.
-  final bool popOverlayRouteAfterSidebarAction;
-
-  const DashboardShellRow({
-    super.key,
-    required this.body,
-    this.popOverlayRouteAfterSidebarAction = false,
-  });
+  const DashboardShellRow({super.key, required this.body});
 
   @override
   Widget build(BuildContext context) {
     final shell = context.watch<DashboardShellProvider>();
-    final currentName = ModalRoute.of(context)?.settings.name;
-    debugPrint(
-      'SHELL ROW: currentName=$currentName, selectedRoute=${shell.selectedRoute}, currentIndex=${shell.currentIndex}',
-    );
+    final layoutW = MediaQuery.sizeOf(context).width;
+    final sidebarColumnWidth = layoutW >= 900
+        ? DashboardSidebar.effectiveWidth(context)
+        : DashboardSidebarCollapsedRail.railWidth;
+    final useExpandedSidebar =
+        layoutW >= 900 && shell.sidebarExpanded;
 
-    // Keep one source of truth: provider.selectedRoute.
-    // If this shell is rendered on a named overlay route, sync provider once.
-    if (currentName != null &&
-        currentName != AppConstants.routeHome &&
-        shell.selectedRoute != currentName) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (context.mounted) {
-          context.read<DashboardShellProvider>().selectRoute(currentName);
-        }
-      });
-    }
-
-    void popOverlayIfNeeded() {
-      final nav = Navigator.of(context);
-      if (popOverlayRouteAfterSidebarAction && nav.canPop()) {
-        nav.pop();
-      }
+    if (kDebugMode) {
+      final currentName = ModalRoute.of(context)?.settings.name;
+      debugPrint(
+        'SHELL ROW: currentName=$currentName, selectedRoute=${shell.selectedRoute}, currentIndex=${shell.currentIndex}',
+      );
     }
 
     void navigateFromSidebar(String route) {
-      final nav = Navigator.of(context);
-      final currentName = ModalRoute.of(context)?.settings.name;
-      if (currentName == route) return;
-      shell.selectRoute(route);
-
-      if (popOverlayRouteAfterSidebarAction && nav.canPop()) {
-        nav.pop();
+      if (route == AppConstants.routeEndSession) {
+        context.read<DashboardShellProvider>().enterEndSession();
+        return;
       }
-      nav.pushNamed(route);
+      context.read<DashboardShellProvider>().selectRoute(route);
     }
 
-    void selectRoute(String route) {
-      shell.selectRoute(route);
-      popOverlayIfNeeded();
+    void pushAuxiliaryFromSidebar(String route) {
+      Navigator.of(context).pushNamed(route);
     }
 
     void enterEndSession() {
-      shell.enterEndSession();
-      popOverlayIfNeeded();
+      enterMainShellEndSession(context);
     }
 
     final resolvedSelectedRoute = shell.selectedRoute;
@@ -73,26 +54,35 @@ class DashboardShellRow extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         SizedBox(
-          width: shell.sidebarExpanded
-              ? DashboardSidebar.effectiveWidth(context)
-              : DashboardSidebarCollapsedRail.railWidth,
-          child: shell.sidebarExpanded
+          width: sidebarColumnWidth,
+          child: useExpandedSidebar
               ? DashboardSidebar(
                   selectedRoute: resolvedSelectedRoute,
-                  onSelectRoute: selectRoute,
-                  onNavigateToRoute: navigateFromSidebar,
+                  onSelectShellRoute: navigateFromSidebar,
+                  onPushAuxiliaryRoute: pushAuxiliaryFromSidebar,
                   onEndSession: enterEndSession,
                   onCollapse: () => shell.setSidebarExpanded(false),
                 )
               : DashboardSidebarCollapsedRail(
                   selectedRoute: resolvedSelectedRoute,
-                  onExpand: () => shell.setSidebarExpanded(true),
-                  onSelectRoute: selectRoute,
-                  onNavigateToRoute: navigateFromSidebar,
+                  onExpand: () {
+                    if (layoutW >= 900) {
+                      shell.setSidebarExpanded(true);
+                    }
+                  },
+                  onSelectShellRoute: navigateFromSidebar,
+                  onPushAuxiliaryRoute: pushAuxiliaryFromSidebar,
                   onEndSession: enterEndSession,
                 ),
         ),
-        Expanded(child: body),
+        Expanded(
+          child: DecoratedBox(
+            decoration: UpGradePageDecor.pageBackground(
+              Theme.of(context).brightness == Brightness.dark,
+            ),
+            child: body,
+          ),
+        ),
       ],
     );
   }

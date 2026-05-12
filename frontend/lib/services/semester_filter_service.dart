@@ -60,6 +60,23 @@ class SemesterFilterService {
     return semesters;
   }
 
+  /// Same as [extractSemesters], but guarantees at least one entry so the UI and
+  /// sync flow can proceed (e.g. API returned zero courses, or nothing matched).
+  static List<SemesterOption> extractSemestersOrFallback(
+    List<Map<String, dynamic>> courses,
+  ) {
+    final list = extractSemesters(courses);
+    if (list.isNotEmpty) return list;
+    return const [
+      SemesterOption(
+        id: unknownSemesterId,
+        label: unknownSemesterLabel,
+        isUnknown: true,
+        sortScore: -1,
+      ),
+    ];
+  }
+
   static SemesterOption? detectFromCourse(Map<String, dynamic> course) {
     final fields = <String>[
       (course['name'] as String?) ?? '',

@@ -412,7 +412,7 @@ class _AIChatbotScreenState extends State<AIChatbotScreen>
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final pageBg = isDark ? const Color(0xFF0B1220) : const Color(0xFFF1F5FB);
+    final pageBg = Colors.transparent;
     final cardBg = isDark ? const Color(0xFF111827) : const Color(0xFFF4F7FC);
     final borderColor =
         isDark ? const Color(0xFF1F2937) : const Color(0xFFE2E8F0);

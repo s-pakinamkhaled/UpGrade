@@ -1,6 +1,17 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
+/// Result of Google sign-in via Firebase (includes [isNewUser] when [additionalUserInfo] is present).
+class GoogleSignInAuthResult {
+  const GoogleSignInAuthResult({
+    required this.user,
+    required this.isNewUser,
+  });
+
+  final User user;
+  final bool isNewUser;
+}
+
 class FirebaseAuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
@@ -22,8 +33,8 @@ class FirebaseAuthService {
     return cred.user;
   }
 
-  /// Google login
-  Future<User?> signInWithGoogle() async {
+  /// Google sign-in / sign-up. [GoogleSignInAuthResult.isNewUser] is true the first time this Google account is linked to Firebase.
+  Future<GoogleSignInAuthResult?> signInWithGoogle() async {
     final googleUser = await GoogleSignIn().signIn();
     if (googleUser == null) return null;
 
@@ -35,7 +46,10 @@ class FirebaseAuthService {
     );
 
     final userCred = await _auth.signInWithCredential(credential);
-    return userCred.user;
+    final user = userCred.user;
+    if (user == null) return null;
+    final isNewUser = userCred.additionalUserInfo?.isNewUser ?? false;
+    return GoogleSignInAuthResult(user: user, isNewUser: isNewUser);
   }
 
   Stream<User?> authState() => _auth.authStateChanges();

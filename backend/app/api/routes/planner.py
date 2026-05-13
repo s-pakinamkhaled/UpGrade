@@ -30,6 +30,14 @@ except Exception as e:
     print(f"   AI path attempted: {ai_path}")
     groq_client = None
 
+try:
+    from task_filter import filter_real_tasks as _filter_real_tasks
+    print("[OK] Task filter loaded")
+except ImportError:
+    # Graceful degradation — no filtering applied if module is missing
+    def _filter_real_tasks(tasks, **_):  # type: ignore[misc]
+        return tasks
+
 router = APIRouter(prefix="/plan", tags=["planner"])
 
 
@@ -149,8 +157,12 @@ async def generate_plan(req: PlanRequest):
     if not groq_client:
         raise HTTPException(status_code=503, detail="Planner service is not available")
 
-    # Filter: keep only active (non-completed) tasks
+    # Filter 1: keep only active (non-completed) tasks
     active_tasks = [t for t in req.tasks if (t.status or "pending") not in ("completed",)]
+
+    # Filter 2: remove grade entries and in-class lab activities before LLM sees the data
+    active_tasks = _filter_real_tasks(active_tasks)
+
     if not active_tasks:
         raise HTTPException(status_code=400, detail="No active tasks to plan for")
 

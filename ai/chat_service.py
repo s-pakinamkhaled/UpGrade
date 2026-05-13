@@ -2,6 +2,7 @@ import os
 from typing import List, Dict, Any, Optional
 from dotenv import load_dotenv
 from planner_llm.llm_client import GroqClient
+from task_filter import filter_real_tasks as _filter_real_tasks
 
 # Load environment variables
 load_dotenv()
@@ -117,7 +118,8 @@ Remember: You're a study companion, not just a chatbot. Be personal and understa
             parts.append(f"Student name: {context['name']}")
 
         if "tasks" in context and context["tasks"]:
-            tasks = context["tasks"]
+            # Remove grade entries and in-class lab activities before LLM sees the data
+            tasks = _filter_real_tasks(context["tasks"])
             task_count = len(tasks)
             urgent_count = sum(1 for t in tasks if t.get("priority") == "urgent")
             overdue_count = sum(1 for t in tasks if t.get("status") == "overdue")

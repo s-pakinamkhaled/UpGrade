@@ -67,6 +67,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../core/theme.dart';
@@ -106,12 +107,8 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
 
     try {
       final provider = context.read<ClassroomProvider>();
-      final allTasks = provider.tasks;
-      final activeTasks = allTasks
-          .where((t) =>
-              t.status == TaskStatus.pending ||
-              t.status == TaskStatus.inProgress)
-          .toList();
+      // Only send real actionable unfinished tasks to the AI planner
+      final activeTasks = provider.upcomingActionableTasks;
 
       final user = FirebaseAuth.instance.currentUser;
       final studentName =
@@ -142,6 +139,53 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
     }
   }
 
+  Future<void> _pickTaskDeadline(BuildContext context, Task task) async {
+    final provider = context.read<ClassroomProvider>();
+    final messenger = ScaffoldMessenger.of(context);
+    final now = DateTime.now();
+    final initial = task.hasRealDeadline && task.deadline.isAfter(now)
+        ? task.deadline
+        : now.add(const Duration(days: 1));
+    final firstDate = DateTime(now.year, now.month, now.day);
+
+    final selectedDate = await showDatePicker(
+      context: context,
+      initialDate: DateTime(initial.year, initial.month, initial.day),
+      firstDate: firstDate,
+      lastDate: DateTime(now.year + 5, 12, 31),
+      helpText: task.hasRealDeadline ? 'Edit deadline' : 'Set deadline',
+    );
+    if (selectedDate == null || !context.mounted) return;
+
+    final selectedTime = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(initial),
+      helpText: 'Choose finish time',
+    );
+    if (selectedTime == null || !context.mounted) return;
+
+    final deadline = DateTime(
+      selectedDate.year,
+      selectedDate.month,
+      selectedDate.day,
+      selectedTime.hour,
+      selectedTime.minute,
+    );
+
+    await provider.updateTaskDeadline(
+      task.id,
+      deadline,
+    );
+    if (!mounted) return;
+
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text('Deadline saved for ${task.title}. Regenerating plan.'),
+      ),
+    );
+    await _generate();
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -161,10 +205,10 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
 
           return Consumer<ClassroomProvider>(
             builder: (context, provider, _) {
-              final tasks = provider.tasks;
-              final stats = _computeStats(tasks);
-              final courseStats = _computeCourseStats(tasks);
-              final upcomingTasks = _upcomingTasks(tasks);
+              final planningTasks = provider.upcomingActionableTasks;
+              final stats = _computeStats(planningTasks);
+              final courseStats = _computeCourseStats(planningTasks);
+              final upcomingTasks = _upcomingTasks(planningTasks);
 
               if (_loading && _plan == null) {
                 return Padding(
@@ -326,10 +370,9 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
     required Color secondary,
   }) {
     final hoursThisWeek = stats.hoursThisWeek;
-    final hoursStr =
-        hoursThisWeek >= 1
-            ? '${hoursThisWeek.toStringAsFixed(0)} hours'
-            : '${(hoursThisWeek * 60).toInt()} min';
+    final hoursStr = hoursThisWeek >= 1
+        ? '${hoursThisWeek.toStringAsFixed(0)} hours'
+        : '${(hoursThisWeek * 60).toInt()} min';
     final completionStr = stats.total == 0
         ? '0%'
         : '${(stats.completionRate * 100).toStringAsFixed(1)}%';
@@ -616,13 +659,15 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
             borderRadius: BorderRadius.circular(12),
             border: selected
                 ? Border.all(
-                    color: AppTheme.primaryBlue.withOpacity(isDark ? 0.5 : 0.28),
+                    color:
+                        AppTheme.primaryBlue.withOpacity(isDark ? 0.5 : 0.28),
                   )
                 : null,
             boxShadow: selected
                 ? [
                     BoxShadow(
-                      color: AppTheme.primaryBlue.withOpacity(isDark ? 0.2 : 0.1),
+                      color:
+                          AppTheme.primaryBlue.withOpacity(isDark ? 0.2 : 0.1),
                       blurRadius: 12,
                       offset: const Offset(0, 4),
                     ),
@@ -726,7 +771,8 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
   }) {
     final progress = course.total == 0 ? 0.0 : course.completed / course.total;
     final code = _courseCode(course.courseName);
-    final hoursPerWeek = (course.total * 30 / 60).ceil(); // rough: 30 min per task
+    final hoursPerWeek =
+        (course.total * 30 / 60).ceil(); // rough: 30 min per task
 
     return Container(
       padding: EdgeInsets.all(rem.space(1.15)),
@@ -816,7 +862,8 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
               ),
               IconButton(
                 onPressed: () {},
-                icon: Icon(Icons.edit_outlined, size: rem.iconSmall, color: secondary),
+                icon: Icon(Icons.edit_outlined,
+                    size: rem.iconSmall, color: secondary),
                 tooltip: 'Edit',
               ),
             ],
@@ -824,18 +871,25 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
           SizedBox(height: rem.space(1.0)),
           Row(
             children: [
-              Icon(Icons.schedule, size: rem.listSubtitle * 1.1, color: secondary),
+              Icon(Icons.schedule,
+                  size: rem.listSubtitle * 1.1, color: secondary),
               SizedBox(width: rem.space(0.35)),
               Text(
                 '${hoursPerWeek}h/week',
-                style: TextStyle(fontSize: rem.listSubtitle, color: secondary, fontWeight: FontWeight.w500),
+                style: TextStyle(
+                    fontSize: rem.listSubtitle,
+                    color: secondary,
+                    fontWeight: FontWeight.w500),
               ),
               SizedBox(width: rem.space(1.15)),
               Icon(Icons.flag, size: rem.listSubtitle * 1.1, color: secondary),
               SizedBox(width: rem.space(0.35)),
               Text(
                 '${(progress * 100).toInt()}% complete',
-                style: TextStyle(fontSize: rem.listSubtitle, color: secondary, fontWeight: FontWeight.w500),
+                style: TextStyle(
+                    fontSize: rem.listSubtitle,
+                    color: secondary,
+                    fontWeight: FontWeight.w500),
               ),
             ],
           ),
@@ -886,15 +940,21 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
     final accents = [
       (
         AppTheme.primaryBlue,
-        isDark ? AppTheme.primaryBlue.withOpacity(0.18) : const Color(0xFFEFF6FF),
+        isDark
+            ? AppTheme.primaryBlue.withOpacity(0.18)
+            : const Color(0xFFEFF6FF),
       ),
       (
         AppTheme.secondaryPurple,
-        isDark ? AppTheme.secondaryPurple.withOpacity(0.18) : const Color(0xFFF5F3FF),
+        isDark
+            ? AppTheme.secondaryPurple.withOpacity(0.18)
+            : const Color(0xFFF5F3FF),
       ),
       (
         AppTheme.successGreen,
-        isDark ? AppTheme.successGreen.withOpacity(0.18) : const Color(0xFFECFDF5),
+        isDark
+            ? AppTheme.successGreen.withOpacity(0.18)
+            : const Color(0xFFECFDF5),
       ),
     ];
     final i = variant % accents.length;
@@ -935,7 +995,9 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
     if (parts.length >= 2) {
       return '${parts[0].substring(0, 1).toUpperCase()}${parts[1].substring(0, parts[1].length >= 3 ? 3 : parts[1].length).toUpperCase()}';
     }
-    return name.length >= 6 ? name.substring(0, 6).toUpperCase() : name.toUpperCase();
+    return name.length >= 6
+        ? name.substring(0, 6).toUpperCase()
+        : name.toUpperCase();
   }
 
   Widget _buildUpcomingTasks(
@@ -948,9 +1010,20 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
     required Color secondary,
   }) {
     final items = plan?.items ?? [];
-    final usePlan = items.isNotEmpty;
+    final planById = <String, StudyPlanItem>{};
+    final planByTitle = <String, StudyPlanItem>{};
+    for (final item in items) {
+      final id = item.taskId?.trim();
+      if (id != null && id.isNotEmpty) {
+        planById[id] = item;
+      }
+      final title = item.taskTitle.trim().toLowerCase();
+      if (title.isNotEmpty) {
+        planByTitle[title] = item;
+      }
+    }
 
-    if (!usePlan && fallbackTasks.isEmpty) {
+    if (fallbackTasks.isEmpty) {
       return _emptySection(
         context,
         rem: rem,
@@ -964,9 +1037,22 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _sectionTitle('Upcoming Tasks', rem, onSurface),
+        _sectionTitle('Personalized Task Plan', rem, onSurface),
         SizedBox(height: rem.space(1.0)),
-        if (usePlan)
+        _planningTable(
+          context,
+          rem: rem,
+          isDark: isDark,
+          tasks: fallbackTasks,
+          planById: planById,
+          planByTitle: planByTitle,
+          onSurface: onSurface,
+          secondary: secondary,
+        ),
+        if (items.isNotEmpty) ...[
+          SizedBox(height: rem.space(1.25)),
+          _sectionTitle('AI Finish Scenario', rem, onSurface),
+          SizedBox(height: rem.space(0.8)),
           ...items.map(
             (item) => Padding(
               padding: EdgeInsets.only(bottom: rem.space(0.75)),
@@ -983,17 +1069,17 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
                 onSurface: onSurface,
               ),
             ),
-          )
-        else
+          ),
+        ],
+        if (items.isEmpty && _loading)
           ...fallbackTasks.take(10).map(
             (task) {
               final days = task.deadline.difference(DateTime.now()).inDays;
-              final dueText =
-                  days < 0
-                      ? 'Overdue'
-                      : days == 0
-                          ? 'Due today'
-                          : 'Due in $days days';
+              final dueText = days < 0
+                  ? 'Overdue'
+                  : days == 0
+                      ? 'Due today'
+                      : 'Due in $days days';
               return Padding(
                 padding: EdgeInsets.only(bottom: rem.space(0.75)),
                 child: _upcomingTaskCard(
@@ -1015,6 +1101,246 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
     );
   }
 
+  Widget _planningTable(
+    BuildContext context, {
+    required UpGradeRem rem,
+    required bool isDark,
+    required List<Task> tasks,
+    required Map<String, StudyPlanItem> planById,
+    required Map<String, StudyPlanItem> planByTitle,
+    required Color onSurface,
+    required Color secondary,
+  }) {
+    final border = isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0);
+    final headerBg = isDark ? const Color(0xFF111827) : const Color(0xFFF8FAFC);
+    final rowBg = isDark ? const Color(0xFF0F172A) : Colors.white;
+
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: rowBg,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: border),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.primaryBlue.withOpacity(isDark ? 0.08 : 0.05),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 1165),
+            child: Column(
+              children: [
+                Container(
+                  color: headerBg,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  child: Row(
+                    children: [
+                      _tableHeader('Task', 310, onSurface),
+                      _tableHeader('Priority', 115, onSurface),
+                      _tableHeader('Deadline', 150, onSurface),
+                      _tableHeader('Action', 125, onSurface),
+                      _tableHeader('Status', 115, onSurface),
+                      _tableHeader('Finish Window', 180, onSurface),
+                      _tableHeader('Course', 210, onSurface),
+                    ],
+                  ),
+                ),
+                ...tasks.map((task) {
+                  final item = planById[task.id] ??
+                      planByTitle[task.title.trim().toLowerCase()];
+                  return _planningTableRow(
+                    context: context,
+                    task: task,
+                    item: item,
+                    border: border,
+                    onSurface: onSurface,
+                    secondary: secondary,
+                  );
+                }),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _tableHeader(String label, double width, Color onSurface) {
+    return SizedBox(
+      width: width,
+      child: Text(
+        label,
+        style: TextStyle(
+          color: onSurface,
+          fontSize: 12,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+
+  Widget _planningTableRow({
+    required BuildContext context,
+    required Task task,
+    required StudyPlanItem? item,
+    required Color border,
+    required Color onSurface,
+    required Color secondary,
+  }) {
+    final finishWindow = item == null
+        ? 'Needs slot'
+        : '${item.suggestedDate} ${item.suggestedTime}'.trim();
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(border: Border(top: BorderSide(color: border))),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 310,
+            child: Text(
+              task.title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: onSurface,
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          SizedBox(width: 115, child: _priorityPill(task.priority.name)),
+          SizedBox(
+            width: 150,
+            child: Text(
+              _deadlineLabel(task),
+              style: TextStyle(
+                color: task.hasRealDeadline ? secondary : AppTheme.successGreen,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          SizedBox(width: 125, child: _deadlineAction(context, task)),
+          SizedBox(width: 115, child: _statusPill(task)),
+          SizedBox(
+            width: 180,
+            child: Text(
+              finishWindow,
+              style: TextStyle(
+                color: item == null ? AppTheme.warningOrange : onSurface,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          SizedBox(
+            width: 210,
+            child: Text(
+              task.courseName.trim().isEmpty ? 'Other' : task.courseName,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: secondary,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _deadlineAction(BuildContext context, Task task) {
+    final isUserDeadline = task.deadlineSource == 'user';
+    if (!task.hasRealDeadline || isUserDeadline) {
+      return Align(
+        alignment: Alignment.centerLeft,
+        child: TextButton.icon(
+          onPressed: () => _pickTaskDeadline(context, task),
+          icon: const Icon(Icons.event, size: 15),
+          label: Text(task.hasRealDeadline ? 'Edit' : 'Set date'),
+          style: TextButton.styleFrom(
+            minimumSize: const Size(0, 34),
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            visualDensity: VisualDensity.compact,
+            textStyle: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Text(
+      'Classroom',
+      style: TextStyle(
+        color: AppTheme.mediumGray,
+        fontSize: 12,
+        fontWeight: FontWeight.w700,
+      ),
+    );
+  }
+
+  Widget _priorityPill(String priority) {
+    final color = _priorityColor(priority);
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.13),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: color.withOpacity(0.32)),
+        ),
+        child: Text(
+          priority.toLowerCase(),
+          style: TextStyle(
+            color: color,
+            fontSize: 12,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _statusPill(Task task) {
+    final color = task.status == TaskStatus.missed || task.isOverdue
+        ? AppTheme.errorRed
+        : task.status == TaskStatus.inProgress
+            ? AppTheme.secondaryPurple
+            : AppTheme.primaryBlue;
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.12),
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Text(
+          _taskStatusLabel(task),
+          style: TextStyle(
+            color: color,
+            fontSize: 12,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _upcomingTaskCard(
     BuildContext context, {
     required UpGradeRem rem,
@@ -1026,9 +1352,8 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
     required Color onSurface,
   }) {
     final priorityColor = _priorityColor(priority);
-    final courseLineColor = isDark
-        ? const Color(0xFF94A3B8)
-        : const Color(0xFF334155);
+    final courseLineColor =
+        isDark ? const Color(0xFF94A3B8) : const Color(0xFF334155);
     final dueBg = isDark
         ? AppTheme.primaryBlue.withOpacity(0.16)
         : const Color(0xFFEFF6FF);
@@ -1177,6 +1502,28 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
     }
   }
 
+  String _deadlineLabel(Task task) {
+    if (!task.hasRealDeadline) return 'No deadline';
+    final date = DateFormat('MMM d, h:mm a').format(task.deadline);
+    if (task.status == TaskStatus.missed || task.isOverdue) {
+      return '$date overdue';
+    }
+    return date;
+  }
+
+  String _taskStatusLabel(Task task) {
+    switch (task.status) {
+      case TaskStatus.completed:
+        return 'Done';
+      case TaskStatus.inProgress:
+        return 'In progress';
+      case TaskStatus.missed:
+        return 'Missed';
+      case TaskStatus.pending:
+        return task.hasRealDeadline && task.isOverdue ? 'Missed' : 'Pending';
+    }
+  }
+
   Widget _buildAIRecommendationCard(
     BuildContext context, {
     required UpGradeRem rem,
@@ -1309,7 +1656,8 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
                   gradient: AppTheme.primaryGradient,
                   boxShadow: AppTheme.softShadow,
                 ),
-                child: Icon(icon, size: rem.iconSmall * 1.35, color: Colors.white),
+                child:
+                    Icon(icon, size: rem.iconSmall * 1.35, color: Colors.white),
               ),
               SizedBox(height: rem.space(1.0)),
               Text(
@@ -1408,28 +1756,54 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
       final name = t.courseName.isEmpty ? 'Other' : t.courseName;
       byCourse.putIfAbsent(name, () => []).add(t);
     }
-    return byCourse.entries.map((e) {
-      final list = e.value;
-      final completed =
-          list.where((t) => t.status == TaskStatus.completed).length;
-      return _CourseStat(
-        courseName: e.key,
-        total: list.length,
-        completed: completed,
-      );
-    }).where((s) => s.total > 0).toList()
+    return byCourse.entries
+        .map((e) {
+          final list = e.value;
+          final completed =
+              list.where((t) => t.status == TaskStatus.completed).length;
+          return _CourseStat(
+            courseName: e.key,
+            total: list.length,
+            completed: completed,
+          );
+        })
+        .where((s) => s.total > 0)
+        .toList()
       ..sort((a, b) => b.total.compareTo(a.total));
   }
 
   static List<Task> _upcomingTasks(List<Task> tasks) {
-    final now = DateTime.now();
-    final pending = tasks
-        .where((t) =>
-            (t.status == TaskStatus.pending || t.status == TaskStatus.inProgress) &&
-            !t.deadline.isBefore(now))
+    final planning = tasks
+        .where(
+          (t) =>
+              t.status == TaskStatus.pending ||
+              t.status == TaskStatus.inProgress ||
+              t.status == TaskStatus.missed,
+        )
         .toList();
-    pending.sort((a, b) => a.deadline.compareTo(b.deadline));
-    return pending.take(15).toList();
+    planning.sort((a, b) {
+      final priorityCompare =
+          _priorityRank(a.priority).compareTo(_priorityRank(b.priority));
+      if (priorityCompare != 0) return priorityCompare;
+      if (a.hasRealDeadline != b.hasRealDeadline) {
+        return a.hasRealDeadline ? -1 : 1;
+      }
+      return a.deadline.compareTo(b.deadline);
+    });
+    return planning;
+  }
+
+  static int _priorityRank(TaskPriority priority) {
+    switch (priority) {
+      case TaskPriority.urgent:
+        return 0;
+      case TaskPriority.high:
+        return 1;
+      case TaskPriority.medium:
+        return 2;
+      case TaskPriority.low:
+        return 3;
+    }
   }
 }
 

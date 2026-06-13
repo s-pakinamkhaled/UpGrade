@@ -28,8 +28,7 @@ class WeeklyScheduleScreen extends StatelessWidget {
     required this.weeklyTasks,
   });
 
-  static DateTime _dateOnly(DateTime d) =>
-      DateTime(d.year, d.month, d.day);
+  static DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 
   List<DateTime> get _weekDays =>
       List.generate(7, (i) => weekStart.add(Duration(days: i)));
@@ -45,7 +44,12 @@ class WeeklyScheduleScreen extends StatelessWidget {
         if (seen.add(task.id)) out.add(task);
       }
     }
-    out.sort((a, b) => a.deadline.compareTo(b.deadline));
+    out.sort((a, b) {
+      if (a.hasRealDeadline != b.hasRealDeadline) {
+        return a.hasRealDeadline ? -1 : 1;
+      }
+      return a.deadline.compareTo(b.deadline);
+    });
     return out;
   }
 
@@ -114,7 +118,8 @@ class WeeklyScheduleScreen extends StatelessWidget {
                           style: TextStyle(
                             fontSize: t.sectionTitle,
                             fontWeight: FontWeight.w800,
-                            color: isDark ? Colors.white : const Color(0xFF0F172A),
+                            color:
+                                isDark ? Colors.white : const Color(0xFF0F172A),
                           ),
                         ),
                         SizedBox(height: t.space(0.35)),
@@ -172,7 +177,9 @@ class WeeklyScheduleScreen extends StatelessWidget {
                               fontSize: t.sectionTitle,
                               fontWeight: FontWeight.w800,
                               letterSpacing: -0.35,
-                              color: isDark ? Colors.white : const Color(0xFF0F172A),
+                              color: isDark
+                                  ? Colors.white
+                                  : const Color(0xFF0F172A),
                             ),
                           ),
                           SizedBox(height: t.space(0.2)),
@@ -233,7 +240,9 @@ class _TaskListCard extends StatelessWidget {
     final titleColor =
         isDark ? const Color(0xFFE2E8F0) : const Color(0xFF0F172A);
     final subColor = isDark ? const Color(0xFF94A3B8) : AppTheme.mediumGray;
-    final deadlineLabel = deadlineFormat.format(task.deadline);
+    final deadlineLabel = task.hasRealDeadline
+        ? deadlineFormat.format(task.deadline)
+        : 'No deadline';
 
     return Material(
       color: Colors.transparent,

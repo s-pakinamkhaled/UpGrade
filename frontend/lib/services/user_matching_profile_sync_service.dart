@@ -127,14 +127,17 @@ class UserMatchingProfileSyncService {
           break;
       }
 
-      final daysLeft = task.deadline.difference(now).inDays;
-      final deadlineBoost = daysLeft < 0
-          ? 2.0
-          : daysLeft <= 1
-              ? 1.8
-              : daysLeft <= 3
-                  ? 1.4
-                  : 1.0;
+      final daysLeft =
+          task.hasRealDeadline ? task.deadline.difference(now).inDays : null;
+      final deadlineBoost = daysLeft == null
+          ? 1.0
+          : daysLeft < 0
+              ? 2.0
+              : daysLeft <= 1
+                  ? 1.8
+                  : daysLeft <= 3
+                      ? 1.4
+                      : 1.0;
       score += base * priorityMultiplier * deadlineBoost;
     }
 
@@ -151,6 +154,7 @@ class UserMatchingProfileSyncService {
         .where(
           (t) =>
               t.status != TaskStatus.completed &&
+              t.hasRealDeadline &&
               t.deadline.isBefore(DateTime.now()),
         )
         .length;

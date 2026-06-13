@@ -79,10 +79,19 @@ class _AIChatbotScreenState extends State<AIChatbotScreen>
   bool _isTyping = false;
   late AnimationController _typingAnimationController;
 
-  /// Real tasks from Google Classroom (via ClassroomProvider).
+  /// All synced Classroom rows plus manual tasks. Used for analytics/context.
   List<Task> get _studentTasks {
     try {
-      return context.read<ClassroomProvider>().tasks;
+      return context.read<ClassroomProvider>().allSyncedItems;
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// Only unfinished deliverables that can be scheduled by AI.
+  List<Task> get _studentActionableTasks {
+    try {
+      return context.read<ClassroomProvider>().upcomingActionableTasks;
     } catch (_) {
       return [];
     }
@@ -92,6 +101,34 @@ class _AIChatbotScreenState extends State<AIChatbotScreen>
   String get _studentName {
     final user = FirebaseAuth.instance.currentUser;
     return user?.displayName ?? user?.email?.split('@').first ?? 'Student';
+  }
+
+  Map<String, dynamic> _taskContextJson(Task task) {
+    return {
+      'id': task.id,
+      'title': task.title,
+      'description': task.description,
+      'courseId': task.courseId,
+      'courseName': task.courseName,
+      'priority': task.priority.name,
+      'status': task.status.name,
+      'deadline': task.hasRealDeadline ? task.deadline.toIso8601String() : null,
+      'estimatedMinutes': task.estimatedMinutes,
+      'assignedGrade': task.assignedGrade,
+      'maxPoints': task.maxPoints,
+      'source': task.source,
+      'itemType': task.itemType,
+      'isActionableForAI': task.isActionableForAI,
+      'isGradeRelated': task.isGradeRelated,
+      'isDashboardOnly': task.isDashboardOnly,
+      'classificationConfidence': task.classificationConfidence,
+      'classificationReason': task.classificationReason,
+      'classroomWorkType': task.classroomWorkType,
+      'classroomSubmissionState': task.classroomSubmissionState,
+      'classroomLate': task.classroomLate,
+      'hasRealDeadline': task.hasRealDeadline,
+      'deadlineSource': task.deadlineSource,
+    };
   }
 
   @override
@@ -113,17 +150,19 @@ class _AIChatbotScreenState extends State<AIChatbotScreen>
   }
 
   void _addWelcomeMessage() {
-    final tasks = _studentTasks;
+    final allItems = _studentTasks;
+    final tasks = _studentActionableTasks;
     final taskCount = tasks.length;
+    final syncedCount = allItems.length;
     final urgentCount = tasks
         .where((t) =>
             t.priority == TaskPriority.urgent ||
             t.priority == TaskPriority.high)
         .length;
 
-    final greeting = taskCount > 0
+    final greeting = syncedCount > 0
         ? 'Hi $_studentName! I\'m your AI study assistant powered by Llama 3.3. '
-            'You have **$taskCount tasks** synced from Google Classroom'
+            'You have **$taskCount actionable tasks** from **$syncedCount synced items**'
             '${urgentCount > 0 ? ' ($urgentCount urgent)' : ''}. '
             'Ask me anything about your studies!'
         : 'Hi $_studentName! I\'m your AI study assistant powered by Llama 3.3. '
@@ -174,23 +213,28 @@ class _AIChatbotScreenState extends State<AIChatbotScreen>
       // Remove last item (we already added the user message above)
       if (history.isNotEmpty) history.removeLast();
 
-      // Build rich student context from real Classroom data
-      final tasks = _studentTasks;
+      // Build rich student context — send only actionable tasks to the AI,
+      // but include personalization signals derived from ALL data.
+      final provider = context.read<ClassroomProvider>();
+      final actionableTasks = provider.upcomingActionableTasks;
+      final signals = provider.personalizationSignals;
+      final allSyncedItems = provider.allSyncedItems;
+
       final studentContext = <String, dynamic>{
         'name': _studentName,
-        'tasks': tasks
-            .map((task) => <String, dynamic>{
-                  'title': task.title,
-                  'courseName': task.courseName,
-                  'priority': task.priority.name,
-                  'status': task.status.name,
-                  'deadline': task.deadline.toIso8601String(),
-                  'estimatedMinutes': task.estimatedMinutes,
-                  if (task.assignedGrade != null)
-                    'assignedGrade': task.assignedGrade,
-                  if (task.maxPoints != null) 'maxPoints': task.maxPoints,
-                })
-            .toList(),
+        'tasks': actionableTasks.map(_taskContextJson).toList(),
+        'actionableTasks': actionableTasks.map(_taskContextJson).toList(),
+        'allSyncedItems': allSyncedItems.map(_taskContextJson).toList(),
+        'analyticsContext': {
+          'gradeItems': provider.gradeItems.map(_taskContextJson).toList(),
+          'completedItems':
+              provider.completedItems.map(_taskContextJson).toList(),
+          'dashboardOnlyItems': allSyncedItems
+              .where((task) => task.isDashboardOnly)
+              .map(_taskContextJson)
+              .toList(),
+        },
+        'personalizationSignals': signals,
       };
 
       // Call API
@@ -237,9 +281,38 @@ class _AIChatbotScreenState extends State<AIChatbotScreen>
   ChatMessage _generateAIResponse(String userInput) {
     final lowerInput = userInput.toLowerCase();
 
-    final tasks = _studentTasks;
+    final tasks = _studentActionableTasks;
+    final gradeItems =
+        _studentTasks.where((task) => task.isGradeRelated).toList();
     // Natural language processing simulation
-    if (lowerInput.contains('study now') ||
+    if (lowerInput.contains('grade') ||
+        lowerInput.contains('score') ||
+        lowerInput.contains('mark') ||
+        lowerInput.contains('result')) {
+      if (gradeItems.isEmpty) {
+        return ChatMessage(
+          text:
+              'I do not see any synced grade items yet. Your schedulable task list is kept separate from grade and progress rows.',
+          isAI: true,
+          timestamp: DateTime.now(),
+          suggestions: ['Show my schedule', 'What should I study now?'],
+        );
+      }
+      final shown = gradeItems.take(6).map((task) {
+        final grade = task.assignedGrade != null
+            ? ' - ${task.assignedGrade!.toStringAsFixed(0)}'
+                '${task.maxPoints != null ? ' / ${task.maxPoints}' : ''}'
+            : '';
+        return '- ${task.title} (${task.courseName})$grade';
+      }).join('\n');
+      return ChatMessage(
+        text:
+            'Here are grade/progress items I found. I will use these for context only, not as tasks to schedule:\n\n$shown',
+        isAI: true,
+        timestamp: DateTime.now(),
+        suggestions: ['What should I study now?', 'Help me prioritize'],
+      );
+    } else if (lowerInput.contains('study now') ||
         lowerInput.contains('what should') ||
         lowerInput.contains('next')) {
       if (tasks.isEmpty) {
@@ -375,7 +448,7 @@ class _AIChatbotScreenState extends State<AIChatbotScreen>
 
   Task? _findTaskInInput(String input) {
     final lowerInput = input.toLowerCase();
-    for (var task in _studentTasks) {
+    for (var task in _studentActionableTasks) {
       if (lowerInput.contains(task.title.toLowerCase()) ||
           lowerInput.contains(task.courseName.toLowerCase())) {
         return task;
@@ -385,9 +458,13 @@ class _AIChatbotScreenState extends State<AIChatbotScreen>
   }
 
   String _formatSchedule() {
-    final sortedTasks = List<Task>.from(_studentTasks)
+    final sortedTasks = List<Task>.from(_studentActionableTasks)
       ..sort((a, b) => (a.scheduledTime ?? DateTime.now())
           .compareTo(b.scheduledTime ?? DateTime.now()));
+
+    if (sortedTasks.isEmpty) {
+      return 'No actionable unfinished tasks are available to schedule.';
+    }
 
     return sortedTasks.map((task) {
       final time = task.scheduledTime != null
@@ -690,7 +767,7 @@ class _AIChatbotScreenState extends State<AIChatbotScreen>
                   SizedBox(
                     width: MediaQuery.of(context).size.width * 0.75,
                     child: Column(
-                      children: _studentTasks.map((task) {
+                      children: _studentActionableTasks.map((task) {
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 8),
                           child: TaskCard(

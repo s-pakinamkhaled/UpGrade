@@ -38,8 +38,12 @@ class EndSessionScreen extends StatelessWidget {
     var streak = 0;
     for (var i = 0; i < 30; i++) {
       final day = today.subtract(Duration(days: i));
-      final hasCompleted =
-          tasks.any((t) => t.status == TaskStatus.completed && _dateOnly(t.deadline) == day);
+      final hasCompleted = tasks.any(
+        (t) =>
+            t.status == TaskStatus.completed &&
+            t.hasRealDeadline &&
+            _dateOnly(t.deadline) == day,
+      );
       if (!hasCompleted) break;
       streak++;
     }
@@ -52,7 +56,8 @@ class EndSessionScreen extends StatelessWidget {
       builder: (context, provider, _) {
         final tasks = provider.tasks;
         final totalTasks = tasks.length;
-        final completedTasks = tasks.where((t) => t.status == TaskStatus.completed).length;
+        final completedTasks =
+            tasks.where((t) => t.status == TaskStatus.completed).length;
 
         final studyMinutes = _computeStudyTimeMinutes(tasks);
         final focusScore = totalTasks == 0
@@ -68,7 +73,8 @@ class EndSessionScreen extends StatelessWidget {
         final theme = Theme.of(context);
         final isDark = theme.brightness == Brightness.dark;
         final card = isDark ? theme.colorScheme.surface : Colors.white;
-        final secondary = isDark ? const Color(0xFF9CA3AF) : AppTheme.mediumGray;
+        final secondary =
+            isDark ? const Color(0xFF9CA3AF) : AppTheme.mediumGray;
         final onSurface = theme.colorScheme.onSurface;
 
         return SafeArea(
@@ -262,7 +268,8 @@ class EndSessionScreen extends StatelessWidget {
           const SizedBox(height: 12),
           Text(
             title,
-            style: TextStyle(fontSize: 13, color: secondary, fontWeight: FontWeight.w600),
+            style: TextStyle(
+                fontSize: 13, color: secondary, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 8),
           Text(
@@ -332,7 +339,8 @@ class EndSessionScreen extends StatelessWidget {
   }
 
   // Small helper: keeps the focus card background consistent in dark mode.
-  static Color themeSurface(bool isDark) => isDark ? const Color(0xFF0F172A) : Colors.white;
+  static Color themeSurface(bool isDark) =>
+      isDark ? const Color(0xFF0F172A) : Colors.white;
 
   Widget _buildAchievement({
     required int streakDays,
@@ -340,15 +348,18 @@ class EndSessionScreen extends StatelessWidget {
     required bool isDark,
     required Color card,
   }) {
-    final unlockedText =
-        streakDays <= 0 ? 'Start your streak today!' : '$streakDays-day study streak! You\'re building great habits.';
+    final unlockedText = streakDays <= 0
+        ? 'Start your streak today!'
+        : '$streakDays-day study streak! You\'re building great habits.';
 
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: isDark ? card : const Color(0xFFFFF7ED),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: isDark ? onSurface.withOpacity(0.12) : const Color(0xFFFFEDD5)),
+        border: Border.all(
+            color:
+                isDark ? onSurface.withOpacity(0.12) : const Color(0xFFFFEDD5)),
       ),
       child: Row(
         children: [
@@ -363,7 +374,8 @@ class EndSessionScreen extends StatelessWidget {
               ),
               borderRadius: BorderRadius.circular(16),
             ),
-            child: const Icon(Icons.emoji_events, color: Colors.white, size: 26),
+            child:
+                const Icon(Icons.emoji_events, color: Colors.white, size: 26),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -383,7 +395,9 @@ class EndSessionScreen extends StatelessWidget {
                   unlockedText,
                   style: TextStyle(
                     fontSize: 12,
-                    color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF7C2D12),
+                    color: isDark
+                        ? const Color(0xFF9CA3AF)
+                        : const Color(0xFF7C2D12),
                     height: 1.4,
                   ),
                 ),
@@ -447,7 +461,8 @@ class EndSessionScreen extends StatelessWidget {
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppTheme.errorRed,
                 side: const BorderSide(color: AppTheme.errorRed),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
               ),
             ),
           ),
@@ -462,7 +477,9 @@ class EndSessionScreen extends StatelessWidget {
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: isDark ? secondary.withOpacity(0.16) : const Color(0xFFE5E7EB)),
+        border: Border.all(
+            color:
+                isDark ? secondary.withOpacity(0.16) : const Color(0xFFE5E7EB)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -480,4 +497,3 @@ class EndSessionScreen extends StatelessWidget {
     );
   }
 }
-

@@ -8,9 +8,11 @@ class DashboardMetricsService {
     String? selectedCourse,
   }) {
     final normalizedCourse = _normalizeSelectedCourse(selectedCourse);
-    final filteredTasks = normalizedCourse == null
+    final filteredAll = normalizedCourse == null
         ? List<Task>.from(tasks)
         : tasks.where((t) => _courseName(t) == normalizedCourse).toList();
+    final filteredTasks = filteredAll.where(_countsAsTaskMetric).toList();
+    final taskMetricItems = tasks.where(_countsAsTaskMetric).toList();
 
     final now = DateTime.now();
     final today = _dateOnly(now);
@@ -25,23 +27,21 @@ class DashboardMetricsService {
         filteredTasks.where((t) => t.status == TaskStatus.pending).length;
     final inProgressTasks =
         filteredTasks.where((t) => t.status == TaskStatus.inProgress).length;
-    final missedTasks = filteredTasks
-        .where(
-          (t) => t.deadline.isBefore(now) && t.status != TaskStatus.completed,
-        )
-        .length;
+    final missedTasks = filteredTasks.where((t) => _isMissed(t, now)).length;
 
     final dueToday = filteredTasks
         .where(
           (t) =>
               _dateOnly(t.deadline) == today &&
+              t.hasRealDeadline &&
               t.status != TaskStatus.completed,
         )
         .length;
 
     final upcoming48Hours = filteredTasks.where((t) {
       if (t.status == TaskStatus.completed) return false;
-      return t.deadline.isAfter(now) &&
+      return t.hasRealDeadline &&
+          t.deadline.isAfter(now) &&
           t.deadline.isBefore(now.add(const Duration(hours: 48)));
     }).length;
 
@@ -83,9 +83,9 @@ class DashboardMetricsService {
       studyHoursPreviousRange,
     );
 
-    final averageGradePct = _averageGrade(filteredTasks);
+    final averageGradePct = _averageGrade(filteredAll);
 
-    final courseProgress = _buildCourseProgress(tasks);
+    final courseProgress = _buildCourseProgress(taskMetricItems);
     final focusCourse = _pickFocusCourse(courseProgress);
 
     final performanceLabel = _performanceLabel(
@@ -151,14 +151,13 @@ class DashboardMetricsService {
     final now = DateTime.now();
     for (var i = 0; i < days; i++) {
       final day = start.add(Duration(days: i));
-      final dueTasks =
-          filteredTasks.where((t) => _dateOnly(t.deadline) == day).toList();
+      final dueTasks = filteredTasks
+          .where((t) => t.hasRealDeadline && _dateOnly(t.deadline) == day)
+          .toList();
 
       final dueCompleted =
           dueTasks.where((t) => t.status == TaskStatus.completed).length;
-      final dueMissed = dueTasks
-          .where((t) => t.deadline.isBefore(now) && t.status != TaskStatus.completed)
-          .length;
+      final dueMissed = dueTasks.where((t) => _isMissed(t, now)).length;
       final duePending = dueTasks
           .where(
             (t) =>
@@ -211,7 +210,9 @@ class DashboardMetricsService {
   ) {
     final dueWindow = tasks.where((t) {
       final deadline = _dateOnly(t.deadline);
-      return !deadline.isBefore(start) && !deadline.isAfter(end);
+      return t.hasRealDeadline &&
+          !deadline.isBefore(start) &&
+          !deadline.isAfter(end);
     }).toList();
 
     if (dueWindow.isEmpty) return 0.0;
@@ -252,9 +253,7 @@ class DashboardMetricsService {
       final list = entry.value;
       final completed =
           list.where((t) => t.status == TaskStatus.completed).length;
-      final missed = list
-          .where((t) => t.deadline.isBefore(now) && t.status != TaskStatus.completed)
-          .length;
+      final missed = list.where((t) => _isMissed(t, now)).length;
       final pending = list
           .where(
             (t) =>
@@ -413,6 +412,27 @@ class DashboardMetricsService {
   static DateTime _completionDay(Task task) {
     final completion = task.completedAt ?? task.deadline;
     return _dateOnly(completion);
+  }
+
+  static bool _isMissed(Task task, DateTime now) {
+    return task.hasRealDeadline &&
+        task.deadline.isBefore(now) &&
+        task.status != TaskStatus.completed;
+  }
+
+  static bool _countsAsTaskMetric(Task task) {
+    if (task.itemType == 'actionable_task' ||
+        task.itemType == 'completed_work') {
+      return true;
+    }
+    if (task.source == 'manual') {
+      return true;
+    }
+    return !task.isGradeRelated &&
+        !task.isDashboardOnly &&
+        task.itemType != 'grade_item' &&
+        task.itemType != 'grade_bucket' &&
+        task.itemType != 'material';
   }
 
   static String _courseName(Task task) {

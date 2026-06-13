@@ -12,13 +12,13 @@ import '../providers/classroom_provider.dart';
 class MissedTasksScreen extends StatelessWidget {
   const MissedTasksScreen({super.key});
 
-  static DateTime _dateOnly(DateTime d) =>
-      DateTime(d.year, d.month, d.day);
+  static DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 
   static List<Task> _missedTasks(List<Task> tasks) {
     final today = _dateOnly(DateTime.now());
     return tasks
         .where((t) =>
+            t.hasRealDeadline &&
             _dateOnly(t.deadline).isBefore(today) &&
             t.status != TaskStatus.completed)
         .toList()

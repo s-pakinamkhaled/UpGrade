@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/classroom_course.dart';
 import '../models/task.dart';
+import 'classroom_item_classifier_service.dart';
 
 /// Persists synced Classroom data locally so the app uses real data after sync.
 const String _keySyncedAt = 'classroom_synced_at';
@@ -17,6 +18,9 @@ class ClassroomStorageService {
     required List<ClassroomCourse> courses,
     required List<Task> tasks,
   }) async {
+    final classifiedTasks = ClassroomItemClassifierService.classifyAllIfNeeded(
+      tasks,
+    );
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_keySyncedAt, syncedAt);
     await prefs.setString(
@@ -25,7 +29,7 @@ class ClassroomStorageService {
     );
     await prefs.setString(
       _keyTasks,
-      jsonEncode(tasks.map((t) => t.toJson()).toList()),
+      jsonEncode(classifiedTasks.map((t) => t.toJson()).toList()),
     );
   }
 
@@ -56,9 +60,9 @@ class ClassroomStorageService {
     if (s == null) return [];
     try {
       final list = jsonDecode(s) as List<dynamic>;
-      return list
-          .map((e) => Task.fromJson(e as Map<String, dynamic>))
-          .toList();
+      final tasks =
+          list.map((e) => Task.fromJson(e as Map<String, dynamic>)).toList();
+      return ClassroomItemClassifierService.classifyAll(tasks);
     } catch (_) {
       return [];
     }

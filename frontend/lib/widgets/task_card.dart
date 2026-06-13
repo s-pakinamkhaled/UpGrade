@@ -184,7 +184,9 @@ class TaskCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 6),
                     Text(
-                      DateFormat('MMM d, h:mm a').format(task.deadline),
+                      task.hasRealDeadline
+                          ? DateFormat('MMM d, h:mm a').format(task.deadline)
+                          : 'No deadline',
                       style: TextStyle(
                         fontSize: 12,
                         color:

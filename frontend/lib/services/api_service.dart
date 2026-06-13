@@ -117,17 +117,31 @@ class ApiService {
     try {
       final taskPayload = tasks.map((t) {
         final json = t.toJson();
+        final hasRealDeadline = json['hasRealDeadline'] as bool? ?? true;
         return {
           'id': json['id'] ?? '',
           'title': json['title'] ?? '',
           'courseName': json['courseName'] ?? '',
-          'deadline': json['deadline'],
+          'deadline': hasRealDeadline ? json['deadline'] : null,
           'estimatedMinutes': json['estimatedMinutes'] ?? 60,
           'priority': json['priority'] ?? 'medium',
           'status': json['status'] ?? 'pending',
           'description': json['description'],
           'assignedGrade': json['assignedGrade'],
           'maxPoints': json['maxPoints'],
+          // Classification metadata for backend safety validation
+          'source': json['source'] ?? 'unknown',
+          'itemType': json['itemType'] ?? 'unknown',
+          'isActionableForAI': json['isActionableForAI'] ?? true,
+          'isGradeRelated': json['isGradeRelated'] ?? false,
+          'isDashboardOnly': json['isDashboardOnly'] ?? false,
+          'classificationConfidence': json['classificationConfidence'],
+          'classificationReason': json['classificationReason'],
+          'classroomWorkType': json['classroomWorkType'],
+          'classroomSubmissionState': json['classroomSubmissionState'],
+          'classroomLate': json['classroomLate'],
+          'hasRealDeadline': hasRealDeadline,
+          'deadlineSource': json['deadlineSource'],
         };
       }).toList();
 
@@ -290,7 +304,8 @@ class ApiService {
         .timeout(const Duration(seconds: 25));
 
     if (response.statusCode != 200) {
-     debugPrint('Invite email API error: ${response.statusCode} ${response.body}');
+      debugPrint(
+          'Invite email API error: ${response.statusCode} ${response.body}');
       throw Exception('Failed to send invite emails.');
     }
   }

@@ -1,7 +1,10 @@
 /// A single item in an AI-generated study plan.
 class StudyPlanItem {
+  final String? taskId;
   final String taskTitle;
   final String courseName;
+  final String? deadline;
+  final String? status;
   final String suggestedDate; // YYYY-MM-DD
   final String suggestedTime; // e.g. "14:00 – 16:00"
   final double hoursNeeded;
@@ -9,8 +12,11 @@ class StudyPlanItem {
   final String tip;
 
   const StudyPlanItem({
+    this.taskId,
     required this.taskTitle,
     required this.courseName,
+    this.deadline,
+    this.status,
     required this.suggestedDate,
     required this.suggestedTime,
     required this.hoursNeeded,
@@ -20,8 +26,11 @@ class StudyPlanItem {
 
   factory StudyPlanItem.fromJson(Map<String, dynamic> json) {
     return StudyPlanItem(
+      taskId: json['taskId'] as String?,
       taskTitle: json['taskTitle'] as String? ?? '',
       courseName: json['courseName'] as String? ?? '',
+      deadline: json['deadline'] as String?,
+      status: json['status'] as String?,
       suggestedDate: json['suggestedDate'] as String? ?? '',
       suggestedTime: json['suggestedTime'] as String? ?? '',
       hoursNeeded: (json['hoursNeeded'] as num?)?.toDouble() ?? 1.0,
@@ -31,8 +40,11 @@ class StudyPlanItem {
   }
 
   Map<String, dynamic> toJson() => {
+        'taskId': taskId,
         'taskTitle': taskTitle,
         'courseName': courseName,
+        'deadline': deadline,
+        'status': status,
         'suggestedDate': suggestedDate,
         'suggestedTime': suggestedTime,
         'hoursNeeded': hoursNeeded,

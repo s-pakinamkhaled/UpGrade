@@ -53,10 +53,10 @@ class _WarningsScreenState extends State<WarningsScreen> {
     await p.setStringList(_kDismissPrefsKey, _dismissed.toList());
   }
 
-  static DateTime _dateOnly(DateTime d) =>
-      DateTime(d.year, d.month, d.day);
+  static DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 
   static bool _deadlineIsToday(Task t) {
+    if (!t.hasRealDeadline) return false;
     final d = _dateOnly(t.deadline);
     final n = _dateOnly(DateTime.now());
     return d == n;
@@ -105,12 +105,11 @@ class _WarningsScreenState extends State<WarningsScreen> {
     final dismissed = _dismissed;
     final out = <Warning>[];
 
-    final open =
-        tasks.where((t) => t.status != TaskStatus.completed).toList();
+    final open = tasks.where((t) => t.status != TaskStatus.completed).toList();
 
     for (final t in open) {
       final overdue =
-          t.status == TaskStatus.missed || t.isOverdue;
+          t.hasRealDeadline && (t.status == TaskStatus.missed || t.isOverdue);
       if (!overdue) continue;
       final id = 'overdue_${t.id}';
       if (dismissed.contains(id)) continue;
@@ -134,6 +133,7 @@ class _WarningsScreenState extends State<WarningsScreen> {
 
     for (final t in open) {
       if (t.status == TaskStatus.missed || t.isOverdue) continue;
+      if (!t.hasRealDeadline) continue;
       if (t.deadline.isBefore(now)) continue;
       final hours = t.deadline.difference(now).inHours;
       if (hours > 48) continue;
@@ -165,8 +165,7 @@ class _WarningsScreenState extends State<WarningsScreen> {
               _deadlineIsToday(t),
         )
         .length;
-    final workloadId =
-        'workload_${now.year}_${now.month}_${now.day}';
+    final workloadId = 'workload_${now.year}_${now.month}_${now.day}';
     if (dueTodayCount >= 6 && !dismissed.contains(workloadId)) {
       out.add(
         Warning(

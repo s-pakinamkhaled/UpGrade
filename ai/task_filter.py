@@ -1,133 +1,282 @@
 """
-task_filter.py
-==============
-Filtering layer that removes non-student-task items (grade entries and
-in-class lab activities) from the task list BEFORE the data is fed to the
-LLM -- for both the study-planner and the AI chat features.
+Metadata-first task filtering for AI features.
 
-Two categories are excluded
----------------------------
-1. Activity-type items that are NOT take-home work:
-   * lab_participation  - instructor uploads lab material / resources
-   * lab_task / Lab Practice - activities done live during the lab session
-   * Any title that starts with "Lab<N>" or "Lap<N>" (e.g. Lab08, Lap06)
-   * Final Lab, Lab Exams
-
-2. Grade-entry items posted by instructors (not tasks for students):
-   * Anything containing the word "grades" / "grade"
-   * Midterm (grade announcements)
-   * Quiz grades, Labs grades, etc.
-
-Only genuine student deliverables (Assignments, Projects, Mini Projects,
-graded take-home work) pass through the filter.
+The app keeps every synced Google Classroom row for dashboard and analytics.
+This module decides which rows are safe to expose to the LLM as schedulable
+tasks. It is intentionally duplicated server-side as a guard against older
+clients, malformed payloads, or prompt-only filtering mistakes.
 """
 
 from __future__ import annotations
 
 import re
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, Iterable, List, Optional, Union
 
+TaskLike = Union[Dict[str, Any], Any]
 
-# -- 1. Verbatim substring exclusions (case-insensitive) -----------------------
-# If the task title CONTAINS any of these strings it is excluded.
-_EXCLUDED_SUBSTRINGS: List[str] = [
-    "lab_participation",
-    "lab_task",
-    "lab practice",
-    "lab exams",
-    "lab exam",
-    "final lab",
+NON_ACTIONABLE_TYPES = {
+    "grade_item",
+    "grade_bucket",
+    "completed_work",
+    "material",
+    "dashboard_only",
+}
+
+ACTIONABLE_TYPES = {"actionable_task"}
+
+COMPLETED_STATUSES = {
+    "completed",
+    "returned",
+    "submitted",
+    "graded",
+    "turned_in",
+    "turnedin",
+    "reclaimed_by_student",
+}
+
+ACTIONABLE_STATUSES = {"pending", "inprogress", "in_progress", "missed"}
+
+EXACT_GRADE_TITLES = {
+    "grades",
+    "grade",
+    "score",
+    "scores",
+    "marks",
+    "result",
+    "results",
+    "total",
+    "total course work",
+    "course work",
+    "coursework",
+    "total assignments",
+    "total labs grades",
+    "total labs",
+    "overall grade",
+    "course grade",
+}
+
+STRONG_GRADE_SUBSTRINGS = [
     "labs grades",
     "labs grade",
+    "lab grades",
+    "lab grade",
     "quiz grades",
     "quiz grade",
+    "quizzes grade",
+    "quizzes grades",
+    "lecture quizzes",
+    "lecture quiz grades",
+    "lecture quiz grade",
     "midterm grades",
     "midterm grade",
+    "final grade",
+    "final lab grade",
+    "final lab exam grade",
+    "attendance grades",
+    "attendance grade",
+    "term work grades",
+    "term work grade",
+    "lab assignments grades",
+    "lab quiz grades",
+    "mini project grades",
+    "sample essay marking",
+    "essay marking",
+    "marking",
+    "instructions and rubric",
+    "total course work",
+    "total assignments",
 ]
 
-# -- 2. Regex exclusions (case-insensitive) ------------------------------------
-# If the task title MATCHES any of these patterns it is excluded.
-_EXCLUDED_PATTERNS: List[re.Pattern] = [
-    # Word "grade" or "grades" anywhere in the title
-    # Catches: "Midterm Grades", "Quiz 3 Grades", "Quiz1 grades", "Labs grades"
-    re.compile(r"\bgrades?\b", re.IGNORECASE),
-
-    # Word "midterm" anywhere -- catches grade announcements like "Midterm Grades"
-    re.compile(r"\bmidterm\b", re.IGNORECASE),
-
-    # Standalone word "Labs" (plural) -- e.g. a section header posted as a task
-    re.compile(r"\blabs\b", re.IGNORECASE),
-
-    # Title starts with "Lab" or "Lap" immediately followed by digit(s)
-    # Covers:  Lab08 - Zombie machines, Lap06-Convert Channel, Lap05-Steganography
-    # Does NOT cover "Laboratory Report" or "Lab Report" (no digit after Lab/Lap)
-    re.compile(r"^\s*(lab|lap)\s*\d+", re.IGNORECASE),
+GRADE_REGEX_PATTERNS = [
+    (
+        re.compile(r"\bassignment\s+\d+\s+grades?\b", re.I),
+        None,
+    ),
+    (
+        re.compile(r"\bgrades?\s*(\[[\d.%]+\]|\([\d.%]+\))?\s*$", re.I),
+        re.compile(
+            r"\b(project|report|homework|delivery|submission|practical|task|exercise)\b",
+            re.I,
+        ),
+    ),
+    (
+        re.compile(r"^total\s+", re.I),
+        re.compile(r"\b(project|report|task)\b", re.I),
+    ),
+    (
+        re.compile(r"^midterm\s*(\(\d+[%]?\)|\d+\s*%)", re.I),
+        None,
+    ),
+    (
+        re.compile(r"^\s*(lab|lap)\s*\d+\b", re.I),
+        re.compile(
+            r"\b(delivery|practice|report|submission|homework|assignment|project)\b",
+            re.I,
+        ),
+    ),
+    (
+        re.compile(r"\[[\d.]+\]\s*$", re.I),
+        re.compile(
+            r"\b(assignment|project|homework|report|task|delivery|submission)\b",
+            re.I,
+        ),
+    ),
+    (
+        re.compile(r"\(\s*\d+(\.\d+)?\s*%\s*\)\s*$", re.I),
+        re.compile(
+            r"\b(assignment|project|homework|report|task|delivery|submission)\b",
+            re.I,
+        ),
+    ),
+    (
+        re.compile(r"\b\d+(\.\d+)?\s*%\s*$", re.I),
+        re.compile(
+            r"\b(assignment|project|homework|report|task|delivery|submission)\b",
+            re.I,
+        ),
+    ),
+    (
+        re.compile(r"\b(assessment|rubric)\b", re.I),
+        re.compile(
+            r"\b(assignment|homework|submission|delivery|project|report|essay|outline)\b",
+            re.I,
+        ),
+    ),
+    (
+        re.compile(r"\bquiz(zes)?\b", re.I),
+        re.compile(
+            r"\b(assignment|homework|submission|delivery|project|report|prep|prepare|study|review|practice)\b",
+            re.I,
+        ),
+    ),
+    (
+        re.compile(r"\bmarking\b", re.I),
+        None,
+    ),
 ]
 
+ACTIONABLE_SIGNAL_RE = re.compile(
+    r"\b(assignment|project|task|homework|report|delivery|submission|"
+    r"practical|exercise|case\s+study|mini\s*project|presentation|"
+    r"proposal|paper|essay|worksheet|lab\s*report)\b",
+    re.I,
+)
 
-def is_real_task(title: str) -> bool:
-    """
-    Return True only when *title* looks like a genuine student deliverable.
 
-    Items that are grade entries or in-class activities return False.
-    An empty / missing title is kept (caller cannot determine its nature).
+def _get(task: TaskLike, field: str, default: Any = None) -> Any:
+    if isinstance(task, dict):
+        return task.get(field, default)
+    return getattr(task, field, default)
+
+
+def _as_bool(value: Any) -> Optional[bool]:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        lowered = value.strip().lower()
+        if lowered in {"true", "1", "yes"}:
+            return True
+        if lowered in {"false", "0", "no"}:
+            return False
+    return None
+
+
+def _normalized_title(task: TaskLike) -> str:
+    title = str(_get(task, "title", "") or "")
+    return re.sub(r"\s+", " ", title.lower()).strip()
+
+
+def title_looks_grade_related(title_lower: str) -> bool:
+    if not title_lower:
+        return False
+    if title_lower in EXACT_GRADE_TITLES:
+        return True
+    if any(pattern in title_lower for pattern in STRONG_GRADE_SUBSTRINGS):
+        return True
+    for regex, guard in GRADE_REGEX_PATTERNS:
+        if regex.search(title_lower):
+            if guard is not None and guard.search(title_lower):
+                continue
+            return True
+    return False
+
+
+def is_actionable_task(task: TaskLike) -> bool:
     """
-    if not title:
+    Return True only for unfinished deliverables that can be scheduled.
+    Metadata wins over title heuristics.
+    """
+    item_type = str(_get(task, "itemType", "") or "").strip().lower()
+    is_actionable = _as_bool(_get(task, "isActionableForAI"))
+    is_grade = _as_bool(_get(task, "isGradeRelated"))
+    is_dashboard = _as_bool(_get(task, "isDashboardOnly"))
+
+    if item_type in NON_ACTIONABLE_TYPES:
+        return False
+    if is_grade is True or is_dashboard is True or is_actionable is False:
+        return False
+
+    if _get(task, "assignedGrade") is not None:
+        return False
+
+    status = str(_get(task, "status", "") or "pending").replace("-", "_").lower()
+    if status in COMPLETED_STATUSES:
+        return False
+
+    submission_state = (
+        str(_get(task, "classroomSubmissionState", "") or "")
+        .replace("-", "_")
+        .lower()
+    )
+    if submission_state in COMPLETED_STATUSES:
+        return False
+
+    work_type = str(_get(task, "classroomWorkType", "") or "").upper()
+    if work_type == "MATERIAL":
+        return False
+
+    title_lower = _normalized_title(task)
+    if title_looks_grade_related(title_lower):
+        return False
+
+    if item_type in ACTIONABLE_TYPES and is_actionable is True:
         return True
 
-    title_lower = title.lower().strip()
+    if status and status not in ACTIONABLE_STATUSES:
+        return False
 
-    for kw in _EXCLUDED_SUBSTRINGS:
-        if kw in title_lower:
-            return False
-
-    for pattern in _EXCLUDED_PATTERNS:
-        if pattern.search(title):
-            return False
-
-    return True
+    # Older clients may not send classification metadata. If a row survived
+    # grade/status/material checks, keep it only when it has a deadline or a
+    # clear deliverable title signal.
+    has_real_deadline = _get(task, "hasRealDeadline")
+    deadline = _get(task, "deadline")
+    if deadline and has_real_deadline is not False:
+        return True
+    return bool(ACTIONABLE_SIGNAL_RE.search(title_lower))
 
 
 def filter_real_tasks(
-    tasks: List[Union[Dict[str, Any], Any]],
+    tasks: Iterable[TaskLike],
     title_key: str = "title",
-) -> List[Union[Dict[str, Any], Any]]:
-    """
-    Return a new list containing only genuine student tasks.
-
-    Works with both plain ``dict`` objects and Pydantic / dataclass objects
-    that expose a ``.title`` attribute (or the attribute named by *title_key*).
-
-    Args:
-        tasks:      List of task dicts or task model instances.
-        title_key:  Key / attribute name that holds the task title.
-
-    Returns:
-        Filtered list -- same objects, just non-tasks removed.
-
-    Side-effect:
-        Prints a summary line when items are removed (visible in server logs).
-    """
-    def _get_title(task: Any) -> str:
-        if isinstance(task, dict):
-            return task.get(title_key) or ""
-        return getattr(task, title_key, None) or ""
-
-    kept: List = []
+) -> List[TaskLike]:
+    kept: List[TaskLike] = []
     removed_titles: List[str] = []
 
     for task in tasks:
-        title = _get_title(task)
-        if is_real_task(title):
+        if is_actionable_task(task):
             kept.append(task)
         else:
-            removed_titles.append(title or "<no title>")
+            removed_titles.append(str(_get(task, title_key, "<no title>") or "<no title>"))
 
     if removed_titles:
         print(
-            f"[TaskFilter] Removed {len(removed_titles)} non-task item(s) "
-            f"from {len(tasks)} total: "
-            + ", ".join(f'"{t}"' for t in removed_titles)
+            f"[TaskFilter] Received {len(kept) + len(removed_titles)} items, "
+            f"using {len(kept)} actionable tasks for AI. Removed "
+            f"{len(removed_titles)}: "
+            + ", ".join(f'"{title}"' for title in removed_titles[:10])
+            + (f" ... and {len(removed_titles) - 10} more" if len(removed_titles) > 10 else "")
         )
+    else:
+        print(f"[TaskFilter] Received {len(kept)} items, all passed filter.")
 
     return kept

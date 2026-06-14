@@ -24,7 +24,9 @@ class StudyPlanItem {
       courseName: json['courseName'] as String? ?? '',
       suggestedDate: json['suggestedDate'] as String? ?? '',
       suggestedTime: json['suggestedTime'] as String? ?? '',
-      hoursNeeded: (json['hoursNeeded'] as num?)?.toDouble() ?? 1.0,
+      hoursNeeded: json['hoursNeeded'] is num
+          ? (json['hoursNeeded'] as num).toDouble()
+          : double.tryParse(json['hoursNeeded']?.toString() ?? '') ?? 1.0,
       priority: json['priority'] as String? ?? 'medium',
       tip: json['tip'] as String? ?? '',
     );

@@ -3,8 +3,14 @@ import json
 import os
 from typing import Dict, Optional
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
+
+from app.core.security_utils import (
+    is_safe_path_segment,
+    is_valid_email,
+    sanitize_display_text,
+)
 
 router = APIRouter(prefix="/profile", tags=["profile"])
 
@@ -72,6 +78,8 @@ def _default_profile(user_id: str) -> Dict:
 
 @router.get("/{user_id}")
 async def get_profile(user_id: str):
+    if not is_safe_path_segment(user_id):
+        raise HTTPException(status_code=400, detail="Invalid user id")
     data = _load_store()
     profile = data["profiles"].get(user_id)
     if profile is None:
@@ -83,14 +91,20 @@ async def get_profile(user_id: str):
 
 @router.patch("/{user_id}")
 async def update_profile(user_id: str, body: UpdateProfileRequest):
+    if not is_safe_path_segment(user_id):
+        raise HTTPException(status_code=400, detail="Invalid user id")
+    if not is_valid_email(body.email):
+        raise HTTPException(status_code=400, detail="Invalid email address")
     data = _load_store()
     current = data["profiles"].get(user_id) or _default_profile(user_id)
 
-    current["fullName"] = body.fullName
-    current["email"] = body.email
-    current["major"] = body.major or current.get("major") or "Computer Science"
-    current["academicYear"] = body.academicYear or current.get("academicYear") or "Junior"
-    current["gpa"] = body.gpa or current.get("gpa") or "3.85"
+    current["fullName"] = sanitize_display_text(body.fullName)
+    current["email"] = body.email.strip()
+    current["major"] = sanitize_display_text(body.major or current.get("major") or "Computer Science")
+    current["academicYear"] = sanitize_display_text(
+        body.academicYear or current.get("academicYear") or "Junior"
+    )
+    current["gpa"] = sanitize_display_text(body.gpa or current.get("gpa") or "3.85", max_length=16)
     current["updatedAt"] = datetime.utcnow().isoformat()
 
     data["profiles"][user_id] = current

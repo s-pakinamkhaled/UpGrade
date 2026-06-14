@@ -6,6 +6,8 @@ from typing import List
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+from app.core.security_utils import filter_invite_emails, sanitize_display_text
+
 router = APIRouter(prefix="/notifications", tags=["notifications"])
 
 
@@ -18,9 +20,12 @@ class CourseInviteEmailRequest(BaseModel):
 
 @router.post("/course-room-invite")
 def send_course_room_invites(request: CourseInviteEmailRequest):
-    emails = list(dict.fromkeys([email.strip() for email in request.recipientEmails if email.strip()]))
+    emails = filter_invite_emails(request.recipientEmails)
     if not emails:
         return {"sent": 0, "skipped": 0, "message": "No valid recipient emails."}
+
+    course_name = sanitize_display_text(request.courseName)
+    inviter_name = sanitize_display_text(request.inviterName)
 
     smtp_host = os.getenv("SMTP_HOST")
     smtp_port = int(os.getenv("SMTP_PORT", "587"))
@@ -42,12 +47,12 @@ def send_course_room_invites(request: CourseInviteEmailRequest):
     for recipient in emails:
         try:
             msg = EmailMessage()
-            msg["Subject"] = f"Study room invite: {request.courseName}"
+            msg["Subject"] = f"Study room invite: {course_name}"
             msg["From"] = smtp_from
             msg["To"] = recipient
             msg.set_content(
                 f"Hi,\n\n"
-                f"{request.inviterName} invited you to join a study room for {request.courseName}.\n"
+                f"{inviter_name} invited you to join a study room for {course_name}.\n"
                 f"Open UpGrade and go to Group Study > Incoming Invitations.\n\n"
                 f"Open app: {request.appUrl}\n\n"
                 f"Best,\nUpGrade Team"

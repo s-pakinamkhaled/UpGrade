@@ -6,6 +6,8 @@ from typing import Dict, List, Literal, Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+from app.core.security_utils import is_safe_path_segment, sanitize_display_text
+
 TaskStatus = Literal["pending", "inProgress", "completed"]
 ActivityAction = Literal["started", "completed", "reopened"]
 
@@ -234,6 +236,8 @@ def update_task_status(task_id: str, new_status: TaskStatus, user_id: str) -> Ta
 
 @router.patch("/{task_id}/status")
 async def patch_task_status(task_id: str, body: UpdateTaskStatusRequest):
+    if not is_safe_path_segment(task_id) or not is_safe_path_segment(body.userId):
+        raise HTTPException(status_code=400, detail="Invalid task or user id")
     """
     Update task status following F7 rules:
     - pending -> inProgress sets startedAt if empty.
@@ -248,10 +252,15 @@ async def patch_task_status(task_id: str, body: UpdateTaskStatusRequest):
 
 @router.post("")
 async def upsert_task(task: TaskRecord):
+    if not is_safe_path_segment(task.id) or not is_safe_path_segment(task.userId):
+        raise HTTPException(status_code=400, detail="Invalid task or user id")
+    payload = task.model_dump(mode="json")
+    if payload.get("title"):
+        payload["title"] = sanitize_display_text(str(payload["title"]))
     data = _load_store()
-    data["tasks"][task.id] = task.model_dump(mode="json")
+    data["tasks"][task.id] = payload
     _save_store(data)
-    return {"success": True, "task": task.model_dump(mode="json")}
+    return {"success": True, "task": payload}
 
 
 @router.get("/activity/logs")
@@ -262,6 +271,8 @@ async def get_activity_logs():
 
 @router.get("/{task_id}")
 async def get_task(task_id: str):
+    if not is_safe_path_segment(task_id):
+        raise HTTPException(status_code=400, detail="Invalid task id")
     data = _load_store()
     raw_task = data["tasks"].get(task_id)
     if raw_task is None:

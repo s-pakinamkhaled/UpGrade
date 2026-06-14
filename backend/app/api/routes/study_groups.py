@@ -10,6 +10,7 @@ from uuid import uuid4
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field, model_validator
 
+from app.core.security_utils import is_safe_path_segment
 from app.services.study_group_matching_service import score_candidates
 
 router = APIRouter(prefix="/study-groups", tags=["study-groups"])
@@ -37,7 +38,7 @@ class StudyGroupCreateRequest(BaseModel):
     preferredMeetingTime: str
     availableStart: str
     availableEnd: str
-    maxGroupSize: int = Field(ge=2, le=12)
+    maxGroupSize: int = Field(default=4, ge=2, le=12)
     riskLevel: Optional[str] = None
     workloadScore: Optional[int] = Field(default=None, ge=0, le=100)
     candidateStudents: Optional[List[Dict[str, Any]]] = None
@@ -291,6 +292,8 @@ def create_study_group(request: StudyGroupCreateRequest):
 def get_my_groups(
     user_id: str = Query(..., alias="userId"),
 ):
+    if not is_safe_path_segment(user_id):
+        raise HTTPException(status_code=400, detail="Invalid user id")
     data = _load_data()
     groups = data.get("groups", [])
     if not isinstance(groups, list):
@@ -310,6 +313,8 @@ def get_my_groups(
 
 @router.patch("/{group_id}/status")
 def update_status(group_id: str, request: StudyGroupStatusUpdateRequest):
+    if not is_safe_path_segment(group_id):
+        raise HTTPException(status_code=400, detail="Invalid group id")
     data = _load_data()
     groups = data.get("groups", [])
     if not isinstance(groups, list):

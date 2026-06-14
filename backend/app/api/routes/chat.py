@@ -5,6 +5,8 @@ import sys
 import os
 from dotenv import load_dotenv
 
+from app.core.security_utils import validate_chat_message
+
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_dir))))
 
@@ -63,6 +65,10 @@ async def send_message(request: ChatRequest):
             status_code=503,
             detail="Chat service is not available"
         )
+
+    message_error = validate_chat_message(request.message)
+    if message_error:
+        raise HTTPException(status_code=400, detail=message_error)
     
     try:
         # Convert conversation history to dict format

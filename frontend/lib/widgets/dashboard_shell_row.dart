@@ -19,11 +19,12 @@ class DashboardShellRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final shell = context.watch<DashboardShellProvider>();
     final layoutW = MediaQuery.sizeOf(context).width;
-    final sidebarColumnWidth = layoutW >= 900
+    // Sidebar rail is shown from tablet width up; expand/collapse must use the same breakpoint.
+    final useExpandedSidebar =
+        layoutW >= 600 && shell.sidebarExpanded;
+    final sidebarColumnWidth = useExpandedSidebar
         ? DashboardSidebar.effectiveWidth(context)
         : DashboardSidebarCollapsedRail.railWidth;
-    final useExpandedSidebar =
-        layoutW >= 900 && shell.sidebarExpanded;
 
     if (kDebugMode) {
       final currentName = ModalRoute.of(context)?.settings.name;
@@ -65,11 +66,7 @@ class DashboardShellRow extends StatelessWidget {
                 )
               : DashboardSidebarCollapsedRail(
                   selectedRoute: resolvedSelectedRoute,
-                  onExpand: () {
-                    if (layoutW >= 900) {
-                      shell.setSidebarExpanded(true);
-                    }
-                  },
+                  onExpand: () => shell.setSidebarExpanded(true),
                   onSelectShellRoute: navigateFromSidebar,
                   onPushAuxiliaryRoute: pushAuxiliaryFromSidebar,
                   onEndSession: enterEndSession,

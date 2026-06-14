@@ -56,8 +56,12 @@ class Task {
           ? DateTime.tryParse(json['completedAt'] as String)
           : null,
       updatedAt: DateTime.tryParse(json['updatedAt'] as String? ?? ''),
-      assignedGrade: (json['assignedGrade'] as num?)?.toDouble(),
-      maxPoints: (json['maxPoints'] as num?)?.toInt(),
+      assignedGrade: json['assignedGrade'] is num
+          ? (json['assignedGrade'] as num).toDouble()
+          : null,
+      maxPoints: json['maxPoints'] is num
+          ? (json['maxPoints'] as num).toInt()
+          : null,
     );
   }
 

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../models/classroom_course.dart';
@@ -92,6 +93,19 @@ class ClassroomProvider extends ChangeNotifier {
     _error = null;
     _syncedAt = null;
     ClassroomStorageService.clear();
+    notifyListeners();
+  }
+
+  /// Seeds in-memory classroom data for integration/widget tests (no storage or Firestore).
+  @visibleForTesting
+  void seedForTest({
+    List<ClassroomCourse> courses = const [],
+    List<Task> tasks = const [],
+    DateTime? syncedAt,
+  }) {
+    _courses = List<ClassroomCourse>.from(courses);
+    _tasks = List<Task>.from(tasks);
+    _syncedAt = syncedAt ?? DateTime.now();
     notifyListeners();
   }
 

@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import '../core/theme.dart';
+import '../services/device_pairing_storage_service.dart';
 
 /// الموبايل يقرأ QR → يأخذ اللينك → يفتحه في المتصفح.
 /// إذا القيمة مش URL يعرض "Invalid QR".
@@ -77,6 +79,14 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
           'paired': true,
           'device': 'Mobile device',
         });
+        final uid = FirebaseAuth.instance.currentUser?.uid;
+        if (uid != null) {
+          await DevicePairingStorageService.setPaired(
+            uid: uid,
+            paired: true,
+            deviceName: 'Mobile device',
+          );
+        }
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

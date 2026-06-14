@@ -16,15 +16,17 @@ class ProfileRecord(BaseModel):
     userId: str
     fullName: str
     email: str
-    major: Optional[str] = "Computer Science"
-    academicYear: Optional[str] = "Junior"
-    gpa: Optional[str] = "3.85"
+    studentId: Optional[str] = ""
+    major: Optional[str] = ""
+    academicYear: Optional[str] = ""
+    gpa: Optional[str] = ""
     updatedAt: str
 
 
 class UpdateProfileRequest(BaseModel):
     fullName: str
     email: str
+    studentId: Optional[str] = None
     major: Optional[str] = None
     academicYear: Optional[str] = None
     gpa: Optional[str] = None
@@ -63,9 +65,10 @@ def _default_profile(user_id: str) -> Dict:
         userId=user_id,
         fullName="",
         email="",
-        major="Computer Science",
-        academicYear="Junior",
-        gpa="3.85",
+        studentId="",
+        major="",
+        academicYear="",
+        gpa="",
         updatedAt=datetime.utcnow().isoformat(),
     ).model_dump(mode="json")
 
@@ -88,9 +91,10 @@ async def update_profile(user_id: str, body: UpdateProfileRequest):
 
     current["fullName"] = body.fullName
     current["email"] = body.email
-    current["major"] = body.major or current.get("major") or "Computer Science"
-    current["academicYear"] = body.academicYear or current.get("academicYear") or "Junior"
-    current["gpa"] = body.gpa or current.get("gpa") or "3.85"
+    current["studentId"] = body.studentId or current.get("studentId") or ""
+    current["major"] = body.major or current.get("major") or ""
+    current["academicYear"] = body.academicYear or current.get("academicYear") or ""
+    current["gpa"] = body.gpa or current.get("gpa") or ""
     current["updatedAt"] = datetime.utcnow().isoformat()
 
     data["profiles"][user_id] = current

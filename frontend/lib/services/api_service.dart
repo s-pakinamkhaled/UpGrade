@@ -164,6 +164,7 @@ class ApiService {
         'userId': userId,
         'title': taskJson['title'],
         'status': taskJson['status'] ?? 'pending',
+        'deadline': taskJson['deadline'],
         'startedAt': taskJson['startedAt'],
         'completedAt': taskJson['completedAt'],
         'updatedAt': taskJson['updatedAt'] ?? DateTime.now().toIso8601String(),
@@ -233,6 +234,7 @@ class ApiService {
     required String userId,
     required String fullName,
     required String email,
+    required String studentId,
     required String major,
     required String academicYear,
     required String gpa,
@@ -245,6 +247,7 @@ class ApiService {
             body: json.encode({
               'fullName': fullName,
               'email': email,
+              'studentId': studentId,
               'major': major,
               'academicYear': academicYear,
               'gpa': gpa,

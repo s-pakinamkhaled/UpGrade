@@ -57,6 +57,7 @@ class _LoginScreenState extends State<LoginScreen> {
       }
 
       if (!mounted) return;
+      await context.read<ClassroomProvider>().loadForCurrentUser();
       await UserMatchingProfileSyncService.syncCurrentUserProfile(
         courses: context.read<ClassroomProvider>().courses,
         tasks: context.read<ClassroomProvider>().tasks,
@@ -91,6 +92,7 @@ class _LoginScreenState extends State<LoginScreen> {
       }
 
       if (!mounted) return;
+      await context.read<ClassroomProvider>().loadForCurrentUser();
       await UserMatchingProfileSyncService.syncCurrentUserProfile(
         courses: context.read<ClassroomProvider>().courses,
         tasks: context.read<ClassroomProvider>().tasks,

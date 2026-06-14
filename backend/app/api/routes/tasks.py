@@ -17,6 +17,7 @@ class TaskRecord(BaseModel):
     userId: str
     title: Optional[str] = None
     status: TaskStatus = "pending"
+    deadline: Optional[datetime] = None
     startedAt: Optional[datetime] = None
     completedAt: Optional[datetime] = None
     updatedAt: datetime
@@ -72,6 +73,11 @@ def _ensure_data_store() -> None:
             )
             """
         )
+        columns = {
+            row[1] for row in conn.execute("PRAGMA table_info(tasks)").fetchall()
+        }
+        if "deadline" not in columns:
+            conn.execute("ALTER TABLE tasks ADD COLUMN deadline TEXT")
         conn.commit()
 
     _migrate_legacy_json_if_needed()
@@ -82,7 +88,7 @@ def _load_store() -> Dict:
     with _connect_db() as conn:
         task_rows = conn.execute(
             """
-            SELECT id, user_id, title, status, started_at, completed_at, updated_at
+            SELECT id, user_id, title, status, deadline, started_at, completed_at, updated_at
             FROM tasks
             """
         ).fetchall()
@@ -101,6 +107,7 @@ def _load_store() -> Dict:
             "userId": row["user_id"],
             "title": row["title"],
             "status": row["status"],
+            "deadline": row["deadline"],
             "startedAt": row["started_at"],
             "completedAt": row["completed_at"],
             "updatedAt": row["updated_at"],
@@ -130,14 +137,15 @@ def _save_store(data: Dict) -> None:
             conn.execute(
                 """
                 INSERT INTO tasks (
-                    id, user_id, title, status, started_at, completed_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                    id, user_id, title, status, deadline, started_at, completed_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     task.get("id"),
                     task.get("userId"),
                     task.get("title"),
                     task.get("status"),
+                    task.get("deadline"),
                     task.get("startedAt"),
                     task.get("completedAt"),
                     task.get("updatedAt"),
@@ -192,6 +200,17 @@ def _migrate_legacy_json_if_needed() -> None:
     except Exception:
         # Keep startup resilient even if old file is malformed.
         return
+
+
+def list_all_tasks() -> List[TaskRecord]:
+    data = _load_store()
+    tasks: List[TaskRecord] = []
+    for raw_task in data["tasks"].values():
+        try:
+            tasks.append(TaskRecord.model_validate(raw_task))
+        except Exception:
+            continue
+    return tasks
 
 
 def update_task_status(task_id: str, new_status: TaskStatus, user_id: str) -> TaskRecord:

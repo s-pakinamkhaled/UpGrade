@@ -27,6 +27,7 @@ dependencies:
   shared_preferences: ^2.2.2
   qr_flutter: ^4.1.0
   google_fonts: ^8.0.2
+  firebase_messaging: ^15.2.10
 
 dev_dependencies:
   flutter_test:

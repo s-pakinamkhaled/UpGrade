@@ -8,6 +8,7 @@ import 'core/theme.dart';
 import 'core/constants.dart';
 import 'core/dashboard_shell_navigation.dart';
 
+import 'services/device_pairing_storage_service.dart';
 import 'screens/login_screen.dart';
 import 'screens/qr_scanner_screen.dart';
 import 'screens/register_screen.dart';
@@ -35,13 +36,17 @@ import 'screens/privacy_settings_screen.dart';
 import 'screens/edit_profile_screen.dart';
 import 'screens/end_session_screen.dart';
 import 'screens/manual_courses_screen.dart';
+import 'screens/notifications_screen.dart';
 
 import 'models/task.dart';
 import 'widgets/app_logo.dart';
 import 'widgets/dashboard_shell_row.dart';
+import 'widgets/notification_bell_button.dart';
 import 'widgets/upgrade_visual_system.dart';
+import 'providers/classroom_provider.dart';
 import 'providers/dashboard_shell_provider.dart';
 import 'providers/settings_provider.dart';
+import 'providers/notification_provider.dart';
 
 class UpGradeApp extends StatefulWidget {
   const UpGradeApp({super.key});
@@ -79,6 +84,14 @@ class _UpGradeAppState extends State<UpGradeApp> {
               .collection('pairing_sessions')
               .doc(sessionId)
               .update({'paired': true, 'device': 'Mobile device'});
+          final uid = FirebaseAuth.instance.currentUser?.uid;
+          if (uid != null) {
+            await DevicePairingStorageService.setPaired(
+              uid: uid,
+              paired: true,
+              deviceName: 'Mobile device',
+            );
+          }
         } catch (_) {}
       }
       UpGradeApp.navigateToHome();
@@ -136,9 +149,11 @@ class _UpGradeAppState extends State<UpGradeApp> {
                 Navigator.of(context).pop();
               },
               onEndAndSignOut: () async {
+                await context.read<ClassroomProvider>().clearUserData();
                 await FirebaseAuth.instance.signOut();
                 if (!context.mounted) return;
                 context.read<DashboardShellProvider>().resetForNewSession();
+                context.read<NotificationProvider>().resetForNewSession();
                 if (!context.mounted) return;
                 Navigator.of(context).pushNamedAndRemoveUntil(
                   AppConstants.routeLogin,
@@ -177,6 +192,7 @@ class _UpGradeAppState extends State<UpGradeApp> {
 
         // ---------- OTHER ROUTES ----------
        AppConstants.routeWarnings: (context) => const WarningsScreen(),
+AppConstants.routeNotifications: (context) => const NotificationsScreen(),
 AppConstants.routeProgress: (context) =>
     const ProgressDashboardScreen(showAppBar: false),
 AppConstants.routeBurnout: (context) => const BurnoutRiskScreen(),
@@ -254,159 +270,95 @@ class MainNavigationScreen extends StatefulWidget {
 
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  late final Widget _shellIndexedStack = const _MainShellIndexedStack();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      await context.read<ClassroomProvider>().syncTasksToBackend();
+      if (!mounted) return;
+      await context.read<NotificationProvider>().refreshUnreadCount();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    final shell = context.watch<DashboardShellProvider>();
     final width = MediaQuery.sizeOf(context).width;
-
     final isDesktop = width >= 900;
     final isTablet = width >= 600;
-    // Mobile layout: width < 600.
-
-    Widget mainIndexedStack() {
-      return IndexedStack(
-        index: shell.currentIndex,
-        children: [
-          const ProgressDashboardScreen(showAppBar: false),
-          const DailyPlannerScreen(),
-          const AIChatbotScreen(),
-          const StudyPlanScreen(),
-          const GroupStudyScreen(),
-          const WarningsScreen(),
-          const ProfileScreen(),
-          GoogleClassroomSyncScreen(
-            fromPostLoginSetup: shell.googleClassroomFromPostLoginSetup,
-          ),
-          const ManualCoursesScreen(embeddedInShell: true),
-          EndSessionScreen(
-            onContinue: () {
-              context.read<DashboardShellProvider>().exitEndSessionContinue();
-            },
-            onEndAndSignOut: () async {
-              await FirebaseAuth.instance.signOut();
-              if (!context.mounted) return;
-              context.read<DashboardShellProvider>().resetForNewSession();
-              if (!context.mounted) return;
-              Navigator.of(context).pushNamedAndRemoveUntil(
-                AppConstants.routeLogin,
-                (route) => false,
-              );
-            },
-          ),
-        ],
-      );
-    }
 
     if (isDesktop || isTablet) {
       return Scaffold(
         backgroundColor: Colors.transparent,
         body: DashboardShellRow(
-          body: mainIndexedStack(),
+          body: _shellIndexedStack,
         ),
       );
     }
 
-    return Scaffold(
-      key: _scaffoldKey,
-      backgroundColor: Colors.transparent,
-      drawer: _buildDrawer(context),
-      appBar: AppBar(
-        title: const Text('UpGrade'),
-      ),
-      body: DecoratedBox(
-        decoration: UpGradePageDecor.pageBackground(
-          Theme.of(context).brightness == Brightness.dark,
-        ),
-        child: mainIndexedStack(),
-      ),
-      bottomNavigationBar: shell.currentIndex >= 8 ||
-              !const {0, 1, 2, 4}.contains(shell.currentIndex)
-          ? null
-          : NavigationBar(
-              selectedIndex: shell.currentIndex == 4 ? 3 : shell.currentIndex,
-              onDestinationSelected: (index) {
-                final stackIndex = switch (index) {
-                  0 => 0,
-                  1 => 1,
-                  2 => 2,
-                  _ => 4,
-                };
-                context.read<DashboardShellProvider>().selectTab(stackIndex);
-              },
-              destinations: const [
-                NavigationDestination(
-                  icon: Icon(Icons.dashboard_outlined),
-                  selectedIcon: Icon(Icons.dashboard),
-                  label: 'Dashboard',
-                ),
-                NavigationDestination(
-                  icon: Icon(Icons.calendar_today_outlined),
-                  selectedIcon: Icon(Icons.calendar_today),
-                  label: 'My Tasks',
-                ),
-                NavigationDestination(
-                  icon: Icon(Icons.auto_awesome_outlined),
-                  selectedIcon: Icon(Icons.auto_awesome),
-                  label: 'AI Chat',
-                ),
-                NavigationDestination(
-                  icon: Icon(Icons.groups_outlined),
-                  selectedIcon: Icon(Icons.groups),
-                  label: 'Groups',
-                ),
-              ],
-            ),
-      floatingActionButton: Container(
-        decoration: BoxDecoration(
-          gradient: AppTheme.primaryGradient,
-          shape: BoxShape.circle,
-          boxShadow: AppTheme.mediumShadow,
-        ),
-        child: FloatingActionButton(
-          onPressed: () {
-            selectMainShellRoute(
-              context,
-              AppConstants.routeWarnings,
-            );
-          },
+    return Selector<DashboardShellProvider, int>(
+      selector: (_, shell) => shell.currentIndex,
+      builder: (context, currentIndex, child) {
+        return Scaffold(
+          key: _scaffoldKey,
           backgroundColor: Colors.transparent,
-          elevation: 0,
-          child: Stack(
-            children: [
-              const Icon(
-                Icons.notifications_rounded,
-                color: AppTheme.white,
-                size: 24,
-              ),
-              Positioned(
-                right: 0,
-                top: 0,
-                child: Container(
-                  padding: const EdgeInsets.all(5),
-                  decoration: const BoxDecoration(
-                    color: AppTheme.errorRed,
-                    shape: BoxShape.circle,
-                  ),
-                  constraints: const BoxConstraints(
-                    minWidth: 18,
-                    minHeight: 18,
-                  ),
-                  child: const Text(
-                    '3',
-                    style: TextStyle(
-                      color: AppTheme.white,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              ),
+          drawer: _buildDrawer(context),
+          appBar: AppBar(
+            title: const Text('UpGrade'),
+            actions: const [
+              NotificationBellButton(),
             ],
           ),
-        ),
-      ),
+          body: DecoratedBox(
+            decoration: UpGradePageDecor.pageBackground(
+              Theme.of(context).brightness == Brightness.dark,
+            ),
+            child: child!,
+          ),
+          bottomNavigationBar: currentIndex >= 8 ||
+                  !const {0, 1, 2, 4}.contains(currentIndex)
+              ? null
+              : NavigationBar(
+                  selectedIndex: currentIndex == 4 ? 3 : currentIndex,
+                  onDestinationSelected: (index) {
+                    final stackIndex = switch (index) {
+                      0 => 0,
+                      1 => 1,
+                      2 => 2,
+                      _ => 4,
+                    };
+                    context
+                        .read<DashboardShellProvider>()
+                        .selectTab(stackIndex);
+                  },
+                  destinations: const [
+                    NavigationDestination(
+                      icon: Icon(Icons.dashboard_outlined),
+                      selectedIcon: Icon(Icons.dashboard),
+                      label: 'Dashboard',
+                    ),
+                    NavigationDestination(
+                      icon: Icon(Icons.calendar_today_outlined),
+                      selectedIcon: Icon(Icons.calendar_today),
+                      label: 'My Tasks',
+                    ),
+                    NavigationDestination(
+                      icon: Icon(Icons.auto_awesome_outlined),
+                      selectedIcon: Icon(Icons.auto_awesome),
+                      label: 'AI Chat',
+                    ),
+                    NavigationDestination(
+                      icon: Icon(Icons.groups_outlined),
+                      selectedIcon: Icon(Icons.groups),
+                      label: 'Groups',
+                    ),
+                  ],
+                ),
+        );
+      },
+      child: _shellIndexedStack,
     );
   }
 
@@ -535,3 +487,67 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     );
   }
 }
+
+/// Main shell tabs — only rebuilds when [DashboardShellProvider.currentIndex]
+/// or Google Classroom post-login flag changes, not on sidebar toggle.
+class _MainShellIndexedStack extends StatelessWidget {
+  const _MainShellIndexedStack();
+
+  @override
+  Widget build(BuildContext context) {
+    return Selector<DashboardShellProvider, int>(
+      selector: (_, shell) => shell.currentIndex,
+      builder: (context, currentIndex, _) {
+        return IndexedStack(
+          index: currentIndex,
+          sizing: StackFit.expand,
+          children: [
+            const RepaintBoundary(
+              child: ProgressDashboardScreen(showAppBar: false),
+            ),
+            const RepaintBoundary(child: DailyPlannerScreen()),
+            const RepaintBoundary(child: AIChatbotScreen()),
+            const RepaintBoundary(child: StudyPlanScreen()),
+            const RepaintBoundary(child: GroupStudyScreen()),
+            const RepaintBoundary(child: WarningsScreen()),
+            const RepaintBoundary(child: ProfileScreen(embeddedInShell: true)),
+            RepaintBoundary(
+              child: Selector<DashboardShellProvider, bool>(
+                selector: (_, shell) => shell.googleClassroomFromPostLoginSetup,
+                builder: (context, fromPostLogin, _) =>
+                    GoogleClassroomSyncScreen(
+                  fromPostLoginSetup: fromPostLogin,
+                ),
+              ),
+            ),
+            const RepaintBoundary(
+              child: ManualCoursesScreen(embeddedInShell: true),
+            ),
+            RepaintBoundary(
+              child: EndSessionScreen(
+                onContinue: () {
+                  context
+                      .read<DashboardShellProvider>()
+                      .exitEndSessionContinue();
+                },
+                onEndAndSignOut: () async {
+                  await context.read<ClassroomProvider>().clearUserData();
+                  await FirebaseAuth.instance.signOut();
+                  if (!context.mounted) return;
+                  context.read<DashboardShellProvider>().resetForNewSession();
+                  context.read<NotificationProvider>().resetForNewSession();
+                  if (!context.mounted) return;
+                  Navigator.of(context).pushNamedAndRemoveUntil(
+                    AppConstants.routeLogin,
+                    (route) => false,
+                  );
+                },
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+

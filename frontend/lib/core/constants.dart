@@ -42,6 +42,7 @@ class AppConstants {
 
   static const String routeTaskExecution = '/task-execution';
   static const String routeWarnings = '/warnings';
+  static const String routeNotifications = '/notifications';
   static const String routeProgress = '/progress';
   static const String routeBurnout = '/burnout';
   static const String routeGroupStudy = '/group-study';

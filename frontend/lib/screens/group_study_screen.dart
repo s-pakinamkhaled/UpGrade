@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../models/classroom_course.dart';
 import '../core/theme.dart';
 import '../providers/classroom_provider.dart';
 import '../services/course_room_service.dart';
@@ -40,6 +41,98 @@ class _GroupStudyScreenState extends State<GroupStudyScreen> {
   bool _isSendingRequest = false;
   /// Hides invitation rows immediately on Accept/Reject; cleared if the call fails.
   final Set<String> _dismissingRequestIds = {};
+
+  /// Returns a [DropdownButton] value that exists in [courses], or null.
+  String? _courseDropdownValue(List<ClassroomCourse> courses) {
+    if (courses.isEmpty) return null;
+    final ids = courses.map((c) => c.id).toSet();
+    if (_selectedCourseId != null && ids.contains(_selectedCourseId)) {
+      return _selectedCourseId;
+    }
+    return courses.first.id;
+  }
+
+  /// Returns a room doc id present in [rooms], or null.
+  String? _roomDropdownValue(
+    List<QueryDocumentSnapshot<Map<String, dynamic>>> rooms,
+  ) {
+    if (rooms.isEmpty) return null;
+    final ids = rooms.map((r) => r.id).toSet();
+    if (_selectedRoomId != null && ids.contains(_selectedRoomId)) {
+      return _selectedRoomId;
+    }
+    return rooms.first.id;
+  }
+
+  List<ClassroomCourse> _uniqueCourses(List<ClassroomCourse> courses) {
+    final seen = <String>{};
+    return courses.where((c) => seen.add(c.id)).toList();
+  }
+
+  String _activeRoomDropdownLabel(
+    Map<String, dynamic> roomData,
+    String fallbackId,
+  ) {
+    final courseName = roomData['courseName']?.toString() ?? fallbackId;
+    final rawMembers = roomData['memberIds'];
+    final memberCount = rawMembers is List ? rawMembers.length : 0;
+    return '$courseName ($memberCount members)';
+  }
+
+  List<String> _roomMemberDisplayNames(Map<String, dynamic> roomData) {
+    final rawNames = roomData['memberNames'];
+    if (rawNames is Map) {
+      final names = rawNames.values
+          .map((value) => value.toString().trim())
+          .where((name) => name.isNotEmpty)
+          .toList();
+      if (names.isNotEmpty) return names;
+    }
+
+    final rawMemberIds = roomData['memberIds'];
+    if (rawMemberIds is List && rawMemberIds.isNotEmpty) {
+      return rawMemberIds.map((id) => id.toString()).toList();
+    }
+
+    return const <String>[];
+  }
+
+  Future<void> _leaveRoom(String roomId) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Leave room?'),
+        content: const Text(
+          'You will stop seeing this study room and its chat. '
+          'Other members can continue using it.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Leave room'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    try {
+      await CourseRoomService.leaveRoom(roomId: roomId, userId: uid);
+      if (!mounted) return;
+      setState(() => _selectedRoomId = null);
+      _showMessage('You left the room.');
+    } catch (e) {
+      if (!mounted) return;
+      _showMessage(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
 
   @override
   void dispose() {
@@ -94,7 +187,7 @@ class _GroupStudyScreenState extends State<GroupStudyScreen> {
       );
       if (!mounted) return;
       setState(() {
-        _selectedRoomId = accepted.groupId;
+        _selectedRoomId = accepted.roomId;
       });
       if (kDebugMode) {
         debugPrint('[GroupStudy] accepted requestId=${accepted.requestId}');
@@ -276,14 +369,12 @@ class _GroupStudyScreenState extends State<GroupStudyScreen> {
 
     final classroom = context.watch<ClassroomProvider>();
     final user = FirebaseAuth.instance.currentUser;
-    final courses = classroom.courses;
+    final courses = _uniqueCourses(classroom.courses);
     if (user == null) {
       return const Scaffold(body: Center(child: Text('Please log in first.')));
     }
 
-    if (_selectedCourseId == null && courses.isNotEmpty) {
-      _selectedCourseId = courses.first.id;
-    }
+    final courseDropdownValue = _courseDropdownValue(courses);
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -351,7 +442,7 @@ class _GroupStudyScreenState extends State<GroupStudyScreen> {
                       else
                         DropdownButtonFormField<String>(
                           isExpanded: true,
-                          value: _selectedCourseId,
+                          value: courseDropdownValue,
                           decoration: UpGradeInputDecor.themed(
                             context,
                             panelRem,
@@ -539,17 +630,18 @@ class _GroupStudyScreenState extends State<GroupStudyScreen> {
                         ),
                       );
                     }
-                    _selectedRoomId ??= rooms.first.id;
-                    final selectedIndex =
-                        rooms.indexWhere((r) => r.id == _selectedRoomId);
+                    final roomDropdownValue = _roomDropdownValue(rooms);
+                    final selectedIndex = roomDropdownValue == null
+                        ? -1
+                        : rooms.indexWhere((r) => r.id == roomDropdownValue);
                     final selected = selectedIndex >= 0
                         ? rooms[selectedIndex]
                         : rooms.first;
                     final Map<String, dynamic> roomData = selected.data();
-                    final rawMembers = roomData['memberIds'];
-                    final memberIds = rawMembers is List
-                        ? rawMembers.map((e) => e.toString()).toList()
-                        : <String>[];
+                    final memberNames = _roomMemberDisplayNames(roomData);
+                    final membersLabel = memberNames.isEmpty
+                        ? 'Members: none'
+                        : 'Members: ${memberNames.join(', ')}';
 
                     return Container(
                       decoration: BoxDecoration(
@@ -590,66 +682,76 @@ class _GroupStudyScreenState extends State<GroupStudyScreen> {
                                 ),
                               ),
                             ),
-                            child: Row(
+                            child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Expanded(
-                                  child: DropdownButtonFormField<String>(
-                                    value: _selectedRoomId,
-                                    isExpanded: true,
-                                    decoration: UpGradeInputDecor.themed(
-                                      context,
-                                      panelRem,
-                                      '',
-                                    ).copyWith(
-                                      labelText: 'Active room',
-                                      hintText: null,
-                                    ),
-                                    items: rooms
-                                        .map(
-                                          (room) => DropdownMenuItem<String>(
-                                            value: room.id,
-                                            child: Text(
-                                              room
-                                                      .data()['courseName']
-                                                      ?.toString() ??
-                                                  room.id,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                          ),
-                                        )
-                                        .toList(),
-                                    onChanged: (value) => setState(
-                                      () => _selectedRoomId = value,
-                                    ),
-                                  ),
-                                ),
-                                SizedBox(width: panelRem.space(0.65)),
-                                Container(
-                                  padding: EdgeInsets.symmetric(
-                                    horizontal: panelRem.space(0.55),
-                                    vertical: panelRem.space(0.35),
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.secondaryPurple.withOpacity(
-                                      isDark ? 0.22 : 0.12,
-                                    ),
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
-                                      color: AppTheme.secondaryPurple.withOpacity(
-                                        0.28,
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(
+                                      child: DropdownButtonFormField<String>(
+                                        value: roomDropdownValue,
+                                        isExpanded: true,
+                                        decoration: UpGradeInputDecor.themed(
+                                          context,
+                                          panelRem,
+                                          '',
+                                        ).copyWith(
+                                          labelText: 'Active room',
+                                          hintText: null,
+                                        ),
+                                        items: rooms
+                                            .map(
+                                              (room) =>
+                                                  DropdownMenuItem<String>(
+                                                value: room.id,
+                                                child: Text(
+                                                  _activeRoomDropdownLabel(
+                                                    room.data(),
+                                                    room.id,
+                                                  ),
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                            )
+                                            .toList(),
+                                        onChanged: (value) => setState(
+                                          () => _selectedRoomId = value,
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                  child: Text(
-                                    '${memberIds.length} members',
-                                    style: TextStyle(
-                                      fontSize: panelRem.listSubtitle,
-                                      fontWeight: FontWeight.w700,
-                                      color: isDark
-                                          ? const Color(0xFFE9D5FF)
-                                          : AppTheme.secondaryPurple,
+                                    SizedBox(width: panelRem.space(0.45)),
+                                    FilledButton(
+                                      onPressed: () => _leaveRoom(selected.id),
+                                      style: FilledButton.styleFrom(
+                                        backgroundColor: AppTheme.errorRed,
+                                        foregroundColor: Colors.white,
+                                        padding: EdgeInsets.symmetric(
+                                          horizontal: panelRem.space(0.85),
+                                          vertical: panelRem.space(0.55),
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                      ),
+                                      child: Text(
+                                        'Leave room',
+                                        style: TextStyle(
+                                          fontSize: panelRem.listSubtitle,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
                                     ),
+                                  ],
+                                ),
+                                SizedBox(height: panelRem.space(0.55)),
+                                Text(
+                                  membersLabel,
+                                  style: TextStyle(
+                                    fontSize: panelRem.listSubtitle,
+                                    fontWeight: FontWeight.w600,
+                                    color: muted,
+                                    height: 1.35,
                                   ),
                                 ),
                               ],

@@ -35,6 +35,18 @@ class SettingsProvider extends ChangeNotifier {
   String _availableEnd = '21:00';
   String get availableEnd => _availableEnd;
 
+  String? _preferredStudyTime;
+  String? get preferredStudyTime => _preferredStudyTime;
+
+  String? _dailyStudyGoal;
+  String? get dailyStudyGoal => _dailyStudyGoal;
+
+  String? _reminderTime;
+  String? get reminderTime => _reminderTime;
+
+  String? _focusSessionDuration;
+  String? get focusSessionDuration => _focusSessionDuration;
+
   Future<void> load() async {
     final prefs = await SharedPreferences.getInstance();
 
@@ -77,6 +89,11 @@ class SettingsProvider extends ChangeNotifier {
 
     _availableStart = prefs.getString('profile_available_start') ?? '18:00';
     _availableEnd = prefs.getString('profile_available_end') ?? '21:00';
+
+    _preferredStudyTime = prefs.getString('profile_preferred_study_time');
+    _dailyStudyGoal = prefs.getString('profile_daily_study_goal');
+    _reminderTime = prefs.getString('profile_reminder_time');
+    _focusSessionDuration = prefs.getString('profile_focus_session_duration');
 
     _loaded = true;
     notifyListeners();
@@ -154,6 +171,50 @@ class SettingsProvider extends ChangeNotifier {
     await prefs.setString('profile_available_start', startHHmm);
     await prefs.setString('profile_available_end', endHHmm);
     await UserMatchingProfileSyncService.syncCurrentUserProfile();
+  }
+
+  Future<void> setStudyPreferences({
+    String? preferredStudyTime,
+    String? dailyStudyGoal,
+    String? reminderTime,
+    String? focusSessionDuration,
+  }) async {
+    _preferredStudyTime = _trimOrNull(preferredStudyTime);
+    _dailyStudyGoal = _trimOrNull(dailyStudyGoal);
+    _reminderTime = _trimOrNull(reminderTime);
+    _focusSessionDuration = _trimOrNull(focusSessionDuration);
+    notifyListeners();
+
+    final prefs = await SharedPreferences.getInstance();
+    await _setNullableString(
+      prefs,
+      'profile_preferred_study_time',
+      _preferredStudyTime,
+    );
+    await _setNullableString(prefs, 'profile_daily_study_goal', _dailyStudyGoal);
+    await _setNullableString(prefs, 'profile_reminder_time', _reminderTime);
+    await _setNullableString(
+      prefs,
+      'profile_focus_session_duration',
+      _focusSessionDuration,
+    );
+  }
+
+  static String? _trimOrNull(String? value) {
+    final trimmed = value?.trim() ?? '';
+    return trimmed.isEmpty ? null : trimmed;
+  }
+
+  static Future<void> _setNullableString(
+    SharedPreferences prefs,
+    String key,
+    String? value,
+  ) async {
+    if (value == null) {
+      await prefs.remove(key);
+    } else {
+      await prefs.setString(key, value);
+    }
   }
 }
 

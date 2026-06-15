@@ -6,7 +6,11 @@ import '../core/theme.dart';
 import '../core/constants.dart';
 import '../core/profile_display_name.dart';
 import '../providers/settings_provider.dart';
+import '../providers/classroom_provider.dart';
 import '../services/api_service.dart';
+import '../core/profile_completion.dart';
+import '../models/task.dart';
+import '../services/device_pairing_storage_service.dart';
 import '../widgets/dashboard_secondary_shell.dart';
 import '../widgets/upgrade_visual_system.dart';
 
@@ -26,8 +30,6 @@ class _ProfileTypeScale {
   double get tag => rem * 0.74;
   double get editLabel => rem * 0.88;
   double get editIcon => rem * 1.05;
-  double get statValue => rem * 1.52;
-  double get statLabel => rem * 0.78;
   double get sectionTitle => rem * 1.18;
   double get settingTitle => rem * 0.92;
   double get settingAction => rem * 0.68;
@@ -36,7 +38,9 @@ class _ProfileTypeScale {
 }
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key});
+  final bool embeddedInShell;
+
+  const ProfileScreen({super.key, this.embeddedInShell = false});
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -44,6 +48,8 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   bool _isLoadingProfile = true;
+  bool _isLoadingDeviceStatus = true;
+  bool _devicePaired = false;
   Map<String, dynamic>? _profile;
 
   User? get _user => FirebaseAuth.instance.currentUser;
@@ -56,6 +62,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void initState() {
     super.initState();
     _loadProfile();
+    _loadDevicePairingStatus();
+  }
+
+  Future<void> _loadDevicePairingStatus() async {
+    final uid = _user?.uid;
+    if (uid == null) {
+      if (!mounted) return;
+      setState(() {
+        _devicePaired = false;
+        _isLoadingDeviceStatus = false;
+      });
+      return;
+    }
+    final paired = await DevicePairingStorageService.isPaired(uid);
+    if (!mounted) return;
+    setState(() {
+      _devicePaired = paired;
+      _isLoadingDeviceStatus = false;
+    });
   }
 
   Future<void> _loadProfile() async {
@@ -76,6 +101,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final settings = context.watch<SettingsProvider>();
+    final classroom = context.watch<ClassroomProvider>();
     final user = _user;
     final userEmail = user?.email?.trim() ?? '';
     final profileEmail = (_profile?['email'] as String?)?.trim() ?? '';
@@ -94,22 +120,48 @@ class _ProfileScreenState extends State<ProfileScreen> {
             : displayNameFromEmail(
                 email.isNotEmpty ? email : userEmail,
               );
-    final major = ((_profile?['major'] as String?)?.trim().isNotEmpty ?? false)
-        ? (_profile!['major'] as String).trim()
-        : 'Computer Science';
-    final academicYear =
-        ((_profile?['academicYear'] as String?)?.trim().isNotEmpty ?? false)
-            ? (_profile!['academicYear'] as String).trim()
-            : 'Junior';
-    final gpa = ((_profile?['gpa'] as String?)?.trim().isNotEmpty ?? false)
-        ? (_profile!['gpa'] as String).trim()
-        : '3.85';
+    final major = (_profile?['major'] as String?)?.trim() ?? '';
+    final academicYear = (_profile?['academicYear'] as String?)?.trim() ?? '';
+    final gpa = (_profile?['gpa'] as String?)?.trim() ?? '';
+    final studentId = (_profile?['studentId'] as String?)?.trim() ?? '';
+    final profileFullName = (_profile?['fullName'] as String?)?.trim() ?? '';
+    final completion = calculateProfileCompletion(
+      profileFullName: profileFullName,
+      profileStudentId: studentId,
+      profileEmail: profileEmail,
+      firebaseEmail: userEmail,
+      major: major,
+      academicYear: academicYear,
+      gpa: gpa,
+    );
     final initials = name
         .split(' ')
         .where((p) => p.trim().isNotEmpty)
         .map((p) => p.trim().substring(0, 1).toUpperCase())
         .take(2)
         .join();
+
+    final page = _buildPageContent(
+      context,
+      name: name,
+      email: email,
+      major: major,
+      academicYear: academicYear,
+      gpa: gpa,
+      settings: settings,
+      isLoadingProfile: _isLoadingProfile,
+      completion: completion,
+      classroom: classroom,
+      devicePaired: _devicePaired,
+      isLoadingDeviceStatus: _isLoadingDeviceStatus,
+      initials: initials.isNotEmpty
+          ? initials
+          : (name.isNotEmpty ? name.substring(0, 1).toUpperCase() : '?'),
+    );
+
+    if (widget.embeddedInShell) {
+      return page;
+    }
 
     return DashboardSecondaryShell(
       narrow: Scaffold(
@@ -124,37 +176,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
           elevation: 0,
           scrolledUnderElevation: 0,
         ),
-        body: _buildPage(
-          context,
-          name: name,
-          email: email,
-          major: major,
-          academicYear: academicYear,
-          gpa: gpa,
-          settings: settings,
-          isLoadingProfile: _isLoadingProfile,
-          initials: initials.isNotEmpty
-              ? initials
-              : (name.isNotEmpty ? name.substring(0, 1).toUpperCase() : '?'),
-        ),
+        body: page,
       ),
-      wideBody: _buildPage(
-        context,
-        name: name,
-        email: email,
-        major: major,
-        academicYear: academicYear,
-        gpa: gpa,
-        settings: settings,
-        isLoadingProfile: _isLoadingProfile,
-        initials: initials.isNotEmpty
-            ? initials
-            : (name.isNotEmpty ? name.substring(0, 1).toUpperCase() : '?'),
-      ),
+      wideBody: page,
     );
   }
 
-  Widget _buildPage(
+  Widget _buildPageContent(
     BuildContext context, {
     required String name,
     required String email,
@@ -163,6 +191,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     required String gpa,
     required SettingsProvider settings,
     required bool isLoadingProfile,
+    required ProfileCompletionResult completion,
+    required ClassroomProvider classroom,
+    required bool devicePaired,
+    required bool isLoadingDeviceStatus,
     required String initials,
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -222,11 +254,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
           );
         }
 
-        return Container(
-          decoration: UpGradePageDecor.pageBackground(isDark),
+        return Align(
+          alignment: Alignment.topCenter,
           child: SingleChildScrollView(
-            padding: EdgeInsets.all(side),
+            padding: EdgeInsets.fromLTRB(side, side, side, side),
             child: Column(
+              mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 UpGradeGradientTitle(
@@ -240,7 +273,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   rem: pageRem,
                   isDark: isDark,
                 ),
-                SizedBox(height: t.space(1.35)),
+                SizedBox(height: t.space(1.0)),
                 _buildHeaderCard(
                   context,
                   name: name,
@@ -257,13 +290,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   SizedBox(height: t.space(0.65)),
                   const LinearProgressIndicator(minHeight: 2),
                 ],
-                SizedBox(height: t.space(1.25)),
-                _buildStatsRow(
-                  t: t,
-                  contentWidth: width,
-                  isDark: isDark,
-                ),
-                SizedBox(height: t.space(1.35)),
+                SizedBox(height: t.space(1.0)),
                 Row(
                   children: [
                     Container(
@@ -291,6 +318,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 settingsChips(),
                 SizedBox(height: t.space(0.65)),
                 _buildPrivacyDeviceRows(context, t, isDark),
+                SizedBox(height: t.space(0.85)),
+                _buildProfileCompletionCard(
+                  completion: completion,
+                  t: t,
+                  isDark: isDark,
+                ),
+                SizedBox(height: t.space(0.65)),
+                _buildStudyPreferencesCard(
+                  context,
+                  settings: settings,
+                  t: t,
+                  isDark: isDark,
+                ),
+                SizedBox(height: t.space(0.65)),
+                _buildConnectedServicesCard(
+                  context,
+                  googleClassroomConnected: classroom.googleClassroomConnected,
+                  devicePaired: devicePaired,
+                  isLoadingDeviceStatus: isLoadingDeviceStatus,
+                  t: t,
+                  isDark: isDark,
+                ),
+                SizedBox(height: t.space(0.65)),
+                _buildTaskSummaryCard(
+                  tasks: classroom.tasks,
+                  t: t,
+                  isDark: isDark,
+                  layoutWidth: width,
+                ),
                 SizedBox(height: t.space(0.55)),
                 _buildSignOutCard(context, t, isDark),
               ],
@@ -331,31 +387,44 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ),
         SizedBox(height: t.space(0.55)),
-        Wrap(
-          spacing: t.space(0.45),
-          runSpacing: t.space(0.45),
-          children: [
-            _Tag(
-              icon: Icons.school_outlined,
-              label: major,
-              bg: const Color(0xFFE6EFFC),
-              fg: const Color(0xFF315B9A),
-              fontSize: t.tag,
+        if (major.isNotEmpty || academicYear.isNotEmpty || gpa.isNotEmpty)
+          Wrap(
+            spacing: t.space(0.45),
+            runSpacing: t.space(0.45),
+            children: [
+              if (major.isNotEmpty)
+                _Tag(
+                  icon: Icons.school_outlined,
+                  label: major,
+                  bg: const Color(0xFFE6EFFC),
+                  fg: const Color(0xFF315B9A),
+                  fontSize: t.tag,
+                ),
+              if (academicYear.isNotEmpty)
+                _Tag(
+                  label: academicYear,
+                  bg: const Color(0xFFF3F4F6),
+                  fg: const Color(0xFF334155),
+                  fontSize: t.tag,
+                ),
+              if (gpa.isNotEmpty)
+                _Tag(
+                  label: 'GPA: $gpa',
+                  bg: const Color(0xFFDCFCE7),
+                  fg: const Color(0xFF15803D),
+                  fontSize: t.tag,
+                ),
+            ],
+          )
+        else
+          Text(
+            'No profile details yet. Use Edit Profile to add major, year, or GPA.',
+            style: TextStyle(
+              fontSize: t.email,
+              fontWeight: FontWeight.w500,
+              color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF64748B),
             ),
-            _Tag(
-              label: academicYear,
-              bg: const Color(0xFFF3F4F6),
-              fg: const Color(0xFF334155),
-              fontSize: t.tag,
-            ),
-            _Tag(
-              label: 'GPA: $gpa',
-              bg: const Color(0xFFDCFCE7),
-              fg: const Color(0xFF15803D),
-              fontSize: t.tag,
-            ),
-          ],
-        ),
+          ),
         SizedBox(height: t.space(0.55)),
         Row(
           children: [
@@ -493,107 +562,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
     );
   }
-  Widget _buildStatsRow({
-    required _ProfileTypeScale t,
-    required double contentWidth,
-    required bool isDark,
-  }) {
-    final stats = <(String, String, Color, Color, Color)>[
-      ('247h', 'Study Hours', const Color(0xFF2563EB), const Color(0xFFEFF6FF), const Color(0xFF1D4ED8)),
-      ('156', 'Tasks Completed', const Color(0xFF7C3AED), const Color(0xFFF5F3FF), const Color(0xFF6D28D9)),
-      ('12 days', 'Current Streak', const Color(0xFF059669), const Color(0xFFECFDF5), const Color(0xFF047857)),
-      ('87%', 'Avg Focus Score', const Color(0xFFD97706), const Color(0xFFFFFBEB), const Color(0xFFB45309)),
-    ];
-
-    final gap = t.space(0.75);
-    int cols = 1;
-    if (contentWidth >= 960) {
-      cols = 4;
-    } else if (contentWidth >= 520) {
-      cols = 2;
-    }
-    final itemW = cols > 1
-        ? ((contentWidth - gap * (cols - 1)) / cols).clamp(140.0, 420.0)
-        : contentWidth;
-
-    return Wrap(
-      spacing: gap,
-      runSpacing: gap,
-      children: List.generate(stats.length, (i) {
-        final item = stats[i];
-        final accent = item.$3;
-        final soft = item.$4;
-        final valueFg = item.$5;
-
-        return SizedBox(
-          width: itemW,
-          child: Container(
-            padding: EdgeInsets.symmetric(
-              vertical: t.space(1.35),
-              horizontal: t.space(0.65),
-            ),
-            decoration: BoxDecoration(
-              gradient: isDark
-                  ? LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        const Color(0xFF1E293B),
-                        accent.withOpacity(0.12),
-                      ],
-                    )
-                  : LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        soft,
-                        Colors.white,
-                      ],
-                    ),
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(
-                color: accent.withOpacity(isDark ? 0.45 : 0.22),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: accent.withOpacity(isDark ? 0.2 : 0.12),
-                  blurRadius: 14,
-                  offset: const Offset(0, 6),
-                ),
-              ],
-            ),
-            child: Column(
-              children: [
-                Text(
-                  item.$1,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: t.statValue,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.4,
-                    height: 1.05,
-                    color: isDark ? Colors.white : valueFg,
-                  ),
-                ),
-                SizedBox(height: t.space(0.35)),
-                Text(
-                  item.$2,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: t.statLabel,
-                    fontWeight: FontWeight.w600,
-                    height: 1.25,
-                    color: isDark ? const Color(0xFF9CA3AF) : accent.withOpacity(0.88),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      }),
-    );
-  }
-
   Widget _buildPrivacyDeviceRows(
     BuildContext context,
     _ProfileTypeScale t,
@@ -630,6 +598,557 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  Widget _buildSectionCard({
+    required String title,
+    required IconData icon,
+    required Color iconBg,
+    required Color iconFg,
+    required _ProfileTypeScale t,
+    required bool isDark,
+    Widget? trailing,
+    required Widget child,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(t.space(1.15)),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF111827) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark ? const Color(0xFF334155) : const Color(0xFFE8E0EF),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: iconFg.withOpacity(isDark ? 0.1 : 0.06),
+            blurRadius: 14,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: EdgeInsets.all(t.space(0.45)),
+                decoration: BoxDecoration(
+                  color: iconBg,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: iconFg.withOpacity(0.2)),
+                ),
+                child: Icon(icon, color: iconFg, size: t.settingTitle * 1.15),
+              ),
+              SizedBox(width: t.space(0.65)),
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: t.sectionTitle * 0.92,
+                    fontWeight: FontWeight.w800,
+                    color: isDark ? Colors.white : const Color(0xFF0F172A),
+                  ),
+                ),
+              ),
+              if (trailing != null) trailing,
+            ],
+          ),
+          SizedBox(height: t.space(0.75)),
+          child,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProfileCompletionCard({
+    required ProfileCompletionResult completion,
+    required _ProfileTypeScale t,
+    required bool isDark,
+  }) {
+    final muted = isDark ? const Color(0xFF9CA3AF) : const Color(0xFF64748B);
+    return _buildSectionCard(
+      title: 'Profile Completion',
+      icon: Icons.task_alt_outlined,
+      iconBg: const Color(0xFFDCFCE7),
+      iconFg: const Color(0xFF15803D),
+      t: t,
+      isDark: isDark,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'Profile ${completion.percent}% complete',
+            style: TextStyle(
+              fontSize: t.settingTitle,
+              fontWeight: FontWeight.w700,
+              color: isDark ? Colors.white : const Color(0xFF1E293B),
+            ),
+          ),
+          SizedBox(height: t.space(0.55)),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: LinearProgressIndicator(
+              value: completion.percent / 100,
+              minHeight: 8,
+              backgroundColor:
+                  isDark ? const Color(0xFF334155) : const Color(0xFFE5E7EB),
+              valueColor: const AlwaysStoppedAnimation(Color(0xFF15803D)),
+            ),
+          ),
+          if (completion.missingFieldLabels.isNotEmpty) ...[
+            SizedBox(height: t.space(0.65)),
+            Text(
+              'Still needed:',
+              style: TextStyle(
+                fontSize: t.email,
+                fontWeight: FontWeight.w600,
+                color: muted,
+              ),
+            ),
+            SizedBox(height: t.space(0.35)),
+            Wrap(
+              spacing: t.space(0.4),
+              runSpacing: t.space(0.4),
+              children: completion.missingFieldLabels
+                  .map(
+                    (label) => _statusBadge(
+                      label,
+                      isDark ? const Color(0xFF1F2937) : const Color(0xFFF3F4F6),
+                      muted,
+                      t.chip,
+                    ),
+                  )
+                  .toList(),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStudyPreferencesCard(
+    BuildContext context, {
+    required SettingsProvider settings,
+    required _ProfileTypeScale t,
+    required bool isDark,
+  }) {
+    final muted = isDark ? const Color(0xFF9CA3AF) : const Color(0xFF64748B);
+    return _buildSectionCard(
+      title: 'Study Preferences',
+      icon: Icons.schedule_outlined,
+      iconBg: const Color(0xFFEDE9FE),
+      iconFg: AppTheme.secondaryPurple,
+      t: t,
+      isDark: isDark,
+      trailing: TextButton(
+        onPressed: () => _openStudyPreferencesEditor(context, settings, t, isDark),
+        child: Text(
+          'Edit',
+          style: TextStyle(
+            fontSize: t.settingAction,
+            fontWeight: FontWeight.w700,
+            color: AppTheme.secondaryPurple,
+          ),
+        ),
+      ),
+      child: Column(
+        children: [
+          _preferenceRow(
+            'Preferred study time',
+            settings.preferredStudyTime,
+            t,
+            muted,
+            isDark,
+          ),
+          SizedBox(height: t.space(0.45)),
+          _preferenceRow(
+            'Daily study goal',
+            settings.dailyStudyGoal,
+            t,
+            muted,
+            isDark,
+          ),
+          SizedBox(height: t.space(0.45)),
+          _preferenceRow(
+            'Reminder time',
+            settings.reminderTime,
+            t,
+            muted,
+            isDark,
+          ),
+          SizedBox(height: t.space(0.45)),
+          _preferenceRow(
+            'Focus session duration',
+            settings.focusSessionDuration,
+            t,
+            muted,
+            isDark,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _preferenceRow(
+    String label,
+    String? value,
+    _ProfileTypeScale t,
+    Color muted,
+    bool isDark,
+  ) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          flex: 2,
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: t.email,
+              fontWeight: FontWeight.w500,
+              color: muted,
+            ),
+          ),
+        ),
+        Expanded(
+          flex: 3,
+          child: Text(
+            (value != null && value.isNotEmpty) ? value : 'Not set yet',
+            textAlign: TextAlign.end,
+            style: TextStyle(
+              fontSize: t.settingTitle,
+              fontWeight: FontWeight.w600,
+              color: (value != null && value.isNotEmpty)
+                  ? (isDark ? Colors.white : const Color(0xFF1E293B))
+                  : muted,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _openStudyPreferencesEditor(
+    BuildContext context,
+    SettingsProvider settings,
+    _ProfileTypeScale t,
+    bool isDark,
+  ) async {
+    final preferredCtrl = TextEditingController(
+      text: settings.preferredStudyTime ?? '',
+    );
+    final goalCtrl = TextEditingController(text: settings.dailyStudyGoal ?? '');
+    final reminderCtrl = TextEditingController(text: settings.reminderTime ?? '');
+    final focusCtrl = TextEditingController(
+      text: settings.focusSessionDuration ?? '',
+    );
+
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Study preferences'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: preferredCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Preferred study time',
+                  hintText: 'e.g. 6:00 PM – 9:00 PM',
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: goalCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Daily study goal',
+                  hintText: 'e.g. 2 hours',
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: reminderCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Reminder time',
+                  hintText: 'e.g. 8:00 AM',
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: focusCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Focus session duration',
+                  hintText: 'e.g. 45 minutes',
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+
+    if (saved == true && context.mounted) {
+      await settings.setStudyPreferences(
+        preferredStudyTime: preferredCtrl.text,
+        dailyStudyGoal: goalCtrl.text,
+        reminderTime: reminderCtrl.text,
+        focusSessionDuration: focusCtrl.text,
+      );
+    }
+
+    preferredCtrl.dispose();
+    goalCtrl.dispose();
+    reminderCtrl.dispose();
+    focusCtrl.dispose();
+  }
+
+  Widget _buildConnectedServicesCard(
+    BuildContext context, {
+    required bool googleClassroomConnected,
+    required bool devicePaired,
+    required bool isLoadingDeviceStatus,
+    required _ProfileTypeScale t,
+    required bool isDark,
+  }) {
+    final classroomStatus = googleClassroomConnected
+        ? 'Connected'
+        : 'Not connected';
+    final pairingStatus = isLoadingDeviceStatus
+        ? 'Checking…'
+        : (devicePaired ? 'Paired' : 'Not paired');
+
+    return _buildSectionCard(
+      title: 'Connected Services',
+      icon: Icons.hub_outlined,
+      iconBg: const Color(0xFFDBEAFE),
+      iconFg: AppTheme.primaryBlue,
+      t: t,
+      isDark: isDark,
+      child: Column(
+        children: [
+          _serviceStatusRow(
+            icon: Icons.school_outlined,
+            label: 'Google Classroom',
+            status: classroomStatus,
+            isPositive: googleClassroomConnected,
+            t: t,
+            isDark: isDark,
+            onTap: () => Navigator.of(context)
+                .pushNamed(AppConstants.routeGoogleClassroomSync),
+          ),
+          SizedBox(height: t.space(0.45)),
+          _serviceStatusRow(
+            icon: Icons.phonelink_setup_outlined,
+            label: 'Device Pairing',
+            status: pairingStatus,
+            isPositive: devicePaired,
+            t: t,
+            isDark: isDark,
+            onTap: () async {
+              await Navigator.of(context)
+                  .pushNamed(AppConstants.routeDevicePairing);
+              if (!mounted) return;
+              await _loadDevicePairingStatus();
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _serviceStatusRow({
+    required IconData icon,
+    required String label,
+    required String status,
+    required bool isPositive,
+    required _ProfileTypeScale t,
+    required bool isDark,
+    VoidCallback? onTap,
+  }) {
+    final statusColor = isPositive
+        ? const Color(0xFF15803D)
+        : (isDark ? const Color(0xFF9CA3AF) : const Color(0xFF64748B));
+    final row = Row(
+      children: [
+        Icon(icon, size: t.settingTitle * 1.1, color: AppTheme.primaryBlue),
+        SizedBox(width: t.space(0.55)),
+        Expanded(
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: t.settingTitle,
+              fontWeight: FontWeight.w600,
+              color: isDark ? Colors.white : const Color(0xFF1E293B),
+            ),
+          ),
+        ),
+        Text(
+          status,
+          style: TextStyle(
+            fontSize: t.settingAction,
+            fontWeight: FontWeight.w700,
+            color: statusColor,
+          ),
+        ),
+        if (onTap != null) ...[
+          SizedBox(width: t.space(0.25)),
+          Icon(
+            Icons.chevron_right,
+            size: t.settingTitle,
+            color: statusColor.withOpacity(0.75),
+          ),
+        ],
+      ],
+    );
+
+    if (onTap == null) return row;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: t.space(0.25)),
+          child: row,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTaskSummaryCard({
+    required List<Task> tasks,
+    required _ProfileTypeScale t,
+    required bool isDark,
+    required double layoutWidth,
+  }) {
+    final muted = isDark ? const Color(0xFF9CA3AF) : const Color(0xFF64748B);
+
+    if (tasks.isEmpty) {
+      return _buildSectionCard(
+        title: 'Task Summary',
+        icon: Icons.checklist_rtl_outlined,
+        iconBg: const Color(0xFFFFEDD5),
+        iconFg: const Color(0xFF9A3412),
+        t: t,
+        isDark: isDark,
+        child: Text(
+          'No tasks available yet',
+          style: TextStyle(
+            fontSize: t.settingTitle,
+            fontWeight: FontWeight.w500,
+            color: muted,
+          ),
+        ),
+      );
+    }
+
+    final total = tasks.length;
+    final completed =
+        tasks.where((task) => task.status == TaskStatus.completed).length;
+    final pending = tasks
+        .where(
+          (task) =>
+              task.status == TaskStatus.pending ||
+              task.status == TaskStatus.inProgress,
+        )
+        .length;
+    final missed =
+        tasks.where((task) => task.status == TaskStatus.missed).length;
+
+    final useGrid = layoutWidth >= 520;
+    final stats = [
+      _TaskStat('Total', total, const Color(0xFFDBEAFE), AppTheme.primaryBlue),
+      _TaskStat('Completed', completed, const Color(0xFFDCFCE7), const Color(0xFF15803D)),
+      _TaskStat('Pending', pending, const Color(0xFFFFEDD5), const Color(0xFF9A3412)),
+      _TaskStat('Missed', missed, const Color(0xFFFEE2E2), const Color(0xFFB91C1C)),
+    ];
+
+    return _buildSectionCard(
+      title: 'Task Summary',
+      icon: Icons.checklist_rtl_outlined,
+      iconBg: const Color(0xFFFFEDD5),
+      iconFg: const Color(0xFF9A3412),
+      t: t,
+      isDark: isDark,
+      child: useGrid
+          ? Wrap(
+              spacing: t.space(0.55),
+              runSpacing: t.space(0.55),
+              children: stats
+                  .map((s) => _taskStatTile(s, t, isDark, layoutWidth))
+                  .toList(),
+            )
+          : Column(
+              children: [
+                for (var i = 0; i < stats.length; i++) ...[
+                  if (i > 0) SizedBox(height: t.space(0.45)),
+                  _taskStatTile(stats[i], t, isDark, layoutWidth),
+                ],
+              ],
+            ),
+    );
+  }
+
+  Widget _taskStatTile(
+    _TaskStat stat,
+    _ProfileTypeScale t,
+    bool isDark,
+    double layoutWidth,
+  ) {
+    final tileWidth = layoutWidth >= 520
+        ? ((layoutWidth - t.space(2.3)) / 2).clamp(120.0, 280.0)
+        : double.infinity;
+    return SizedBox(
+      width: tileWidth,
+      child: Container(
+        padding: EdgeInsets.symmetric(
+          horizontal: t.space(0.85),
+          vertical: t.space(0.65),
+        ),
+        decoration: BoxDecoration(
+          color: stat.bg.withOpacity(isDark ? 0.25 : 1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: stat.fg.withOpacity(0.2)),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                stat.label,
+                style: TextStyle(
+                  fontSize: t.email,
+                  fontWeight: FontWeight.w600,
+                  color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF64748B),
+                ),
+              ),
+            ),
+            Text(
+              '${stat.count}',
+              style: TextStyle(
+                fontSize: t.sectionTitle,
+                fontWeight: FontWeight.w800,
+                color: stat.fg,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildSignOutCard(
     BuildContext context,
     _ProfileTypeScale t,
@@ -657,6 +1176,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           );
           if (ok != true || !context.mounted) return;
+          await context.read<ClassroomProvider>().clearUserData();
           await FirebaseAuth.instance.signOut();
           if (context.mounted) {
             Navigator.of(context).pushNamedAndRemoveUntil(
@@ -837,6 +1357,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
     );
   }
+}
+
+class _TaskStat {
+  final String label;
+  final int count;
+  final Color bg;
+  final Color fg;
+
+  const _TaskStat(this.label, this.count, this.bg, this.fg);
 }
 
 class _Tag extends StatelessWidget {

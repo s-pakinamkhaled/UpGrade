@@ -6,6 +6,8 @@ from typing import Dict, List, Literal, Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+from app.core.security_utils import is_safe_path_segment, sanitize_display_text
+
 TaskStatus = Literal["pending", "inProgress", "completed"]
 ActivityAction = Literal["started", "completed", "reopened"]
 
@@ -17,6 +19,7 @@ class TaskRecord(BaseModel):
     userId: str
     title: Optional[str] = None
     status: TaskStatus = "pending"
+    deadline: Optional[datetime] = None
     startedAt: Optional[datetime] = None
     completedAt: Optional[datetime] = None
     updatedAt: datetime
@@ -72,6 +75,11 @@ def _ensure_data_store() -> None:
             )
             """
         )
+        columns = {
+            row[1] for row in conn.execute("PRAGMA table_info(tasks)").fetchall()
+        }
+        if "deadline" not in columns:
+            conn.execute("ALTER TABLE tasks ADD COLUMN deadline TEXT")
         conn.commit()
 
     _migrate_legacy_json_if_needed()
@@ -82,7 +90,7 @@ def _load_store() -> Dict:
     with _connect_db() as conn:
         task_rows = conn.execute(
             """
-            SELECT id, user_id, title, status, started_at, completed_at, updated_at
+            SELECT id, user_id, title, status, deadline, started_at, completed_at, updated_at
             FROM tasks
             """
         ).fetchall()
@@ -101,6 +109,7 @@ def _load_store() -> Dict:
             "userId": row["user_id"],
             "title": row["title"],
             "status": row["status"],
+            "deadline": row["deadline"],
             "startedAt": row["started_at"],
             "completedAt": row["completed_at"],
             "updatedAt": row["updated_at"],
@@ -130,14 +139,15 @@ def _save_store(data: Dict) -> None:
             conn.execute(
                 """
                 INSERT INTO tasks (
-                    id, user_id, title, status, started_at, completed_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                    id, user_id, title, status, deadline, started_at, completed_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     task.get("id"),
                     task.get("userId"),
                     task.get("title"),
                     task.get("status"),
+                    task.get("deadline"),
                     task.get("startedAt"),
                     task.get("completedAt"),
                     task.get("updatedAt"),
@@ -194,6 +204,17 @@ def _migrate_legacy_json_if_needed() -> None:
         return
 
 
+def list_all_tasks() -> List[TaskRecord]:
+    data = _load_store()
+    tasks: List[TaskRecord] = []
+    for raw_task in data["tasks"].values():
+        try:
+            tasks.append(TaskRecord.model_validate(raw_task))
+        except Exception:
+            continue
+    return tasks
+
+
 def update_task_status(task_id: str, new_status: TaskStatus, user_id: str) -> TaskRecord:
     data = _load_store()
     raw_task = data["tasks"].get(task_id)
@@ -234,6 +255,8 @@ def update_task_status(task_id: str, new_status: TaskStatus, user_id: str) -> Ta
 
 @router.patch("/{task_id}/status")
 async def patch_task_status(task_id: str, body: UpdateTaskStatusRequest):
+    if not is_safe_path_segment(task_id) or not is_safe_path_segment(body.userId):
+        raise HTTPException(status_code=400, detail="Invalid task or user id")
     """
     Update task status following F7 rules:
     - pending -> inProgress sets startedAt if empty.
@@ -248,10 +271,15 @@ async def patch_task_status(task_id: str, body: UpdateTaskStatusRequest):
 
 @router.post("")
 async def upsert_task(task: TaskRecord):
+    if not is_safe_path_segment(task.id) or not is_safe_path_segment(task.userId):
+        raise HTTPException(status_code=400, detail="Invalid task or user id")
+    payload = task.model_dump(mode="json")
+    if payload.get("title"):
+        payload["title"] = sanitize_display_text(str(payload["title"]))
     data = _load_store()
-    data["tasks"][task.id] = task.model_dump(mode="json")
+    data["tasks"][task.id] = payload
     _save_store(data)
-    return {"success": True, "task": task.model_dump(mode="json")}
+    return {"success": True, "task": payload}
 
 
 @router.get("/activity/logs")
@@ -262,6 +290,8 @@ async def get_activity_logs():
 
 @router.get("/{task_id}")
 async def get_task(task_id: str):
+    if not is_safe_path_segment(task_id):
+        raise HTTPException(status_code=400, detail="Invalid task id")
     data = _load_store()
     raw_task = data["tasks"].get(task_id)
     if raw_task is None:

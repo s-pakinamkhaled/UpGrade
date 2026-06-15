@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 import '../core/theme.dart';
 import '../core/constants.dart';
+import '../core/security_utils.dart';
 import '../core/post_auth_navigation.dart';
 import '../widgets/app_logo.dart';
 import '../services/firebase_auth_service.dart';
@@ -57,6 +58,7 @@ class _LoginScreenState extends State<LoginScreen> {
       }
 
       if (!mounted) return;
+      await context.read<ClassroomProvider>().loadForCurrentUser();
       await UserMatchingProfileSyncService.syncCurrentUserProfile(
         courses: context.read<ClassroomProvider>().courses,
         tasks: context.read<ClassroomProvider>().tasks,
@@ -91,6 +93,7 @@ class _LoginScreenState extends State<LoginScreen> {
       }
 
       if (!mounted) return;
+      await context.read<ClassroomProvider>().loadForCurrentUser();
       await UserMatchingProfileSyncService.syncCurrentUserProfile(
         courses: context.read<ClassroomProvider>().courses,
         tasks: context.read<ClassroomProvider>().tasks,
@@ -214,15 +217,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             labelText: 'Email',
                             prefixIcon: Icon(Icons.email_outlined),
                           ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please enter your email';
-                            }
-                            if (!value.contains('@')) {
-                              return 'Please enter a valid email';
-                            }
-                            return null;
-                          },
+                          validator: SecurityUtils.validateLoginEmail,
                         ),
                         const SizedBox(height: 16),
                         TextFormField(
@@ -244,15 +239,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               },
                             ),
                           ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please enter your password';
-                            }
-                            if (value.length < 6) {
-                              return 'Password must be at least 6 characters';
-                            }
-                            return null;
-                          },
+                          validator: SecurityUtils.validatePassword,
                         ),
                         const SizedBox(height: 8),
                         Align(

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import '../core/security_utils.dart';
 
 /// API Service for connecting to the UpGrade backend
 class ApiService {
@@ -13,11 +14,27 @@ class ApiService {
   factory ApiService() => _instance;
   ApiService._internal();
 
+  /// Overrides for unit/integration tests (mock HTTP client + base URL).
+  @visibleForTesting
+  static http.Client? testHttpClient;
+
+  @visibleForTesting
+  static String? testBaseUrl;
+
+  @visibleForTesting
+  static void resetTestOverrides() {
+    testHttpClient = null;
+    testBaseUrl = null;
+  }
+
+  String get _apiBase => testBaseUrl ?? baseUrl;
+  http.Client get _http => testHttpClient ?? http.Client();
+
   /// Check backend health
   Future<bool> checkHealth() async {
     try {
-      final response = await http.get(
-        Uri.parse('$baseUrl/health'),
+      final response = await _http.get(
+        Uri.parse('$_apiBase/health'),
         headers: {'Content-Type': 'application/json'},
       ).timeout(const Duration(seconds: 5));
 
@@ -31,8 +48,8 @@ class ApiService {
   /// Get welcome message from backend
   Future<Map<String, dynamic>?> getWelcomeMessage() async {
     try {
-      final response = await http.get(
-        Uri.parse('$baseUrl/'),
+      final response = await _http.get(
+        Uri.parse('$_apiBase/'),
         headers: {'Content-Type': 'application/json'},
       ).timeout(const Duration(seconds: 5));
 
@@ -62,13 +79,18 @@ class ApiService {
     List<Map<String, String>>? conversationHistory,
     Map<String, dynamic>? studentContext,
   }) async {
+    final trimmed = message.trim();
+    if (trimmed.isEmpty || trimmed.length > 4000) {
+      debugPrint('Blocked unsafe chat message length or content');
+      return null;
+    }
     try {
-      final response = await http
+      final response = await _http
           .post(
-            Uri.parse('$baseUrl/api/chat/message'),
+            Uri.parse('$_apiBase/api/chat/message'),
             headers: {'Content-Type': 'application/json'},
             body: json.encode({
-              'message': message,
+              'message': trimmed,
               'conversation_history': conversationHistory,
               'student_context': studentContext,
             }),
@@ -92,9 +114,9 @@ class ApiService {
     bool hasUpcomingDeadline = false,
   }) async {
     try {
-      final response = await http.get(
+      final response = await _http.get(
         Uri.parse(
-            '$baseUrl/api/chat/suggestions?has_urgent_tasks=$hasUrgentTasks&has_upcoming_deadline=$hasUpcomingDeadline'),
+            '$_apiBase/api/chat/suggestions?has_urgent_tasks=$hasUrgentTasks&has_upcoming_deadline=$hasUpcomingDeadline'),
         headers: {'Content-Type': 'application/json'},
       ).timeout(const Duration(seconds: 5));
 
@@ -145,9 +167,9 @@ class ApiService {
         };
       }).toList();
 
-      final response = await http
+      final response = await _http
           .post(
-            Uri.parse('$baseUrl/api/plan/generate'),
+            Uri.parse('$_apiBase/api/plan/generate'),
             headers: {'Content-Type': 'application/json'},
             body: json.encode({
               'studentName': studentName,
@@ -172,20 +194,26 @@ class ApiService {
     required String userId,
     required Map<String, dynamic> taskJson,
   }) async {
+    if (!SecurityUtils.isSafePathSegment(taskId) ||
+        !SecurityUtils.isSafePathSegment(userId)) {
+      debugPrint('Blocked unsafe task tracking ids');
+      return false;
+    }
     try {
       final payload = {
         'id': taskId,
         'userId': userId,
         'title': taskJson['title'],
         'status': taskJson['status'] ?? 'pending',
+        'deadline': taskJson['deadline'],
         'startedAt': taskJson['startedAt'],
         'completedAt': taskJson['completedAt'],
         'updatedAt': taskJson['updatedAt'] ?? DateTime.now().toIso8601String(),
       };
 
-      final response = await http
+      final response = await _http
           .post(
-            Uri.parse('$baseUrl/api/tasks'),
+            Uri.parse('$_apiBase/api/tasks'),
             headers: {'Content-Type': 'application/json'},
             body: json.encode(payload),
           )
@@ -203,10 +231,15 @@ class ApiService {
     required String status,
     required String userId,
   }) async {
+    if (!SecurityUtils.isSafePathSegment(taskId) ||
+        !SecurityUtils.isSafePathSegment(userId)) {
+      debugPrint('Blocked unsafe task status ids');
+      return null;
+    }
     try {
-      final response = await http
+      final response = await _http
           .patch(
-            Uri.parse('$baseUrl/api/tasks/$taskId/status'),
+            Uri.parse('$_apiBase/api/tasks/$taskId/status'),
             headers: {'Content-Type': 'application/json'},
             body: json.encode({'status': status, 'userId': userId}),
           )
@@ -226,9 +259,13 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>?> getUserProfile(String userId) async {
+    if (!SecurityUtils.isSafePathSegment(userId)) {
+      debugPrint('Blocked unsafe profile userId');
+      return null;
+    }
     try {
-      final response = await http.get(
-        Uri.parse('$baseUrl/api/profile/$userId'),
+      final response = await _http.get(
+        Uri.parse('$_apiBase/api/profile/$userId'),
         headers: {'Content-Type': 'application/json'},
       ).timeout(const Duration(seconds: 10));
 
@@ -247,21 +284,27 @@ class ApiService {
     required String userId,
     required String fullName,
     required String email,
+    required String studentId,
     required String major,
     required String academicYear,
     required String gpa,
   }) async {
+    if (!SecurityUtils.isSafePathSegment(userId)) {
+      debugPrint('Blocked unsafe profile userId');
+      return null;
+    }
     try {
-      final response = await http
+      final response = await _http
           .patch(
-            Uri.parse('$baseUrl/api/profile/$userId'),
+            Uri.parse('$_apiBase/api/profile/$userId'),
             headers: {'Content-Type': 'application/json'},
             body: json.encode({
-              'fullName': fullName,
-              'email': email,
-              'major': major,
-              'academicYear': academicYear,
-              'gpa': gpa,
+              'fullName': SecurityUtils.sanitizeDisplayInput(fullName),
+              'email': email.trim(),
+              'studentId': studentId,
+              'major': SecurityUtils.sanitizeDisplayInput(major),
+              'academicYear': SecurityUtils.sanitizeDisplayInput(academicYear),
+              'gpa': SecurityUtils.sanitizeDisplayInput(gpa, maxLength: 16),     
             }),
           )
           .timeout(const Duration(seconds: 10));
@@ -283,21 +326,17 @@ class ApiService {
     required String courseName,
     required String inviterName,
   }) async {
-    final validEmails = recipientEmails
-        .map((e) => e.trim())
-        .where((e) => e.contains('@'))
-        .toSet()
-        .toList();
+    final validEmails = SecurityUtils.filterInviteRecipientEmails(recipientEmails);
     if (validEmails.isEmpty) return;
 
-    final response = await http
+    final response = await _http
         .post(
-          Uri.parse('$baseUrl/api/notifications/course-room-invite'),
+          Uri.parse('$_apiBase/api/notifications/course-room-invite'),
           headers: {'Content-Type': 'application/json'},
           body: json.encode({
             'recipientEmails': validEmails,
-            'courseName': courseName,
-            'inviterName': inviterName,
+            'courseName': SecurityUtils.sanitizeDisplayInput(courseName),
+            'inviterName': SecurityUtils.sanitizeDisplayInput(inviterName),
             'appUrl': 'http://localhost:5750/#/home',
           }),
         )

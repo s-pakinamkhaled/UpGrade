@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../core/post_auth_navigation.dart';
+import '../core/security_utils.dart';
 import '../widgets/app_logo.dart';
 import '../services/api_service.dart';
 import '../services/firebase_auth_service.dart';
@@ -76,17 +77,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
           userId: uid,
           fullName: registeredName,
           email: _emailController.text.trim(),
-          major: 'Computer Science',
-          academicYear: 'Junior',
-          gpa: '3.85',
+          studentId: '',
+          major: '',
+          academicYear: '',
+          gpa: '',
         );
       } catch (_) {
         // Backend optional; Firebase displayName is the source of truth for the name.
       }
 
       if (!mounted) return;
-      await user.updateDisplayName(_nameController.text.trim());
-      if (!mounted) return;
+      await context.read<ClassroomProvider>().loadForCurrentUser();
       await UserMatchingProfileSyncService.syncCurrentUserProfile(
         courses: context.read<ClassroomProvider>().courses,
         tasks: context.read<ClassroomProvider>().tasks,
@@ -117,6 +118,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       if (googleResult == null) throw Exception('Google sign-in cancelled');
 
       if (!mounted) return;
+      await context.read<ClassroomProvider>().loadForCurrentUser();
       await UserMatchingProfileSyncService.syncCurrentUserProfile(
         courses: context.read<ClassroomProvider>().courses,
         tasks: context.read<ClassroomProvider>().tasks,
@@ -171,23 +173,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 TextFormField(
                   controller: _nameController,
                   decoration: const InputDecoration(labelText: 'Full Name'),
-                  validator: (v) =>
-                      v == null || v.isEmpty ? 'Enter your name' : null,
+                  validator: SecurityUtils.validateNonEmptyName,
                 ),
                 const SizedBox(height: 20),
                 TextFormField(
                   controller: _emailController,
                   decoration: const InputDecoration(labelText: 'Email'),
                   validator: (v) =>
-                      v == null || !v.contains('@') ? 'Invalid email' : null,
+                      SecurityUtils.validateLoginEmail(v) ?? null,
                 ),
                 const SizedBox(height: 20),
                 TextFormField(
                   controller: _passwordController,
                   obscureText: _obscurePassword,
                   decoration: const InputDecoration(labelText: 'Password'),
-                  validator: (v) =>
-                      v == null || v.length < 6 ? 'Weak password' : null,
+                  validator: SecurityUtils.validateRegisterPassword,
                 ),
                 const SizedBox(height: 20),
                 TextFormField(
@@ -195,9 +195,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   obscureText: _obscureConfirmPassword,
                   decoration:
                       const InputDecoration(labelText: 'Confirm Password'),
-                  validator: (v) => v != _passwordController.text
-                      ? 'Passwords mismatch'
-                      : null,
+                  validator: (v) => SecurityUtils.validatePasswordConfirmation(
+                    _passwordController.text,
+                    v,
+                  ),
                 ),
                 const SizedBox(height: 20),
                 CheckboxListTile(

@@ -27,11 +27,16 @@ dependencies:
   shared_preferences: ^2.2.2
   qr_flutter: ^4.1.0
   google_fonts: ^8.0.2
+  firebase_messaging: ^15.2.10
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  integration_test:
+    sdk: flutter
   flutter_lints: ^5.0.0
+  fake_cloud_firestore: ^3.1.0
+  firebase_auth_mocks: ^0.14.1
 
 flutter:
   uses-material-design: true

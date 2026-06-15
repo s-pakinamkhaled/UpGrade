@@ -23,6 +23,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
+  final _studentIdController = TextEditingController();
   final _majorController = TextEditingController();
   final _yearController = TextEditingController();
   final _gpaController = TextEditingController();
@@ -45,9 +46,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         ? dn
         : displayNameFromEmail(uEmail);
     _emailController.text = uEmail.isNotEmpty ? uEmail : '';
-    _majorController.text = 'Computer Science';
-    _yearController.text = 'Junior';
-    _gpaController.text = '3.85';
     _loadProfileFromBackend();
   }
 
@@ -55,6 +53,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   void dispose() {
     _nameController.dispose();
     _emailController.dispose();
+    _studentIdController.dispose();
     _majorController.dispose();
     _yearController.dispose();
     _gpaController.dispose();
@@ -88,6 +87,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         userId: _userId,
         fullName: _nameController.text.trim(),
         email: _emailController.text.trim(),
+        studentId: _studentIdController.text.trim(),
         major: _majorController.text.trim(),
         academicYear: _yearController.text.trim(),
         gpa: _gpaController.text.trim(),
@@ -134,18 +134,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           _emailController.text = fe;
         }
       }
-      _majorController.text =
-          (profile['major'] as String?)?.trim().isNotEmpty == true
-              ? profile['major'] as String
-              : _majorController.text;
-      _yearController.text =
-          (profile['academicYear'] as String?)?.trim().isNotEmpty == true
-              ? profile['academicYear'] as String
-              : _yearController.text;
-      _gpaController.text =
-          (profile['gpa'] as String?)?.trim().isNotEmpty == true
-              ? profile['gpa'] as String
-              : _gpaController.text;
+      _majorController.text = (profile['major'] as String?)?.trim() ?? '';
+      _yearController.text = (profile['academicYear'] as String?)?.trim() ?? '';
+      _gpaController.text = (profile['gpa'] as String?)?.trim() ?? '';
+      _studentIdController.text =
+          (profile['studentId'] as String?)?.trim() ?? '';
     }
 
     setState(() {
@@ -230,6 +223,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                             }
                             return null;
                           },
+                        ),
+                        const SizedBox(height: 14),
+                        _fieldLabel('Student ID', isDark),
+                        _styledField(
+                          controller: _studentIdController,
+                          icon: Icons.badge_outlined,
+                          hint: 'Your student ID',
                         ),
                         const SizedBox(height: 14),
                         if (wide)

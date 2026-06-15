@@ -7,6 +7,8 @@ import 'providers/classroom_provider.dart';
 import 'providers/dashboard_shell_provider.dart';
 import 'providers/settings_provider.dart';
 import 'providers/study_group_provider.dart';
+import 'providers/notification_provider.dart';
+import 'widgets/classroom_auth_binder.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -18,7 +20,7 @@ void main() async {
     MultiProvider(
       providers: [
         ChangeNotifierProvider(
-          create: (_) => ClassroomProvider()..loadFromStorage(),
+          create: (_) => ClassroomProvider(),
         ),
         ChangeNotifierProvider(
           create: (_) => SettingsProvider()..load(),
@@ -29,8 +31,13 @@ void main() async {
         ChangeNotifierProvider(
           create: (_) => StudyGroupProvider(),
         ),
+        ChangeNotifierProvider(
+          create: (_) => NotificationProvider(),
+        ),
       ],
-      child: const UpGradeApp(),
+      child: const ClassroomAuthBinder(
+        child: UpGradeApp(),
+      ),
     ),
   );
 }

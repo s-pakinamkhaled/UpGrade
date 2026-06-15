@@ -1,7 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
 import '../models/classroom_course.dart';
 import '../models/task.dart';
 import '../services/classroom_sync_service.dart';

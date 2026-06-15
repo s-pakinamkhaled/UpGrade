@@ -25,9 +25,10 @@ def test_profile_record_defaults():
         updatedAt="2025-01-01T00:00:00",
     )
 
-    assert record.major == "Computer Science"
-    assert record.academicYear == "Junior"
-    assert record.gpa == "3.85"
+    assert record.major == ""
+    assert record.academicYear == ""
+    assert record.gpa == ""
+    assert record.studentId == ""
 
 
 def test_update_profile_request_model():
@@ -48,7 +49,10 @@ def test_default_profile():
     assert profile["userId"] == "student1"
     assert profile["fullName"] == ""
     assert profile["email"] == ""
-    assert profile["major"] == "Computer Science"
+    assert profile["studentId"] == ""
+    assert profile["major"] == ""
+    assert profile["academicYear"] == ""
+    assert profile["gpa"] == ""
 
 
 def test_get_profile():
@@ -68,7 +72,10 @@ def test_update_profile():
         json={
             "fullName": "Pakinam",
             "email": "pakinam@test.com",
+            "studentId": "202202233",
             "major": "AI",
+            "academicYear": "Junior",
+            "gpa": "3.5",
         },
     )
 
@@ -79,4 +86,7 @@ def test_update_profile():
     assert data["success"] is True
     assert data["profile"]["fullName"] == "Pakinam"
     assert data["profile"]["email"] == "pakinam@test.com"
+    assert data["profile"]["studentId"] == "202202233"
     assert data["profile"]["major"] == "AI"
+    assert data["profile"]["academicYear"] == "Junior"
+    assert data["profile"]["gpa"] == "3.5"

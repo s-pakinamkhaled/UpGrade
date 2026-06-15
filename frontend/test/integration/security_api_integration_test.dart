@@ -94,13 +94,14 @@ void main() {
 
     test('profile update with invalid email rejected by backend', () async {
       final result = await ApiService().updateUserProfile(
-        userId: 'student_sec',
-        fullName: 'Pakinam',
-        email: 'bad-email',
-        major: 'AI',
-        academicYear: 'Junior',
-        gpa: '3.5',
-      );
+  userId: 'student_sec',
+  fullName: 'Pakinam',
+  email: 'bad-email',
+  studentId: '202202233',
+  major: 'AI',
+  academicYear: 'Junior',
+  gpa: '3.5',
+);
       expect(result, isNull);
     });
   });

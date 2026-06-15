@@ -69,7 +69,9 @@ class _GoogleClassroomSyncScreenState extends State<GoogleClassroomSyncScreen> {
   }
 
   Future<void> _loadSavedSemesterId() async {
-    final savedId = await ClassroomStorageService.getSelectedSemesterId();
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    final savedId = await ClassroomStorageService.getSelectedSemesterId(uid);
     if (!mounted) return;
     setState(() {
       _selectedSemesterId = savedId;
@@ -819,7 +821,10 @@ class _GoogleClassroomSyncScreenState extends State<GoogleClassroomSyncScreen> {
             : (value) {
                 if (value == null) return;
                 setState(() => _selectedSemesterId = value);
-                ClassroomStorageService.saveSelectedSemesterId(value);
+                final uid = FirebaseAuth.instance.currentUser?.uid;
+                if (uid != null) {
+                  ClassroomStorageService.saveSelectedSemesterId(uid, value);
+                }
               },
       );
     }

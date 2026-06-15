@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_test/flutter_test.dart';
 import 'package:upgrade/core/security_utils.dart';
 
 /// Lightweight login form used in widget tests — same validators as [LoginScreen].

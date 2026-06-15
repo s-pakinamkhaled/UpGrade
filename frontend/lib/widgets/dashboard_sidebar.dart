@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:upgrade/core/constants.dart';
 import 'package:upgrade/core/theme.dart';
 import 'package:upgrade/widgets/app_logo.dart';
+import 'package:upgrade/widgets/notification_bell_button.dart';
+import 'package:upgrade/widgets/sidebar_rail_icon.dart';
 
 /// Sidebar for the Progress Dashboard layout (StudyAI-style).
 /// Light background with active blue-purple item matching the reference UI.
@@ -23,7 +25,7 @@ class DashboardSidebar extends StatelessWidget {
     required this.onCollapse,
   });
 
-  /// Default width; actual width scales slightly with viewport (see [effectiveWidth]).
+  /// Expanded sidebar width — fixed so shell layout stays stable during animation.
   static const double width = 260;
   static const Color sidebarBackground = Color(0xFFF8FAFC);
   /// Inactive nav label/icon on **light** sidebar (higher contrast than slate-400).
@@ -32,15 +34,10 @@ class DashboardSidebar extends StatelessWidget {
   static const Color navInactiveDark = Color(0xFF9CA3AF);
 
   static Color navInactiveFor(BuildContext context) {
-    return Theme.of(context).brightness == Brightness.dark
-        ? navInactiveDark
-        : navInactiveLight;
+    return DashboardSidebarRailMetrics.navInactiveFor(context);
   }
 
-  static double effectiveWidth(BuildContext context) {
-    final w = MediaQuery.sizeOf(context).width;
-    return (w * 0.24).clamp(220.0, 288.0);
-  }
+  static double effectiveWidth(BuildContext context) => width;
 
   @override
   Widget build(BuildContext context) {
@@ -52,8 +49,7 @@ class DashboardSidebar extends StatelessWidget {
 
     final activeMenuKey = _activeMenuKeyForRoute(selectedRoute);
 
-    return Container(
-      width: effectiveWidth(context),
+    return DecoratedBox(
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF0F172A) : sidebarBackground,
         border: Border(
@@ -68,7 +64,7 @@ class DashboardSidebar extends StatelessWidget {
           children: [
             SizedBox(height: topPad),
             Padding(
-              padding: const EdgeInsets.only(left: 12, right: 4),
+              padding: const EdgeInsets.only(left: 12, right: 8),
               child: Row(
                 children: [
                   const AppLogo.small(),
@@ -93,7 +89,7 @@ class DashboardSidebar extends StatelessWidget {
                             color: navInactiveFor(context),
                             fontSize: compactH ? 11 : 12,
                           ),
-                          maxLines: 2,
+                          maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
                       ],
@@ -105,8 +101,15 @@ class DashboardSidebar extends StatelessWidget {
                       color: isDark ? Colors.white70 : AppTheme.darkText,
                     ),
                     tooltip: 'Collapse sidebar',
+                    visualDensity: VisualDensity.compact,
+                    constraints: const BoxConstraints(
+                      minWidth: 36,
+                      minHeight: 36,
+                    ),
+                    padding: EdgeInsets.zero,
                     onPressed: onCollapse,
                   ),
+                  const NotificationBellButton(),
                 ],
               ),
             ),
@@ -215,7 +218,7 @@ class DashboardSidebar extends StatelessWidget {
 
 /// Icon-only strip when the full sidebar is hidden. Stays visible for every main tab.
 class DashboardSidebarCollapsedRail extends StatelessWidget {
-  static const double railWidth = 56;
+  static const double railWidth = DashboardSidebarRailMetrics.width;
 
   final String selectedRoute;
   final VoidCallback onExpand;
@@ -232,143 +235,202 @@ class DashboardSidebarCollapsedRail extends StatelessWidget {
     required this.onEndSession,
   });
 
+  List<_SidebarRailDestination> get _primaryDestinations => const [
+        _SidebarRailDestination(
+          menuKey: _SidebarMenuKey.dashboard,
+          route: AppConstants.routeProgress,
+          tooltip: 'Dashboard',
+          icon: Icons.dashboard_outlined,
+          selectedIcon: Icons.dashboard,
+        ),
+        _SidebarRailDestination(
+          menuKey: _SidebarMenuKey.dailyPlanner,
+          route: AppConstants.routeDailyPlanner,
+          tooltip: 'My Tasks',
+          icon: Icons.calendar_today_outlined,
+          selectedIcon: Icons.calendar_today,
+        ),
+        _SidebarRailDestination(
+          menuKey: _SidebarMenuKey.aiAssistant,
+          route: AppConstants.routeAIChatbot,
+          tooltip: 'AI Assistant',
+          icon: Icons.auto_awesome_outlined,
+          selectedIcon: Icons.auto_awesome,
+        ),
+        _SidebarRailDestination(
+          menuKey: _SidebarMenuKey.groupStudy,
+          route: AppConstants.routeGroupStudy,
+          tooltip: 'Study Group',
+          icon: Icons.groups_outlined,
+          selectedIcon: Icons.groups,
+        ),
+        _SidebarRailDestination(
+          menuKey: _SidebarMenuKey.studyPlan,
+          route: AppConstants.routeStudyPlan,
+          tooltip: 'Study Plan',
+          icon: Icons.school_outlined,
+          selectedIcon: Icons.school,
+        ),
+        _SidebarRailDestination(
+          menuKey: _SidebarMenuKey.warnings,
+          route: AppConstants.routeWarnings,
+          tooltip: 'Warnings',
+          icon: Icons.warning_amber_outlined,
+          selectedIcon: Icons.warning_amber_rounded,
+        ),
+      ];
+
+  Future<void> _openMoreMenu(BuildContext context) async {
+    final selected = await showMenu<_RailMoreAction>(
+      context: context,
+      position: RelativeRect.fromLTRB(
+        DashboardSidebarRailMetrics.width + 8,
+        MediaQuery.paddingOf(context).top + 120,
+        16,
+        0,
+      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      items: const [
+        PopupMenuItem(
+          value: _RailMoreAction.googleClassroom,
+          child: ListTile(
+            leading: Icon(Icons.class_outlined),
+            title: Text('Google Classroom'),
+            contentPadding: EdgeInsets.zero,
+            visualDensity: VisualDensity.compact,
+          ),
+        ),
+        PopupMenuItem(
+          value: _RailMoreAction.myCourses,
+          child: ListTile(
+            leading: Icon(Icons.playlist_add_outlined),
+            title: Text('My courses'),
+            contentPadding: EdgeInsets.zero,
+            visualDensity: VisualDensity.compact,
+          ),
+        ),
+        PopupMenuItem(
+          value: _RailMoreAction.devicePairing,
+          child: ListTile(
+            leading: Icon(Icons.qr_code_scanner_outlined),
+            title: Text('Device Pairing'),
+            contentPadding: EdgeInsets.zero,
+            visualDensity: VisualDensity.compact,
+          ),
+        ),
+        PopupMenuDivider(),
+        PopupMenuItem(
+          value: _RailMoreAction.expandSidebar,
+          child: ListTile(
+            leading: Icon(Icons.view_sidebar_outlined),
+            title: Text('Expand sidebar'),
+            contentPadding: EdgeInsets.zero,
+            visualDensity: VisualDensity.compact,
+          ),
+        ),
+      ],
+    );
+
+    if (!context.mounted || selected == null) return;
+
+    switch (selected) {
+      case _RailMoreAction.googleClassroom:
+        onSelectShellRoute(AppConstants.routeGoogleClassroomSync);
+      case _RailMoreAction.myCourses:
+        onSelectShellRoute(AppConstants.routeManualCourses);
+      case _RailMoreAction.devicePairing:
+        onPushAuxiliaryRoute(AppConstants.routeQrScanner);
+      case _RailMoreAction.expandSidebar:
+        onExpand();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final activeMenuKey = _activeMenuKeyForRoute(selectedRoute);
+
     return Material(
       color: isDark ? const Color(0xFF0F172A) : DashboardSidebar.sidebarBackground,
-      child: SafeArea(
-        child: SizedBox(
-          width: railWidth,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          border: Border(
+            right: BorderSide(
+              color: isDark ? const Color(0xFF1F2937) : const Color(0xFFE2E8F0),
+            ),
+          ),
+        ),
+        child: SafeArea(
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              IconButton(
-                icon: Icon(
-                  Icons.chevron_right,
-                  color: isDark ? Colors.white70 : AppTheme.darkText,
+                Padding(
+                  padding: DashboardSidebarRailMetrics.headerPadding,
+                  child: SidebarRailIcon(
+                    tooltip: 'Expand sidebar',
+                    icon: Icons.chevron_right_rounded,
+                    onTap: onExpand,
+                  ),
                 ),
-                tooltip: 'Expand sidebar',
-                onPressed: onExpand,
-              ),
-              Divider(
-                color: isDark ? const Color(0xFF1F2937) : const Color(0xFFE2E8F0),
-                height: 1,
-              ),
-              _CollapsedRailNavButton(
-                icon: Icons.dashboard_outlined,
-                selectedIcon: Icons.dashboard,
-                isActive: activeMenuKey == _SidebarMenuKey.dashboard,
-                tooltip: 'Dashboard',
-                onTap: () => onSelectShellRoute(AppConstants.routeProgress),
-              ),
-              _CollapsedRailNavButton(
-                icon: Icons.calendar_today_outlined,
-                selectedIcon: Icons.calendar_today,
-                isActive: activeMenuKey == _SidebarMenuKey.dailyPlanner,
-                tooltip: 'My Tasks',
-                onTap: () => onSelectShellRoute(AppConstants.routeDailyPlanner),
-              ),
-              _CollapsedRailNavButton(
-                icon: Icons.auto_awesome_outlined,
-                selectedIcon: Icons.auto_awesome,
-                isActive: activeMenuKey == _SidebarMenuKey.aiAssistant,
-                tooltip: 'AI Assistant',
-                onTap: () => onSelectShellRoute(AppConstants.routeAIChatbot),
-              ),
-              _CollapsedRailNavButton(
-                icon: Icons.groups_outlined,
-                selectedIcon: Icons.groups,
-                isActive: activeMenuKey == _SidebarMenuKey.groupStudy,
-                tooltip: 'Study Group',
-                onTap: () => onSelectShellRoute(AppConstants.routeGroupStudy),
-              ),
-              _CollapsedRailNavButton(
-                icon: Icons.school_outlined,
-                selectedIcon: Icons.school,
-                isActive: activeMenuKey == _SidebarMenuKey.studyPlan,
-                tooltip: 'Study Plan',
-                onTap: () =>
-                    onSelectShellRoute(AppConstants.routeStudyPlan),
-              ),
-              const Spacer(),
-              IconButton(
-                icon: Icon(Icons.menu, color: DashboardSidebar.navInactiveFor(context)),
-                tooltip: 'Full menu',
-                onPressed: onExpand,
-              ),
-              IconButton(
-                icon: Icon(
-                  Icons.notifications_outlined,
-                  color: activeMenuKey == _SidebarMenuKey.warnings
-                      ? AppTheme.primaryBlue
-                      : DashboardSidebar.navInactiveFor(context),
+                const SidebarRailDivider(compact: true),
+                Expanded(
+                  child: ListView(
+                    padding: DashboardSidebarRailMetrics.navPadding,
+                    physics: const BouncingScrollPhysics(
+                      parent: AlwaysScrollableScrollPhysics(),
+                    ),
+                    children: [
+                      for (final destination in _primaryDestinations)
+                        SidebarRailIcon(
+                          tooltip: destination.tooltip,
+                          icon: destination.icon,
+                          selectedIcon: destination.selectedIcon,
+                          isActive: activeMenuKey == destination.menuKey,
+                          onTap: () => onSelectShellRoute(destination.route),
+                        ),
+                    ],
+                  ),
                 ),
-                tooltip: 'Warnings',
-                style: activeMenuKey == _SidebarMenuKey.warnings
-                    ? IconButton.styleFrom(
-                        backgroundColor: AppTheme.primaryBlue.withOpacity(0.12),
-                      )
-                    : null,
-                onPressed: () => onSelectShellRoute(AppConstants.routeWarnings),
-              ),
-              IconButton(
-                icon: Icon(
-                  Icons.person_outline,
-                  color: activeMenuKey == _SidebarMenuKey.profile
-                      ? AppTheme.primaryBlue
-                      : DashboardSidebar.navInactiveFor(context),
+                const SidebarRailDivider(compact: true),
+                Padding(
+                  padding: DashboardSidebarRailMetrics.footerPadding,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Center(
+                        child: SidebarRailUtilityGroup(
+                          children: [
+                            const NotificationBellButton(
+                              style: NotificationBellStyle.rail,
+                            ),
+                            SidebarRailIcon(
+                              tooltip: 'Profile',
+                              icon: Icons.person_outline_rounded,
+                              selectedIcon: Icons.person_rounded,
+                              isActive:
+                                  activeMenuKey == _SidebarMenuKey.profile,
+                              onTap: () => onSelectShellRoute(
+                                AppConstants.routeProfile,
+                              ),
+                            ),
+                            SidebarRailIcon(
+                              tooltip: 'More options',
+                              icon: Icons.more_horiz_rounded,
+                              onTap: () => _openMoreMenu(context),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      SidebarRailIcon(
+                        tooltip: 'End session',
+                        icon: Icons.logout_rounded,
+                        isDestructive: true,
+                        onTap: onEndSession,
+                      ),
+                    ],
+                  ),
                 ),
-                tooltip: 'Profile',
-                style: activeMenuKey == _SidebarMenuKey.profile
-                    ? IconButton.styleFrom(
-                        backgroundColor: AppTheme.primaryBlue.withOpacity(0.12),
-                      )
-                    : null,
-                onPressed: () => onSelectShellRoute(AppConstants.routeProfile),
-              ),
-              IconButton(
-                icon: Icon(
-                  Icons.class_outlined,
-                  color: activeMenuKey == _SidebarMenuKey.googleClassroom
-                      ? AppTheme.primaryBlue
-                      : DashboardSidebar.navInactiveFor(context),
-                ),
-                tooltip: 'Google Classroom',
-                style: activeMenuKey == _SidebarMenuKey.googleClassroom
-                    ? IconButton.styleFrom(
-                        backgroundColor: AppTheme.primaryBlue.withOpacity(0.12),
-                      )
-                    : null,
-                onPressed: () =>
-                    onSelectShellRoute(AppConstants.routeGoogleClassroomSync),
-              ),
-              IconButton(
-                icon: Icon(
-                  Icons.playlist_add_outlined,
-                  color: activeMenuKey == _SidebarMenuKey.myCourses
-                      ? AppTheme.primaryBlue
-                      : DashboardSidebar.navInactiveFor(context),
-                ),
-                tooltip: 'My courses',
-                style: activeMenuKey == _SidebarMenuKey.myCourses
-                    ? IconButton.styleFrom(
-                        backgroundColor: AppTheme.primaryBlue.withOpacity(0.12),
-                      )
-                    : null,
-                onPressed: () =>
-                    onSelectShellRoute(AppConstants.routeManualCourses),
-              ),
-              Divider(
-                color: isDark ? const Color(0xFF1F2937) : const Color(0xFFE2E8F0),
-                height: 1,
-              ),
-              IconButton(
-                icon: Icon(Icons.logout, color: AppTheme.errorRed.withOpacity(0.9)),
-                tooltip: 'End session',
-                onPressed: onEndSession,
-              ),
-              const SizedBox(height: 8),
             ],
           ),
         ),
@@ -377,60 +439,27 @@ class DashboardSidebarCollapsedRail extends StatelessWidget {
   }
 }
 
-class _CollapsedRailNavButton extends StatelessWidget {
+class _SidebarRailDestination {
+  final _SidebarMenuKey menuKey;
+  final String route;
+  final String tooltip;
   final IconData icon;
   final IconData selectedIcon;
-  final bool isActive;
-  final String tooltip;
-  final VoidCallback onTap;
 
-  const _CollapsedRailNavButton({
+  const _SidebarRailDestination({
+    required this.menuKey,
+    required this.route,
+    required this.tooltip,
     required this.icon,
     required this.selectedIcon,
-    required this.isActive,
-    required this.tooltip,
-    required this.onTap,
   });
+}
 
-  @override
-  Widget build(BuildContext context) {
-    final color = isActive
-        ? Colors.white
-        : DashboardSidebar.navInactiveFor(context);
-    return Tooltip(
-      message: tooltip,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 2),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: onTap,
-            borderRadius: BorderRadius.circular(12),
-            splashFactory: NoSplash.splashFactory,
-            overlayColor: WidgetStateProperty.all(Colors.transparent),
-            hoverColor: Colors.transparent,
-            focusColor: Colors.transparent,
-            highlightColor: Colors.transparent,
-            child: Container(
-              width: 44,
-              height: 44,
-              margin: const EdgeInsets.symmetric(horizontal: 6),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                gradient: isActive ? AppTheme.primaryGradient : null,
-                color: isActive ? null : const Color(0x00000000),
-              ),
-              child: Icon(
-                isActive ? selectedIcon : icon,
-                size: 22,
-                color: color,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+enum _RailMoreAction {
+  googleClassroom,
+  myCourses,
+  devicePairing,
+  expandSidebar,
 }
 
 class _NavItem extends StatelessWidget {

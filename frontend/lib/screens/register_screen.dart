@@ -77,17 +77,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
           userId: uid,
           fullName: registeredName,
           email: _emailController.text.trim(),
-          major: 'Computer Science',
-          academicYear: 'Junior',
-          gpa: '3.85',
+          studentId: '',
+          major: '',
+          academicYear: '',
+          gpa: '',
         );
       } catch (_) {
         // Backend optional; Firebase displayName is the source of truth for the name.
       }
 
       if (!mounted) return;
-      await user.updateDisplayName(_nameController.text.trim());
-      if (!mounted) return;
+      await context.read<ClassroomProvider>().loadForCurrentUser();
       await UserMatchingProfileSyncService.syncCurrentUserProfile(
         courses: context.read<ClassroomProvider>().courses,
         tasks: context.read<ClassroomProvider>().tasks,
@@ -118,6 +118,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       if (googleResult == null) throw Exception('Google sign-in cancelled');
 
       if (!mounted) return;
+      await context.read<ClassroomProvider>().loadForCurrentUser();
       await UserMatchingProfileSyncService.syncCurrentUserProfile(
         courses: context.read<ClassroomProvider>().courses,
         tasks: context.read<ClassroomProvider>().tasks,

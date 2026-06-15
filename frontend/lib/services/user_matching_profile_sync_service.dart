@@ -24,9 +24,10 @@ class UserMatchingProfileSyncService {
         (resolveAuthFromFirebase ? FirebaseAuth.instance.currentUser : null);
     if (user == null) return;
 
-    final resolvedCourses =
-        courses ?? await ClassroomStorageService.loadCourses();
-    final resolvedTasks = tasks ?? await ClassroomStorageService.loadTasks();
+    final resolvedCourses = courses ??
+        await ClassroomStorageService.loadCourses(user.uid);
+    final resolvedTasks =
+        tasks ?? await ClassroomStorageService.loadTasks(user.uid);
     final prefs = await SharedPreferences.getInstance();
 
     final availableStart =

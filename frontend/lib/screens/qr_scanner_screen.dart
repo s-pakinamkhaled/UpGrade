@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import '../core/theme.dart';
+import '../services/device_pairing_storage_service.dart';
 import '../core/security_utils.dart';
 
 /// الموبايل يقرأ QR → يأخذ اللينك → يفتحه في المتصفح.
@@ -34,16 +36,19 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
   Future<void> _openInBrowser(String url) async {
     final uri = Uri.tryParse(_normalizeUrl(url));
     if (uri == null) return;
+
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     }
   }
 
-  String? _extractSessionId(String value) =>
-      SecurityUtils.extractPairingSessionId(value);
+  String? _extractSessionId(String value) {
+    return SecurityUtils.extractPairingSessionId(value);
+  }
 
   Future<void> _onDetect(BarcodeCapture capture) async {
     if (_hasScanned) return;
+
     final List<Barcode> barcodes = capture.barcodes;
     if (barcodes.isEmpty) return;
 
@@ -52,22 +57,24 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
 
     _hasScanned = true;
 
-    // pairing QR: upgrade://pair?session=xxx → تحديث Firestore
     final sessionId = _extractSessionId(qrValue);
+
     if (sessionId != null && sessionId.isNotEmpty) {
       if (!SecurityUtils.isSafePairingSessionId(sessionId)) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Invalid pairing session'),
-              backgroundColor: AppTheme.errorRed,
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-        }
-        _hasScanned = false;
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Invalid pairing session'),
+            backgroundColor: AppTheme.errorRed,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+
+        setState(() => _hasScanned = false);
         return;
       }
+
       try {
         await FirebaseFirestore.instance
             .collection('pairing_sessions')
@@ -76,44 +83,63 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
           'paired': true,
           'device': 'Mobile device',
         });
+
+        final uid = FirebaseAuth.instance.currentUser?.uid;
+
+        if (uid != null) {
+          await DevicePairingStorageService.setPaired(
+            uid: uid,
+            paired: true,
+            deviceName: 'Mobile device',
+          );
+        }
+
         if (!mounted) return;
+
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Paired successfully'),
+          const SnackBar(
+            content: Text('Paired successfully'),
             backgroundColor: AppTheme.successGreen,
             behavior: SnackBarBehavior.floating,
           ),
         );
+
         Navigator.of(context).pop();
       } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Pairing failed: $e'),
-              backgroundColor: AppTheme.errorRed,
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-          setState(() => _hasScanned = false);
-        }
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Pairing failed: $e'),
+            backgroundColor: AppTheme.errorRed,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+
+        setState(() => _hasScanned = false);
       }
+
       return;
     }
 
     if (_isValidUrl(qrValue)) {
       await _openInBrowser(qrValue);
-      if (mounted) Navigator.of(context).pop();
-    } else {
+
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Invalid QR – not a valid URL'),
-            backgroundColor: AppTheme.errorRed,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-        setState(() => _hasScanned = false);
+        Navigator.of(context).pop();
       }
+    } else {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Invalid QR – not a valid URL'),
+          backgroundColor: AppTheme.errorRed,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+
+      setState(() => _hasScanned = false);
     }
   }
 
@@ -179,7 +205,10 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                 color: AppTheme.white,
                 fontSize: 14,
                 shadows: [
-                  Shadow(color: Colors.black.withOpacity(0.8), blurRadius: 4),
+                  Shadow(
+                    color: Colors.black.withOpacity(0.8),
+                    blurRadius: 4,
+                  ),
                 ],
               ),
             ),

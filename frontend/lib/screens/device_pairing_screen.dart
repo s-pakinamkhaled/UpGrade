@@ -7,6 +7,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import '../core/theme.dart';
 import '../core/constants.dart';
 import '../widgets/gradient_card.dart';
+import '../services/device_pairing_storage_service.dart';
 import '../widgets/upgrade_page_shell.dart';
 
 class DevicePairingScreen extends StatefulWidget {
@@ -90,9 +91,18 @@ class _DevicePairingScreenState extends State<DevicePairingScreen> {
       if (!mounted) return;
       final data = doc.data();
       if (data != null && data['paired'] == true) {
+        final device = (data['device'] as String?) ?? 'Mobile device';
+        final uid = FirebaseAuth.instance.currentUser?.uid;
+        if (uid != null) {
+          unawaited(DevicePairingStorageService.setPaired(
+            uid: uid,
+            paired: true,
+            deviceName: device,
+          ));
+        }
         setState(() {
           _isPaired = true;
-          _deviceName = data['device'] ?? 'Mobile device';
+          _deviceName = device;
         });
         // Laptop website unlocks: open dashboard when mobile confirms pairing
         if (!widget.isFromSettings) {
@@ -128,6 +138,10 @@ class _DevicePairingScreenState extends State<DevicePairingScreen> {
     }
     _pairingSubscription?.cancel();
     _pairingSubscription = null;
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid != null) {
+      await DevicePairingStorageService.setPaired(uid: uid, paired: false);
+    }
     setState(() {
       _isPaired = false;
       sessionId = null;

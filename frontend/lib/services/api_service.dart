@@ -1,8 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
-import 'package:meta/meta.dart';
-
 import '../core/security_utils.dart';
 
 /// API Service for connecting to the UpGrade backend
@@ -193,6 +191,7 @@ class ApiService {
         'userId': userId,
         'title': taskJson['title'],
         'status': taskJson['status'] ?? 'pending',
+        'deadline': taskJson['deadline'],
         'startedAt': taskJson['startedAt'],
         'completedAt': taskJson['completedAt'],
         'updatedAt': taskJson['updatedAt'] ?? DateTime.now().toIso8601String(),
@@ -271,6 +270,7 @@ class ApiService {
     required String userId,
     required String fullName,
     required String email,
+    required String studentId,
     required String major,
     required String academicYear,
     required String gpa,
@@ -287,9 +287,10 @@ class ApiService {
             body: json.encode({
               'fullName': SecurityUtils.sanitizeDisplayInput(fullName),
               'email': email.trim(),
+              'studentId': studentId,
               'major': SecurityUtils.sanitizeDisplayInput(major),
               'academicYear': SecurityUtils.sanitizeDisplayInput(academicYear),
-              'gpa': SecurityUtils.sanitizeDisplayInput(gpa, maxLength: 16),
+              'gpa': SecurityUtils.sanitizeDisplayInput(gpa, maxLength: 16),     
             }),
           )
           .timeout(const Duration(seconds: 10));

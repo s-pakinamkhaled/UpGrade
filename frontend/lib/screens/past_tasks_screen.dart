@@ -16,13 +16,17 @@ class PastTasksScreen extends StatelessWidget {
 
   static List<Task> _pastTasks(List<Task> tasks) {
     final today = _dateOnly(DateTime.now());
-    return tasks.where((t) => _dateOnly(t.deadline).isBefore(today)).toList()
+    return tasks
+        .where(
+            (t) => t.hasRealDeadline && _dateOnly(t.deadline).isBefore(today))
+        .toList()
       ..sort((a, b) => b.deadline.compareTo(a.deadline));
   }
 
   static bool _isMissed(Task task) {
     final today = _dateOnly(DateTime.now());
-    return _dateOnly(task.deadline).isBefore(today) &&
+    return task.hasRealDeadline &&
+        _dateOnly(task.deadline).isBefore(today) &&
         task.status != TaskStatus.completed;
   }
 

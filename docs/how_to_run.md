@@ -5,6 +5,7 @@ python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8001
 # API docs: http://127.0.0.1:8001/docs
 
 
+
 # How to run the Frontend
 # Open a NEW terminal and run:
 cd "C:\Users\HD  TECH\UpGrade_fixes\frontend"
@@ -28,3 +29,6 @@ flutter run -d web-server --web-port 5000 --web-hostname localhost
 #      http://localhost:3000
 #      http://localhost:5000
 # 5. Click Save and wait ~5 minutes for changes to propagate.
+
+# port for backend is port 8001 
+# and port for frontend is 5000 

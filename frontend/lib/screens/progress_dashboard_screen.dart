@@ -50,9 +50,10 @@ class _ProgressDashboardScreenState extends State<ProgressDashboardScreen> {
           selectedCourse: selectedCourseFilter,
         );
 
+        final taskMetricItems = allTasks.where(_countsAsDashboardTask).toList();
         final visibleTasks = selectedCourseFilter == null
-            ? allTasks
-            : allTasks
+            ? taskMetricItems
+            : taskMetricItems
                 .where((t) => _normalizedCourseName(t) == selectedCourseFilter)
                 .toList();
 
@@ -1405,7 +1406,8 @@ class _ProgressDashboardScreenState extends State<ProgressDashboardScreen> {
     final day = _dateOnly(point.date);
 
     final dueTasks = visibleTasks
-        .where((task) => _dateOnly(task.deadline) == day)
+        .where(
+            (task) => task.hasRealDeadline && _dateOnly(task.deadline) == day)
         .toList()
       ..sort((a, b) => a.deadline.compareTo(b.deadline));
 
@@ -1616,6 +1618,19 @@ class _ProgressDashboardScreenState extends State<ProgressDashboardScreen> {
       case TaskStatus.missed:
         return 'Missed';
     }
+  }
+
+  bool _countsAsDashboardTask(Task task) {
+    if (task.itemType == 'actionable_task' ||
+        task.itemType == 'completed_work') {
+      return true;
+    }
+    if (task.source == 'manual') return true;
+    return !task.isGradeRelated &&
+        !task.isDashboardOnly &&
+        task.itemType != 'grade_item' &&
+        task.itemType != 'grade_bucket' &&
+        task.itemType != 'material';
   }
 
   bool _hideDenseLabel(int index, int total) {

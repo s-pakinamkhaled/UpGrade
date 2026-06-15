@@ -2,6 +2,7 @@ import '../models/classroom_course.dart';
 import '../models/classroom_assignment.dart';
 import '../models/classroom_submission.dart';
 import '../models/task.dart';
+import 'classroom_item_classifier_service.dart';
 
 /// Result object returned after mapping all classroom data
 class ClassroomMappedResult {
@@ -43,11 +44,15 @@ class ClassroomMapperService {
       );
     }
 
+    // Classify all tasks before returning
+    final classifiedTasks =
+        ClassroomItemClassifierService.classifyAll(allTasks);
+
     return ClassroomMappedResult(
       courses: courses,
       assignments: assignments,
       submissions: submissions,
-      tasks: allTasks,
+      tasks: classifiedTasks,
     );
   }
 
@@ -69,21 +74,24 @@ class ClassroomMapperService {
               ) ??
           ClassroomSubmission.empty();
 
-      final deadline =
-          assignment.dueDate ?? DateTime.now().add(const Duration(days: 7));
-
-      final priority = _calculatePriority(
-        deadline: deadline,
-        isSubmitted: sub.isSubmitted,
-      );
+      final hasRealDeadline = assignment.dueDate != null;
+      final now = DateTime.now();
+      final deadline = assignment.dueDate ?? now.add(const Duration(days: 7));
 
       final estimatedMinutes = _estimateTime(assignment.maxPoints);
 
       final taskStatus = sub.isReturned || sub.isSubmitted
           ? TaskStatus.completed
-          : (deadline.isBefore(DateTime.now())
+          : (hasRealDeadline && deadline.isBefore(now)
               ? TaskStatus.missed
               : TaskStatus.pending);
+
+      final priority = _calculatePriority(
+        deadline: deadline,
+        status: taskStatus,
+        isSubmitted: sub.isSubmitted,
+        hasRealDeadline: hasRealDeadline,
+      );
 
       tasks.add(
         Task(
@@ -99,6 +107,12 @@ class ClassroomMapperService {
           completedAt: sub.completedAt,
           assignedGrade: sub.displayGrade,
           maxPoints: assignment.maxPoints,
+          source: 'google_classroom',
+          classroomWorkType: assignment.workType,
+          classroomSubmissionState: sub.state,
+          classroomLate: sub.late,
+          hasRealDeadline: hasRealDeadline,
+          deadlineSource: hasRealDeadline ? 'classroom' : 'synthetic',
         ),
       );
     }
@@ -139,22 +153,30 @@ class ClassroomMapperService {
       );
     }
 
-    return (courses: courses, tasks: tasks);
+    // Classify all mapped tasks
+    final classifiedTasks = ClassroomItemClassifierService.classifyAll(tasks);
+    return (courses: courses, tasks: classifiedTasks);
   }
 
   /// 🔹 AI-ish priority logic (important)
   static TaskPriority _calculatePriority({
     required DateTime? deadline,
+    required TaskStatus status,
     required bool isSubmitted,
+    required bool hasRealDeadline,
   }) {
     if (isSubmitted) return TaskPriority.low;
 
-    if (deadline == null) return TaskPriority.medium;
+    if (status == TaskStatus.missed) return TaskPriority.urgent;
+
+    if (deadline == null || !hasRealDeadline) return TaskPriority.low;
 
     final hoursLeft = deadline.difference(DateTime.now()).inHours;
 
-    if (hoursLeft <= 24) return TaskPriority.high;
-    if (hoursLeft <= 72) return TaskPriority.medium;
+    if (hoursLeft < 0) return TaskPriority.urgent;
+    if (hoursLeft <= 24) return TaskPriority.urgent;
+    if (hoursLeft <= 72) return TaskPriority.high;
+    if (hoursLeft <= 7 * 24) return TaskPriority.medium;
 
     return TaskPriority.low;
   }

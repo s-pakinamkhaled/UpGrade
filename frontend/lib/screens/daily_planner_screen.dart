@@ -86,12 +86,15 @@ class _DailyPlannerScreenState extends State<DailyPlannerScreen> {
   static Map<DateTime, List<Task>> _weeklyTasksFromProvider(List<Task> tasks) {
     final map = <DateTime, List<Task>>{};
     for (final t in tasks) {
-      final deadlineDay = _dateOnly(t.deadline);
-      map.putIfAbsent(deadlineDay, () => []).add(t);
+      DateTime? deadlineDay;
+      if (t.hasRealDeadline) {
+        deadlineDay = _dateOnly(t.deadline);
+        map.putIfAbsent(deadlineDay, () => []).add(t);
+      }
       final st = t.scheduledTime;
       if (st != null) {
         final scheduledDay = _dateOnly(st);
-        if (scheduledDay != deadlineDay) {
+        if (deadlineDay == null || scheduledDay != deadlineDay) {
           map.putIfAbsent(scheduledDay, () => []).add(t);
         }
       }
@@ -164,7 +167,8 @@ class _DailyPlannerScreenState extends State<DailyPlannerScreen> {
                               isDark: isDark,
                             ),
                             SizedBox(height: t.space(0.35)),
-                            UpGradeMutedSubtitle(subtitle, rem: t, isDark: isDark),
+                            UpGradeMutedSubtitle(subtitle,
+                                rem: t, isDark: isDark),
                             SizedBox(height: t.space(1.05)),
                             _buildWeekStripCard(t, isDark),
                             SizedBox(height: t.space(1.0)),
@@ -186,7 +190,8 @@ class _DailyPlannerScreenState extends State<DailyPlannerScreen> {
 
   Widget _buildEmptyState(bool neverSynced, UpGradeRem t, bool isDark) {
     final textColor = isDark ? const Color(0xFFE5E7EB) : AppTheme.darkText;
-    final subColor = isDark ? const Color(0xFF9CA3AF) : AppTheme.darkText.withOpacity(0.7);
+    final subColor =
+        isDark ? const Color(0xFF9CA3AF) : AppTheme.darkText.withOpacity(0.7);
     return SingleChildScrollView(
       padding: EdgeInsets.all(t.space(1.1)),
       child: Center(
@@ -229,7 +234,9 @@ class _DailyPlannerScreenState extends State<DailyPlannerScreen> {
                     ),
                     const SizedBox(height: 18),
                     Text(
-                      neverSynced ? 'Connect Google Classroom' : 'You\'re all set!',
+                      neverSynced
+                          ? 'Connect Google Classroom'
+                          : 'You\'re all set!',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 22,
@@ -294,7 +301,9 @@ class _DailyPlannerScreenState extends State<DailyPlannerScreen> {
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 12,
-                          color: isDark ? const Color(0xFF94A3B8) : AppTheme.darkText.withOpacity(0.6),
+                          color: isDark
+                              ? const Color(0xFF94A3B8)
+                              : AppTheme.darkText.withOpacity(0.6),
                         ),
                       ),
                     ],
@@ -346,7 +355,8 @@ class _DailyPlannerScreenState extends State<DailyPlannerScreen> {
                         margin: const EdgeInsets.symmetric(horizontal: 3),
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         decoration: BoxDecoration(
-                          gradient: isSelected ? AppTheme.primaryGradient : null,
+                          gradient:
+                              isSelected ? AppTheme.primaryGradient : null,
                           color: !isSelected && isHovered
                               ? AppTheme.secondaryPurple.withOpacity(0.1)
                               : !isSelected
@@ -356,7 +366,8 @@ class _DailyPlannerScreenState extends State<DailyPlannerScreen> {
                                   : null,
                           borderRadius: BorderRadius.circular(14),
                           border: isToday && !isSelected
-                              ? Border.all(color: AppTheme.primaryBlue, width: 2)
+                              ? Border.all(
+                                  color: AppTheme.primaryBlue, width: 2)
                               : isHovered && !isSelected
                                   ? Border.all(
                                       color: AppTheme.secondaryPurple
@@ -385,17 +396,15 @@ class _DailyPlannerScreenState extends State<DailyPlannerScreen> {
                               _isSameDay(date, _today)
                                   ? 'Today'
                                   : _isSameDay(
-                                          date,
-                                          _today.add(const Duration(days: 1)),
-                                        )
+                                      date,
+                                      _today.add(const Duration(days: 1)),
+                                    )
                                       ? 'Tomorrow'
                                       : DateFormat('E').format(date),
                               style: TextStyle(
                                 fontSize: t.listSubtitle,
                                 fontWeight: FontWeight.w600,
-                                color: isSelected
-                                    ? AppTheme.white
-                                    : muted,
+                                color: isSelected ? AppTheme.white : muted,
                               ),
                             ),
                             SizedBox(height: t.space(0.35)),
@@ -598,9 +607,9 @@ class _DailyPlannerScreenState extends State<DailyPlannerScreen> {
       color: Colors.transparent,
       child: InkWell(
         onTap: () => selectMainShellRoute(
-              context,
-              AppConstants.routeStudyPlan,
-            ),
+          context,
+          AppConstants.routeStudyPlan,
+        ),
         borderRadius: BorderRadius.circular(22),
         child: Ink(
           decoration: BoxDecoration(
@@ -814,10 +823,9 @@ class _DailyPlannerScreenState extends State<DailyPlannerScreen> {
       case TimelineItemType.task:
         return _taskCard(item.task!);
       case TimelineItemType.breakSession:
-        return _simpleCard(
-            item.breakSession!.type == BreakType.lunch
-                ? 'Lunch Break'
-                : 'Short Break');
+        return _simpleCard(item.breakSession!.type == BreakType.lunch
+            ? 'Lunch Break'
+            : 'Short Break');
       case TimelineItemType.focusSession:
         return _simpleCard('Focus Session');
     }
@@ -996,9 +1004,8 @@ class _DailyPlannerScreenState extends State<DailyPlannerScreen> {
 
   Widget _simpleCard(String text) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final lineColor = isDark
-        ? const Color(0xFF64748B)
-        : const Color(0xFF94A3B8);
+    final lineColor =
+        isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8);
     return Material(
       color: Colors.transparent,
       borderRadius: BorderRadius.circular(16),

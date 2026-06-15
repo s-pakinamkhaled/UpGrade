@@ -55,6 +55,18 @@ class TaskInput(BaseModel):
     description: Optional[str] = None
     assignedGrade: Optional[float] = None
     maxPoints: Optional[int] = None
+    source: Optional[str] = "unknown"
+    itemType: Optional[str] = "unknown"
+    isActionableForAI: Optional[bool] = None
+    isGradeRelated: Optional[bool] = None
+    isDashboardOnly: Optional[bool] = None
+    classificationConfidence: Optional[float] = None
+    classificationReason: Optional[str] = None
+    classroomWorkType: Optional[str] = None
+    classroomSubmissionState: Optional[str] = None
+    classroomLate: Optional[bool] = False
+    hasRealDeadline: Optional[bool] = True
+    deadlineSource: Optional[str] = None
 
 
 class PlanRequest(BaseModel):
@@ -63,8 +75,11 @@ class PlanRequest(BaseModel):
 
 
 class PlanItem(BaseModel):
+    taskId: Optional[str] = None
     taskTitle: str
     courseName: Optional[str] = ""
+    deadline: Optional[str] = None
+    status: Optional[str] = None
     suggestedDate: str
     suggestedTime: str
     hoursNeeded: float
@@ -83,6 +98,72 @@ class PlanResponse(BaseModel):
  # ranking the tasks 
 
 _PRIORITY_RANK = {"urgent": 0, "high": 1, "medium": 2, "low": 3}
+_MAX_PLANNER_TASKS = 30
+
+
+def _parse_deadline(deadline: Optional[str]) -> Optional[datetime]:
+    if not deadline:
+        return None
+    try:
+        parsed = datetime.fromisoformat(deadline.replace("Z", "+00:00"))
+        if parsed.tzinfo is not None:
+            return parsed.replace(tzinfo=None)
+        return parsed
+    except Exception:
+        return None
+
+
+def _effective_priority(t: TaskInput, now: Optional[datetime] = None) -> str:
+    """Upgrade stale client priorities for missed and near-deadline tasks."""
+    now = now or datetime.now()
+    status = (t.status or "pending").lower()
+    current = (t.priority or "medium").lower()
+
+    if status in {"missed", "overdue"}:
+        return "urgent"
+
+    dl = _parse_deadline(t.deadline)
+    if dl is None or t.hasRealDeadline is False:
+        return "low"
+
+    hours_left = (dl - now).total_seconds() / 3600
+    if hours_left < 0:
+        return "urgent"
+    if hours_left <= 24:
+        return "urgent"
+    if hours_left <= 72:
+        return "high" if _PRIORITY_RANK.get(current, 2) > 1 else current
+    if hours_left <= 7 * 24:
+        return "medium" if _PRIORITY_RANK.get(current, 2) > 2 else current
+
+    return current if current in _PRIORITY_RANK else "medium"
+
+
+def _fallback_plan_item(task: TaskInput, index: int, now: Optional[datetime] = None) -> PlanItem:
+    """Create a deterministic slot when the LLM omits a validated task."""
+    now = now or datetime.now()
+    priority = _effective_priority(task, now)
+    hours = max((task.estimatedMinutes or 60) / 60.0, 0.5)
+    day_offset = index // 3
+    start_hour = [9, 13, 17][index % 3]
+    end_hour = min(start_hour + max(1, round(hours)), 21)
+
+    return PlanItem(
+        taskId=task.id,
+        taskTitle=task.title,
+        courseName=task.courseName or "",
+        deadline=task.deadline if task.hasRealDeadline is not False else None,
+        status=task.status or "pending",
+        suggestedDate=(now + timedelta(days=day_offset)).strftime("%Y-%m-%d"),
+        suggestedTime=f"{start_hour:02d}:00 - {end_hour:02d}:00",
+        hoursNeeded=round(hours, 1),
+        priority=priority,
+        tip=(
+            "Recovery item: start with the required deliverables and submit the missing work as soon as possible."
+            if priority == "urgent"
+            else "No hard deadline is available; schedule a short checkpoint so it does not drift."
+        ),
+    )
 
 
 def _build_prompt(req: PlanRequest) -> str:
@@ -98,14 +179,11 @@ def _build_prompt(req: PlanRequest) -> str:
 
     for t in req.tasks:
         days_left = "unknown"
-        if t.deadline:
-            try:
-                dl = datetime.fromisoformat(t.deadline.replace("Z", "+00:00"))
-                days_left = f"{(dl - now).days} days"
-            except Exception:
-                days_left = "unknown"
+        dl = _parse_deadline(t.deadline) if t.hasRealDeadline is not False else None
+        if dl:
+            days_left = f"{(dl - now).days} days"
 
-        priority_tag = f"[{(t.priority or 'medium').upper()}]"
+        priority_tag = f"[{_effective_priority(t, now).upper()}]"
         grade_info = ""
         if t.assignedGrade is not None and t.maxPoints is not None:
             grade_info = f" | Grade: {t.assignedGrade}/{t.maxPoints}"
@@ -114,7 +192,7 @@ def _build_prompt(req: PlanRequest) -> str:
 
         lines.append(
             f"- {priority_tag} {t.title} | Course: {t.courseName or 'N/A'} "
-            f"| Deadline: {t.deadline or 'none'} ({days_left} left) "
+            f"| Deadline: {t.deadline if t.hasRealDeadline is not False else 'none'} ({days_left} left) "
             f"| Est: {t.estimatedMinutes or 60} min | Status: {t.status or 'pending'}"
             f"{grade_info}"
         )
@@ -157,25 +235,23 @@ async def generate_plan(req: PlanRequest):
     if not groq_client:
         raise HTTPException(status_code=503, detail="Planner service is not available")
 
-    # Filter 1: keep only active (non-completed) tasks
-    active_tasks = [t for t in req.tasks if (t.status or "pending") not in ("completed",)]
-
-    # Filter 2: remove grade entries and in-class lab activities before LLM sees the data
-    active_tasks = _filter_real_tasks(active_tasks)
+    # Server-side safety guard: remove grades, summaries, completed work,
+    # materials, dashboard-only rows, and any item not schedulable for AI.
+    active_tasks = _filter_real_tasks(req.tasks)
 
     if not active_tasks:
         raise HTTPException(status_code=400, detail="No active tasks to plan for")
 
     # Sort by priority rank then deadline (soonest first)
     def sort_key(t):
-        rank = _PRIORITY_RANK.get((t.priority or "medium").lower(), 2)
+        rank = _PRIORITY_RANK.get(_effective_priority(t), 2)
         dl = t.deadline or "9999-12-31"
         return (rank, dl)
 
     active_tasks.sort(key=sort_key)
 
-    # Trim to 15 most urgent tasks to stay within token window
-    active_tasks = active_tasks[:15]
+    # Keep enough real work for a complete plan while protecting the LLM context.
+    active_tasks = active_tasks[:_MAX_PLANNER_TASKS]
     req_trimmed = PlanRequest(studentName=req.studentName, tasks=active_tasks)
 
     prompt = _build_prompt(req_trimmed)
@@ -215,18 +291,65 @@ async def generate_plan(req: PlanRequest):
 
         parsed = json.loads(content)
 
+        priority_by_title = {
+            (task.title or "").strip().lower(): _effective_priority(task)
+            for task in active_tasks
+        }
+
         items = [
             PlanItem(
+                taskId=next(
+                    (
+                        task.id
+                        for task in active_tasks
+                        if (task.title or "").strip().lower()
+                        == str(item.get("taskTitle", "")).strip().lower()
+                    ),
+                    None,
+                ),
                 taskTitle=item.get("taskTitle", ""),
                 courseName=item.get("courseName", ""),
+                deadline=next(
+                    (
+                        task.deadline
+                        for task in active_tasks
+                        if (task.title or "").strip().lower()
+                        == str(item.get("taskTitle", "")).strip().lower()
+                        and task.hasRealDeadline is not False
+                    ),
+                    None,
+                ),
+                status=next(
+                    (
+                        task.status
+                        for task in active_tasks
+                        if (task.title or "").strip().lower()
+                        == str(item.get("taskTitle", "")).strip().lower()
+                    ),
+                    None,
+                ),
                 suggestedDate=item.get("suggestedDate", ""),
                 suggestedTime=item.get("suggestedTime", ""),
                 hoursNeeded=float(item.get("hoursNeeded", 1)),
-                priority=item.get("priority", "medium"),
+                priority=priority_by_title.get(
+                    str(item.get("taskTitle", "")).strip().lower(),
+                    item.get("priority", "medium"),
+                ),
                 tip=item.get("tip", ""),
             )
             for item in parsed.get("items", [])
         ]
+
+        planned_titles = {
+            (item.taskTitle or "").strip().lower()
+            for item in items
+            if (item.taskTitle or "").strip()
+        }
+        for task in active_tasks:
+            key = (task.title or "").strip().lower()
+            if key not in planned_titles:
+                items.append(_fallback_plan_item(task, len(items), datetime.now()))
+                planned_titles.add(key)
 
         return PlanResponse(
             success=True,

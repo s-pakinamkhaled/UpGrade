@@ -12,10 +12,52 @@ class Task {
   final DateTime? scheduledTime;
   final DateTime? completedAt;
   final DateTime updatedAt;
+
   /// Grade received (from Classroom), if returned by teacher.
   final double? assignedGrade;
+
   /// Max points for this assignment (from Classroom).
   final int? maxPoints;
+
+  // ── Classification metadata ──────────────────────────────────────
+  /// Where this task originated: "google_classroom", "manual", or "unknown".
+  final String source;
+
+  /// Semantic type after classification.
+  /// Values: "actionable_task", "grade_item", "grade_bucket",
+  ///         "completed_work", "material", "dashboard_only", "unknown".
+  final String itemType;
+
+  /// Whether this item should be sent to the AI (Study Plan / Chatbot)
+  /// as a task to schedule.
+  final bool isActionableForAI;
+
+  /// Whether this item is related to grades / scoring / results.
+  final bool isGradeRelated;
+
+  /// Whether this item exists only for dashboard / analytics display.
+  final bool isDashboardOnly;
+
+  /// How confident the classifier is (0.0–1.0).
+  final double classificationConfidence;
+
+  /// Human-readable reason for the classification decision.
+  final String? classificationReason;
+
+  /// Google Classroom workType if available (e.g. ASSIGNMENT, SHORT_ANSWER_QUESTION).
+  final String? classroomWorkType;
+
+  /// Google Classroom submission state if available (CREATED, TURNED_IN, RETURNED, etc.).
+  final String? classroomSubmissionState;
+
+  /// Whether Classroom marked the submission as late.
+  final bool classroomLate;
+
+  /// True when the task has a real schedulable deadline from Classroom or the user.
+  final bool hasRealDeadline;
+
+  /// Where the stored deadline came from: "classroom", "user", or "synthetic".
+  final String? deadlineSource;
 
   Task({
     required this.id,
@@ -33,14 +75,30 @@ class Task {
     DateTime? updatedAt,
     this.assignedGrade,
     this.maxPoints,
+    this.source = 'unknown',
+    this.itemType = 'unknown',
+    this.isActionableForAI = true,
+    this.isGradeRelated = false,
+    this.isDashboardOnly = false,
+    this.classificationConfidence = 0.0,
+    this.classificationReason,
+    this.classroomWorkType,
+    this.classroomSubmissionState,
+    this.classroomLate = false,
+    this.hasRealDeadline = true,
+    this.deadlineSource,
   }) : updatedAt = updatedAt ?? DateTime.now();
 
   factory Task.fromJson(Map<String, dynamic> json) {
+    final parsedDeadline =
+        DateTime.tryParse(json['deadline'] as String? ?? '') ?? DateTime.now();
+    final source = json['source'] as String? ?? 'unknown';
+    final hasRealDeadlineValue = json['hasRealDeadline'] as bool?;
     return Task(
       id: json['id'] as String? ?? '',
       title: json['title'] as String? ?? '',
       description: json['description'] as String?,
-      deadline: DateTime.tryParse(json['deadline'] as String? ?? '') ?? DateTime.now(),
+      deadline: parsedDeadline,
       courseId: json['courseId'] as String? ?? '',
       courseName: json['courseName'] as String? ?? '',
       priority: _priorityFromString(json['priority'] as String?),
@@ -56,30 +114,71 @@ class Task {
           ? DateTime.tryParse(json['completedAt'] as String)
           : null,
       updatedAt: DateTime.tryParse(json['updatedAt'] as String? ?? ''),
-      assignedGrade: json['assignedGrade'] is num
-          ? (json['assignedGrade'] as num).toDouble()
-          : null,
-      maxPoints: json['maxPoints'] is num
-          ? (json['maxPoints'] as num).toInt()
-          : null,
+      assignedGrade: (json['assignedGrade'] as num?)?.toDouble(),
+      maxPoints: (json['maxPoints'] as num?)?.toInt(),
+      // Classification fields — safe defaults for old data
+      source: source,
+      itemType: json['itemType'] as String? ?? 'unknown',
+      isActionableForAI: json['isActionableForAI'] as bool? ?? true,
+      isGradeRelated: json['isGradeRelated'] as bool? ?? false,
+      isDashboardOnly: json['isDashboardOnly'] as bool? ?? false,
+      classificationConfidence:
+          (json['classificationConfidence'] as num?)?.toDouble() ?? 0.0,
+      classificationReason: json['classificationReason'] as String?,
+      classroomWorkType: json['classroomWorkType'] as String?,
+      classroomSubmissionState: json['classroomSubmissionState'] as String?,
+      classroomLate: json['classroomLate'] as bool? ?? false,
+      hasRealDeadline: hasRealDeadlineValue ??
+          (source == 'google_classroom'
+              ? !_looksSyntheticDeadline(parsedDeadline)
+              : true),
+      deadlineSource: json['deadlineSource'] as String? ??
+          _defaultDeadlineSource(
+            source: source,
+            hasRealDeadline: hasRealDeadlineValue ??
+                (source == 'google_classroom'
+                    ? !_looksSyntheticDeadline(parsedDeadline)
+                    : true),
+          ),
     );
+  }
+
+  static bool _looksSyntheticDeadline(DateTime deadline) {
+    final diff = deadline.difference(DateTime.now()).inMinutes;
+    return (diff - const Duration(days: 7).inMinutes).abs() < 10;
+  }
+
+  static String _defaultDeadlineSource({
+    required String source,
+    required bool hasRealDeadline,
+  }) {
+    if (!hasRealDeadline) return 'synthetic';
+    return source == 'google_classroom' ? 'classroom' : 'user';
   }
 
   static TaskPriority _priorityFromString(String? s) {
     switch (s) {
-      case 'urgent': return TaskPriority.urgent;
-      case 'high': return TaskPriority.high;
-      case 'low': return TaskPriority.low;
-      default: return TaskPriority.medium;
+      case 'urgent':
+        return TaskPriority.urgent;
+      case 'high':
+        return TaskPriority.high;
+      case 'low':
+        return TaskPriority.low;
+      default:
+        return TaskPriority.medium;
     }
   }
 
   static TaskStatus _statusFromString(String? s) {
     switch (s) {
-      case 'completed': return TaskStatus.completed;
-      case 'inProgress': return TaskStatus.inProgress;
-      case 'missed': return TaskStatus.missed;
-      default: return TaskStatus.pending;
+      case 'completed':
+        return TaskStatus.completed;
+      case 'inProgress':
+        return TaskStatus.inProgress;
+      case 'missed':
+        return TaskStatus.missed;
+      default:
+        return TaskStatus.pending;
     }
   }
 
@@ -99,24 +198,52 @@ class Task {
         'updatedAt': updatedAt.toIso8601String(),
         'assignedGrade': assignedGrade,
         'maxPoints': maxPoints,
+        // Classification metadata
+        'source': source,
+        'itemType': itemType,
+        'isActionableForAI': isActionableForAI,
+        'isGradeRelated': isGradeRelated,
+        'isDashboardOnly': isDashboardOnly,
+        'classificationConfidence': classificationConfidence,
+        'classificationReason': classificationReason,
+        'classroomWorkType': classroomWorkType,
+        'classroomSubmissionState': classroomSubmissionState,
+        'classroomLate': classroomLate,
+        'hasRealDeadline': hasRealDeadline,
+        'deadlineSource': deadlineSource,
       };
 
   Task copyWith({
+    DateTime? deadline,
+    TaskPriority? priority,
     TaskStatus? status,
     DateTime? startedAt,
     bool clearStartedAt = false,
     DateTime? completedAt,
     bool clearCompletedAt = false,
     DateTime? updatedAt,
+    // Classification overrides
+    String? source,
+    String? itemType,
+    bool? isActionableForAI,
+    bool? isGradeRelated,
+    bool? isDashboardOnly,
+    double? classificationConfidence,
+    String? classificationReason,
+    String? classroomWorkType,
+    String? classroomSubmissionState,
+    bool? classroomLate,
+    bool? hasRealDeadline,
+    String? deadlineSource,
   }) {
     return Task(
       id: id,
       title: title,
       description: description,
-      deadline: deadline,
+      deadline: deadline ?? this.deadline,
       courseId: courseId,
       courseName: courseName,
-      priority: priority,
+      priority: priority ?? this.priority,
       status: status ?? this.status,
       startedAt: clearStartedAt ? null : (startedAt ?? this.startedAt),
       estimatedMinutes: estimatedMinutes,
@@ -125,14 +252,32 @@ class Task {
       updatedAt: updatedAt ?? this.updatedAt,
       assignedGrade: assignedGrade,
       maxPoints: maxPoints,
+      source: source ?? this.source,
+      itemType: itemType ?? this.itemType,
+      isActionableForAI: isActionableForAI ?? this.isActionableForAI,
+      isGradeRelated: isGradeRelated ?? this.isGradeRelated,
+      isDashboardOnly: isDashboardOnly ?? this.isDashboardOnly,
+      classificationConfidence:
+          classificationConfidence ?? this.classificationConfidence,
+      classificationReason: classificationReason ?? this.classificationReason,
+      classroomWorkType: classroomWorkType ?? this.classroomWorkType,
+      classroomSubmissionState:
+          classroomSubmissionState ?? this.classroomSubmissionState,
+      classroomLate: classroomLate ?? this.classroomLate,
+      hasRealDeadline: hasRealDeadline ?? this.hasRealDeadline,
+      deadlineSource: deadlineSource ?? this.deadlineSource,
     );
   }
 
-  bool get isOverdue => deadline.isBefore(DateTime.now()) && status != TaskStatus.completed;
-  bool get isToday => scheduledTime != null && 
-    scheduledTime!.year == DateTime.now().year &&
-    scheduledTime!.month == DateTime.now().month &&
-    scheduledTime!.day == DateTime.now().day;
+  bool get isOverdue =>
+      hasRealDeadline &&
+      deadline.isBefore(DateTime.now()) &&
+      status != TaskStatus.completed;
+  bool get isToday =>
+      scheduledTime != null &&
+      scheduledTime!.year == DateTime.now().year &&
+      scheduledTime!.month == DateTime.now().month &&
+      scheduledTime!.day == DateTime.now().day;
 }
 
 enum TaskPriority {

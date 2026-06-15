@@ -5,7 +5,11 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../core/theme.dart';
+<<<<<<< HEAD
 import '../services/device_pairing_storage_service.dart';
+=======
+import '../core/security_utils.dart';
+>>>>>>> main
 
 /// الموبايل يقرأ QR → يأخذ اللينك → يفتحه في المتصفح.
 /// إذا القيمة مش URL يعرض "Invalid QR".
@@ -26,18 +30,11 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
   bool _hasScanned = false;
 
   bool _isValidUrl(String value) {
-    value = value.trim();
-    if (value.isEmpty) return false;
-    return value.startsWith('http://') ||
-        value.startsWith('https://') ||
-        value.startsWith('www.');
+    if (SecurityUtils.isBlockedQrScheme(value)) return false;
+    return SecurityUtils.isValidQrHttpUrl(value);
   }
 
-  String _normalizeUrl(String value) {
-    value = value.trim();
-    if (value.startsWith('www.')) return 'https://$value';
-    return value;
-  }
+  String _normalizeUrl(String value) => SecurityUtils.normalizeQrUrl(value);
 
   Future<void> _openInBrowser(String url) async {
     final uri = Uri.tryParse(_normalizeUrl(url));
@@ -47,16 +44,8 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
     }
   }
 
-  /// استخراج sessionId من QR pairing (مثل upgrade://pair?session=xxx)
-  String? _extractSessionId(String value) {
-    if (!value.contains('session=')) return null;
-    final uri = Uri.tryParse(value);
-    if (uri != null && uri.queryParameters['session'] != null) {
-      return uri.queryParameters['session'];
-    }
-    final after = value.split('session=').last;
-    return after.split('&').first.trim();
-  }
+  String? _extractSessionId(String value) =>
+      SecurityUtils.extractPairingSessionId(value);
 
   Future<void> _onDetect(BarcodeCapture capture) async {
     if (_hasScanned) return;
@@ -71,6 +60,19 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
     // pairing QR: upgrade://pair?session=xxx → تحديث Firestore
     final sessionId = _extractSessionId(qrValue);
     if (sessionId != null && sessionId.isNotEmpty) {
+      if (!SecurityUtils.isSafePairingSessionId(sessionId)) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Invalid pairing session'),
+              backgroundColor: AppTheme.errorRed,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+        _hasScanned = false;
+        return;
+      }
       try {
         await FirebaseFirestore.instance
             .collection('pairing_sessions')

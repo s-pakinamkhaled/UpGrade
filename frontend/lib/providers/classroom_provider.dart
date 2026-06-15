@@ -1,7 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
-
+import 'package:flutter/material.dart';
 import '../models/classroom_course.dart';
 import '../models/task.dart';
 import '../services/classroom_sync_service.dart';
@@ -281,6 +281,19 @@ class ClassroomProvider extends ChangeNotifier {
   /// @deprecated Use [clearUserData].
   Future<void> clear() async {
     await clearUserData();
+  }
+
+  /// Seeds in-memory classroom data for integration/widget tests (no storage or Firestore).
+  @visibleForTesting
+  void seedForTest({
+    List<ClassroomCourse> courses = const [],
+    List<Task> tasks = const [],
+    DateTime? syncedAt,
+  }) {
+    _courses = List<ClassroomCourse>.from(courses);
+    _tasks = List<Task>.from(tasks);
+    _syncedAt = syncedAt ?? DateTime.now();
+    notifyListeners();
   }
 
   /// Add a manual course (not from Classroom sync).

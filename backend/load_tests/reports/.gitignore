@@ -1,0 +1,6 @@
+# Locust HTML/CSV reports — generated locally, not committed
+*.html
+*_stats.csv
+*_stats_history.csv
+*_failures.csv
+*_exceptions.csv

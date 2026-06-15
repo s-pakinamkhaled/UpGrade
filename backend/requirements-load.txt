@@ -1,0 +1,2 @@
+# Performance / load testing (install separately from main backend deps)
+locust>=2.32.0

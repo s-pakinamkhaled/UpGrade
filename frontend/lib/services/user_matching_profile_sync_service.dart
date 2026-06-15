@@ -16,8 +16,12 @@ class UserMatchingProfileSyncService {
     List<Task>? tasks,
     String? nameOverride,
     String? emailOverride,
+    FirebaseFirestore? firestore,
+    User? authUser,
+    bool resolveAuthFromFirebase = true,
   }) async {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = authUser ??
+        (resolveAuthFromFirebase ? FirebaseAuth.instance.currentUser : null);
     if (user == null) return;
 
     final resolvedCourses = courses ??
@@ -65,7 +69,10 @@ class UserMatchingProfileSyncService {
       );
     }
 
-    await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+    await (firestore ?? FirebaseFirestore.instance)
+        .collection('users')
+        .doc(user.uid)
+        .set({
       'uid': user.uid,
       'name': nameOverride ?? user.displayName ?? 'Student',
       'email': emailOverride ?? user.email ?? '',

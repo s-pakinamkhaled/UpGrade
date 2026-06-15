@@ -42,7 +42,7 @@ def test_filter_real_tasks_removes_non_deliverables():
     assert titles == ["ER Diagram Assignment", "Normalization HW"]
 
 
-def test_filter_real_tasks_keeps_empty_title():
+def test_filter_real_tasks_removes_empty_title_without_deadline_or_signal():
     tasks = [{"title": "", "id": "1"}]
     kept = filter_real_tasks(tasks)
-    assert len(kept) == 1
+    assert kept == []

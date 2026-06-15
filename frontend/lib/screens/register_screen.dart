@@ -56,6 +56,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
       _error = null;
     });
 
+    final classroomProvider = context.read<ClassroomProvider>();
+
     try {
       final user = await _authService.signUpWithEmail(
         _emailController.text.trim(),
@@ -87,10 +89,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
       }
 
       if (!mounted) return;
-      await context.read<ClassroomProvider>().loadForCurrentUser();
+      await classroomProvider.loadForCurrentUser();
       await UserMatchingProfileSyncService.syncCurrentUserProfile(
-        courses: context.read<ClassroomProvider>().courses,
-        tasks: context.read<ClassroomProvider>().tasks,
+        courses: classroomProvider.courses,
+        tasks: classroomProvider.tasks,
         nameOverride: _nameController.text.trim(),
       );
 
@@ -113,15 +115,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
       _error = null;
     });
 
+    final classroomProvider = context.read<ClassroomProvider>();
+
     try {
       final googleResult = await _authService.signInWithGoogle();
       if (googleResult == null) throw Exception('Google sign-in cancelled');
 
       if (!mounted) return;
-      await context.read<ClassroomProvider>().loadForCurrentUser();
+      await classroomProvider.loadForCurrentUser();
       await UserMatchingProfileSyncService.syncCurrentUserProfile(
-        courses: context.read<ClassroomProvider>().courses,
-        tasks: context.read<ClassroomProvider>().tasks,
+        courses: classroomProvider.courses,
+        tasks: classroomProvider.tasks,
       );
 
       if (!mounted) return;
@@ -179,8 +183,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 TextFormField(
                   controller: _emailController,
                   decoration: const InputDecoration(labelText: 'Email'),
-                  validator: (v) =>
-                      SecurityUtils.validateLoginEmail(v) ?? null,
+                  validator: SecurityUtils.validateLoginEmail,
                 ),
                 const SizedBox(height: 20),
                 TextFormField(

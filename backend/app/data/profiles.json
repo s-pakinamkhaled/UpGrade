@@ -18,49 +18,13 @@
       "gpa": "2.5",
       "updatedAt": "2026-05-13T05:18:24.604743"
     },
-<<<<<<< HEAD
-    "HJEaeSisbURjjptLwq0sRFhKsjA3": {
-      "userId": "HJEaeSisbURjjptLwq0sRFhKsjA3",
-      "fullName": "S-sama Eldakkash",
-      "email": "s-sama.eldakkash@zewailcity.edu.eg",
-      "major": "Computer Science",
-      "academicYear": "student",
-      "gpa": "2.9",
-      "updatedAt": "2026-06-14T23:51:20.830990",
-      "studentId": "202202246"
-    },
-    "8ulXSxHK5iRT8dk4WTuF2k1ySBZ2": {
-      "userId": "8ulXSxHK5iRT8dk4WTuF2k1ySBZ2",
-=======
     "pytest_profile_user_001": {
       "userId": "pytest_profile_user_001",
->>>>>>> main
       "fullName": "",
       "email": "",
       "major": "Computer Science",
       "academicYear": "Junior",
       "gpa": "3.85",
-<<<<<<< HEAD
-      "updatedAt": "2026-06-13T02:12:09.635856"
-    },
-    "HJXecaQ769RbMCoP4p2KcMLUi303": {
-      "userId": "HJXecaQ769RbMCoP4p2KcMLUi303",
-      "fullName": "mohammed emad",
-      "email": "mohammedemad11@mail.com",
-      "major": "Computer Science",
-      "academicYear": "Junior",
-      "gpa": "3.85",
-      "updatedAt": "2026-06-13T19:31:25.605065"
-    },
-    "nWbWLyDLnrh89TSbusOrG2yXUUp2": {
-      "userId": "nWbWLyDLnrh89TSbusOrG2yXUUp2",
-      "fullName": "emad eldin",
-      "email": "emadeldin@gmail.com",
-      "major": "Computer Science",
-      "academicYear": "Junior",
-      "gpa": "3.85",
-      "updatedAt": "2026-06-13T20:48:08.915136"
-=======
       "updatedAt": "2026-06-13T10:36:53.069989"
     },
     "pytest_profile_user_002": {
@@ -6947,7 +6911,6 @@
       "academicYear": "Junior",
       "gpa": "3.5",
       "updatedAt": "2026-06-14T19:25:36.724562"
->>>>>>> main
     }
   }
 }

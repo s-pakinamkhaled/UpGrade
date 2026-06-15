@@ -70,6 +70,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       _error = null;
     });
 
+    final classroomProvider = context.read<ClassroomProvider>();
+
     try {
       await user.updateDisplayName(_nameController.text.trim());
       final newEmail = _emailController.text.trim();
@@ -77,8 +79,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         await user.updateEmail(newEmail);
       }
       await UserMatchingProfileSyncService.syncCurrentUserProfile(
-        courses: context.read<ClassroomProvider>().courses,
-        tasks: context.read<ClassroomProvider>().tasks,
+        courses: classroomProvider.courses,
+        tasks: classroomProvider.tasks,
         nameOverride: _nameController.text.trim(),
         emailOverride: newEmail,
       );

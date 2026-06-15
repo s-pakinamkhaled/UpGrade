@@ -1,15 +1,16 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+
+import '../core/backend_user_id.dart';
 import '../models/classroom_course.dart';
 import '../models/task.dart';
-import '../services/classroom_sync_service.dart';
+import '../services/api_service.dart';
+import '../services/classroom_item_classifier_service.dart';
 import '../services/classroom_mapper_service.dart';
 import '../services/classroom_storage_service.dart';
-import '../services/classroom_item_classifier_service.dart';
+import '../services/classroom_sync_service.dart';
 import '../services/user_matching_profile_sync_service.dart';
-import '../services/api_service.dart';
-import '../core/backend_user_id.dart';
 
 class ClassroomProvider extends ChangeNotifier {
   bool _isLoading = false;
@@ -32,46 +33,35 @@ class ClassroomProvider extends ChangeNotifier {
 
   static String get _defaultUserId => BackendUserId.resolve();
 
-  // ── Filtered views ───────────────────────────────────────────────
-
-  /// All synced items — same as [tasks]. Used by dashboard.
+  /// All synced items. Dashboard screens use this full list.
   List<Task> get allSyncedItems => _tasks;
 
-  /// Only real actionable tasks suitable for AI (Study Plan / Chatbot).
+  /// Real unfinished tasks that are safe to send to AI features.
   List<Task> get actionableTasksForAI => _tasks
-      .where((t) => ClassroomItemClassifierService.isActionableForAI(t))
+      .where((task) => ClassroomItemClassifierService.isActionableForAI(task))
       .toList();
 
-  /// Actionable tasks that are still pending, missed, or in-progress.
   List<Task> get upcomingActionableTasks => actionableTasksForAI
-      .where((t) =>
-          t.status == TaskStatus.pending ||
-          t.status == TaskStatus.missed ||
-          t.status == TaskStatus.inProgress)
+      .where(
+        (task) =>
+            task.status == TaskStatus.pending ||
+            task.status == TaskStatus.missed ||
+            task.status == TaskStatus.inProgress,
+      )
       .toList();
 
-  /// Grade-related items only.
-  List<Task> get gradeItems => _tasks.where((t) => t.isGradeRelated).toList();
+  List<Task> get gradeItems =>
+      _tasks.where((task) => task.isGradeRelated).toList();
 
-  /// Completed work items.
   List<Task> get completedItems =>
-      _tasks.where((t) => t.status == TaskStatus.completed).toList();
+      _tasks.where((task) => task.status == TaskStatus.completed).toList();
 
-  /// Build personalization signals from all data (grades, progress, etc.).
   Map<String, dynamic> get personalizationSignals =>
       ClassroomItemClassifierService.buildPersonalizationSignals(_tasks);
 
-  static const String _defaultUserId = 'student_local';
+  /// Backward-compatible entry point. Data is now scoped to the active user.
+  Future<void> loadFromStorage() => loadForCurrentUser();
 
-  /// Load previously synced data from local storage (so app shows real data on launch).
-  /// Also pushes [courseIds] / [courses] to Firestore when the user is signed in so
-  /// Group Study can match on the same IDs after a relaunch.
-  Future<void> loadFromStorage() async {
-    final courses = await ClassroomStorageService.loadCourses();
-    final tasks = await ClassroomStorageService.loadTasks();
-    _syncedAt = await ClassroomStorageService.getSyncedAt();
-    _courses = courses;
-    _tasks = ClassroomItemClassifierService.classifyAllIfNeeded(tasks);
   /// Clears in-memory Classroom state when the user signs out or switches accounts.
   Future<void> clearUserData() async {
     _courses = [];
@@ -120,7 +110,7 @@ class ClassroomProvider extends ChangeNotifier {
 
     if (cachedCourses.isNotEmpty || cachedTasks.isNotEmpty) {
       _courses = cachedCourses;
-      _tasks = cachedTasks;
+      _tasks = ClassroomItemClassifierService.classifyAllIfNeeded(cachedTasks);
       _syncedAt = cachedSyncedAt;
       notifyListeners();
       _logCourseLoad(
@@ -147,7 +137,9 @@ class ClassroomProvider extends ChangeNotifier {
         );
       } else {
         _courses = fromFirestore.courses;
-        _tasks = fromFirestore.tasks;
+        _tasks = ClassroomItemClassifierService.classifyAllIfNeeded(
+          fromFirestore.tasks,
+        );
         _syncedAt = null;
         notifyListeners();
         _logCourseLoad(
@@ -166,36 +158,47 @@ class ClassroomProvider extends ChangeNotifier {
     await syncTasksToBackend();
   }
 
-  /// @deprecated Use [loadForCurrentUser].
-  Future<void> loadFromStorage() => loadForCurrentUser();
-
-  Future<({
-    List<ClassroomCourse> courses,
-    List<Task> tasks,
-    List<String> courseIds,
-  })> _loadFromFirestore(String uid) async {
+  Future<
+      ({
+        List<ClassroomCourse> courses,
+        List<Task> tasks,
+        List<String> courseIds,
+      })> _loadFromFirestore(String uid) async {
     final doc =
         await FirebaseFirestore.instance.collection('users').doc(uid).get();
     if (!doc.exists) {
-      return (courses: <ClassroomCourse>[], tasks: <Task>[], courseIds: <String>[]);
+      return (
+        courses: <ClassroomCourse>[],
+        tasks: <Task>[],
+        courseIds: <String>[],
+      );
     }
 
     final data = doc.data() ?? {};
     final rawCourseIds = data['courseIds'];
     final courseIds = rawCourseIds is List
-        ? rawCourseIds.map((e) => e.toString()).where((id) => id.isNotEmpty).toList()
+        ? rawCourseIds
+            .map((id) => id.toString())
+            .where((id) => id.isNotEmpty)
+            .toList()
         : <String>[];
 
     final rawCourses = data['courses'];
     final courses = rawCourses is List
         ? rawCourses
             .whereType<Map>()
-            .map((c) => ClassroomCourse.fromJson(Map<String, dynamic>.from(c)))
+            .map((course) => ClassroomCourse.fromJson(
+                  Map<String, dynamic>.from(course),
+                ))
             .toList()
         : <ClassroomCourse>[];
 
     if (courseIds.isEmpty && courses.isEmpty) {
-      return (courses: <ClassroomCourse>[], tasks: <Task>[], courseIds: <String>[]);
+      return (
+        courses: <ClassroomCourse>[],
+        tasks: <Task>[],
+        courseIds: <String>[],
+      );
     }
 
     final rawAssignments = data['assignments'];
@@ -219,19 +222,20 @@ class ClassroomProvider extends ChangeNotifier {
     return Task(
       id: id,
       title: title,
-      deadline: DateTime.tryParse(map['deadline'] as String? ?? '') ??
-          DateTime.now(),
+      deadline:
+          DateTime.tryParse(map['deadline'] as String? ?? '') ?? DateTime.now(),
       courseId: (map['courseId'] as String?) ?? '',
       courseName: (map['courseName'] as String?) ?? '',
       priority: TaskPriority.values.firstWhere(
-        (p) => p.name == (map['priority'] as String?),
+        (priority) => priority.name == (map['priority'] as String?),
         orElse: () => TaskPriority.medium,
       ),
       status: TaskStatus.values.firstWhere(
-        (s) => s.name == (map['status'] as String?),
+        (status) => status.name == (map['status'] as String?),
         orElse: () => TaskStatus.pending,
       ),
       estimatedMinutes: 60,
+      source: 'google_classroom',
     );
   }
 
@@ -248,11 +252,12 @@ class ClassroomProvider extends ChangeNotifier {
     debugPrint('[Classroom] Course count: $courseCount');
   }
 
-  /// Pushes local tasks (with deadlines) to the FastAPI DB for deadline notifications.
+  /// Pushes local tasks to the FastAPI DB for deadline notifications.
   Future<void> syncTasksToBackend() async {
     if (_tasks.isEmpty) return;
     final api = ApiService();
     final userId = _defaultUserId;
+
     for (final task in _tasks) {
       try {
         await api.upsertTaskForTracking(
@@ -267,7 +272,6 @@ class ClassroomProvider extends ChangeNotifier {
   }
 
   /// Sync with Google Classroom and persist data locally.
-  /// Keeps courses and tasks that were added manually (ids starting with `manual_`).
   Future<void> syncClassroom(
     String accessToken, {
     String? semesterId,
@@ -278,9 +282,9 @@ class ClassroomProvider extends ChangeNotifier {
 
     try {
       final manualCourses =
-          _courses.where((c) => c.id.startsWith('manual_')).toList();
+          _courses.where((course) => course.id.startsWith('manual_')).toList();
       final manualTasks =
-          _tasks.where((t) => t.id.startsWith('manual_')).toList();
+          _tasks.where((task) => task.id.startsWith('manual_')).toList();
 
       final rawData = await ClassroomSyncService.syncAll(
         accessToken,
@@ -289,19 +293,19 @@ class ClassroomProvider extends ChangeNotifier {
       final result = ClassroomMapperService.mapFromRawResponse(rawData);
       final previousById = {for (final task in _tasks) task.id: task};
       final mappedTasks = result.tasks
-          .map((task) => _applyUserDeadlineOverride(
-                task,
-                previousById[task.id],
-              ))
+          .map(
+            (task) => _applyUserDeadlineOverride(
+              task,
+              previousById[task.id],
+            ),
+          )
           .toList();
 
       _courses = [...manualCourses, ...result.courses];
       _tasks = ClassroomItemClassifierService.classifyAll(
         [...manualTasks, ...mappedTasks],
       );
-      _syncedAt = DateTime.tryParse(
-            rawData['syncedAt'] as String? ?? '',
-          ) ??
+      _syncedAt = DateTime.tryParse(rawData['syncedAt'] as String? ?? '') ??
           DateTime.now();
       _googleClassroomConnected = true;
 
@@ -320,19 +324,16 @@ class ClassroomProvider extends ChangeNotifier {
         tasks: _tasks,
       );
       await syncTasksToBackend();
-    } catch (e) {
-      _error = e.toString();
+    } catch (error) {
+      _error = error.toString();
     }
 
     _setLoading(false);
   }
 
-  /// @deprecated Use [clearUserData].
-  Future<void> clear() async {
-    await clearUserData();
-  }
+  /// Deprecated compatibility wrapper.
+  Future<void> clear() => clearUserData();
 
-  /// Seeds in-memory classroom data for integration/widget tests (no storage or Firestore).
   @visibleForTesting
   void seedForTest({
     List<ClassroomCourse> courses = const [],
@@ -340,15 +341,17 @@ class ClassroomProvider extends ChangeNotifier {
     DateTime? syncedAt,
   }) {
     _courses = List<ClassroomCourse>.from(courses);
-    _tasks = List<Task>.from(tasks);
+    _tasks = ClassroomItemClassifierService.classifyAllIfNeeded(
+      List<Task>.from(tasks),
+    );
     _syncedAt = syncedAt ?? DateTime.now();
     notifyListeners();
   }
 
-  /// Add a manual course (not from Classroom sync).
   Future<void> addManualCourse(String name) async {
     final trimmed = name.trim();
     if (trimmed.isEmpty) return;
+
     final id = 'manual_${DateTime.now().millisecondsSinceEpoch}';
     _courses = [
       ..._courses,
@@ -363,11 +366,11 @@ class ClassroomProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Remove a manual course and tasks that belong to it.
   Future<void> removeManualCourse(String courseId) async {
     if (!courseId.startsWith('manual_')) return;
-    _courses = _courses.where((c) => c.id != courseId).toList();
-    _tasks = _tasks.where((t) => t.courseId != courseId).toList();
+
+    _courses = _courses.where((course) => course.id != courseId).toList();
+    _tasks = _tasks.where((task) => task.courseId != courseId).toList();
     await _saveToStorage();
     await UserMatchingProfileSyncService.syncCurrentUserProfile(
       courses: _courses,
@@ -376,7 +379,6 @@ class ClassroomProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Add a manual task (not from Classroom sync).
   Future<void> addManualTask({
     required String title,
     required DateTime deadline,
@@ -384,22 +386,24 @@ class ClassroomProvider extends ChangeNotifier {
     required String courseName,
   }) async {
     final id = 'manual_${DateTime.now().millisecondsSinceEpoch}';
+    final task = Task(
+      id: id,
+      title: title,
+      deadline: deadline,
+      courseId: courseId,
+      courseName: courseName,
+      estimatedMinutes: 60,
+      priority: TaskPriority.medium,
+      status: TaskStatus.pending,
+      updatedAt: DateTime.now(),
+      source: 'manual',
+      hasRealDeadline: true,
+      deadlineSource: 'user',
+    );
+
     _tasks = [
       ..._tasks,
-      ClassroomItemClassifierService.classifyTask(Task(
-        id: id,
-        title: title,
-        deadline: deadline,
-        courseId: courseId,
-        courseName: courseName,
-        estimatedMinutes: 60,
-        priority: TaskPriority.medium,
-        status: TaskStatus.pending,
-        updatedAt: DateTime.now(),
-        source: 'manual',
-        hasRealDeadline: true,
-        deadlineSource: 'user',
-      )),
+      ClassroomItemClassifierService.classifyTask(task),
     ];
     _syncedAt ??= DateTime.now();
     await _saveToStorage();
@@ -410,10 +414,10 @@ class ClassroomProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Remove a task that was added manually (id starts with `manual_`).
   Future<void> removeManualTask(String taskId) async {
     if (!taskId.startsWith('manual_')) return;
-    _tasks = _tasks.where((t) => t.id != taskId).toList();
+
+    _tasks = _tasks.where((task) => task.id != taskId).toList();
     await _saveToStorage();
     await UserMatchingProfileSyncService.syncCurrentUserProfile(
       courses: _courses,
@@ -425,6 +429,7 @@ class ClassroomProvider extends ChangeNotifier {
   Future<void> _saveToStorage() async {
     final uid = _activeUid ?? FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
+
     await ClassroomStorageService.save(
       uid: uid,
       syncedAt: (_syncedAt ?? DateTime.now()).toIso8601String(),
@@ -434,7 +439,7 @@ class ClassroomProvider extends ChangeNotifier {
   }
 
   Future<void> updateTaskDeadline(String taskId, DateTime deadline) async {
-    final index = _tasks.indexWhere((t) => t.id == taskId);
+    final index = _tasks.indexWhere((task) => task.id == taskId);
     if (index < 0) return;
 
     final now = DateTime.now();
@@ -468,11 +473,17 @@ class ClassroomProvider extends ChangeNotifier {
     );
     notifyListeners();
 
-    ApiService().upsertTaskForTracking(
-      taskId: updated.id,
-      userId: _defaultUserId,
-      taskJson: updated.toJson(),
-    );
+    try {
+      await ApiService().upsertTaskForTracking(
+        taskId: updated.id,
+        userId: _defaultUserId,
+        taskJson: updated.toJson(),
+      );
+    } catch (_) {
+      // Backend may be offline; local deadline updates should still succeed.
+    }
+  }
+
   String _requireActiveUid() {
     final uid = _activeUid ?? FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) {
@@ -495,13 +506,13 @@ class ClassroomProvider extends ChangeNotifier {
   }
 
   Future<void> _applyTaskStatus(String taskId, TaskStatus newStatus) async {
-    final index = _tasks.indexWhere((t) => t.id == taskId);
+    final index = _tasks.indexWhere((task) => task.id == taskId);
     if (index < 0) return;
 
     final current = _tasks[index];
     final now = DateTime.now();
-
     Task updated = current;
+
     if (newStatus == TaskStatus.inProgress &&
         current.status == TaskStatus.pending) {
       updated = current.copyWith(

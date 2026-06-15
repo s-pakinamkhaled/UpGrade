@@ -1,5 +1,6 @@
 import sys
 import os
+from datetime import datetime, timedelta
 
 sys.path.append(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -51,6 +52,7 @@ def test_build_prompt_contains_priority():
             TaskInput(
                 id="1",
                 title="OS Project",
+                deadline=(datetime.now() + timedelta(days=2)).isoformat(),
                 priority="high",
             )
         ],

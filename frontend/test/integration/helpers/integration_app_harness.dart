@@ -5,6 +5,7 @@ import 'package:upgrade/core/constants.dart';
 import 'package:upgrade/core/theme.dart';
 import 'package:upgrade/providers/classroom_provider.dart';
 import 'package:upgrade/providers/dashboard_shell_provider.dart';
+import 'package:upgrade/providers/notification_provider.dart';
 import 'package:upgrade/providers/settings_provider.dart';
 import 'package:upgrade/providers/study_group_provider.dart';
 import 'package:upgrade/screens/privacy_settings_screen.dart';
@@ -32,7 +33,8 @@ Widget buildDashboardIntegrationApp({
   resetIntegrationPrefs();
 
   final classroom = classroomProvider ?? ClassroomProvider();
-  final shell = shellProvider ?? DashboardShellProvider()..setSidebarExpanded(true);
+  final shell = shellProvider ?? DashboardShellProvider()
+    ..setSidebarExpanded(true);
 
   final app = MultiProvider(
     providers: [
@@ -41,6 +43,9 @@ Widget buildDashboardIntegrationApp({
         create: (_) => SettingsProvider()..load(),
       ),
       ChangeNotifierProvider<DashboardShellProvider>.value(value: shell),
+      ChangeNotifierProvider(
+        create: (_) => NotificationProvider(),
+      ),
       ChangeNotifierProvider(
         create: (_) => StudyGroupProvider(),
       ),

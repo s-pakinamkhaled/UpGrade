@@ -106,7 +106,7 @@ class Task {
       startedAt: json['startedAt'] != null
           ? DateTime.tryParse(json['startedAt'] as String)
           : null,
-      estimatedMinutes: (json['estimatedMinutes'] as num?)?.toInt() ?? 30,
+      estimatedMinutes: _intFromJson(json['estimatedMinutes']) ?? 30,
       scheduledTime: json['scheduledTime'] != null
           ? DateTime.tryParse(json['scheduledTime'] as String)
           : null,
@@ -114,8 +114,8 @@ class Task {
           ? DateTime.tryParse(json['completedAt'] as String)
           : null,
       updatedAt: DateTime.tryParse(json['updatedAt'] as String? ?? ''),
-      assignedGrade: (json['assignedGrade'] as num?)?.toDouble(),
-      maxPoints: (json['maxPoints'] as num?)?.toInt(),
+      assignedGrade: _doubleFromJson(json['assignedGrade']),
+      maxPoints: _intFromJson(json['maxPoints']),
       // Classification fields — safe defaults for old data
       source: source,
       itemType: json['itemType'] as String? ?? 'unknown',
@@ -123,7 +123,7 @@ class Task {
       isGradeRelated: json['isGradeRelated'] as bool? ?? false,
       isDashboardOnly: json['isDashboardOnly'] as bool? ?? false,
       classificationConfidence:
-          (json['classificationConfidence'] as num?)?.toDouble() ?? 0.0,
+          _doubleFromJson(json['classificationConfidence']) ?? 0.0,
       classificationReason: json['classificationReason'] as String?,
       classroomWorkType: json['classroomWorkType'] as String?,
       classroomSubmissionState: json['classroomSubmissionState'] as String?,
@@ -154,6 +154,18 @@ class Task {
   }) {
     if (!hasRealDeadline) return 'synthetic';
     return source == 'google_classroom' ? 'classroom' : 'user';
+  }
+
+  static int? _intFromJson(Object? value) {
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value);
+    return null;
+  }
+
+  static double? _doubleFromJson(Object? value) {
+    if (value is num) return value.toDouble();
+    if (value is String) return double.tryParse(value);
+    return null;
   }
 
   static TaskPriority _priorityFromString(String? s) {

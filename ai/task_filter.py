@@ -156,7 +156,7 @@ GRADE_REGEX_PATTERNS = [
 ]
 
 ACTIONABLE_SIGNAL_RE = re.compile(
-    r"\b(assignment|project|task|homework|report|delivery|submission|"
+    r"\b(assignment|project|task|homework|hw|report|delivery|submission|"
     r"practical|exercise|case\s+study|mini\s*project|presentation|"
     r"proposal|paper|essay|worksheet|lab\s*report)\b",
     re.I,
@@ -253,6 +253,13 @@ def is_actionable_task(task: TaskLike) -> bool:
     if deadline and has_real_deadline is not False:
         return True
     return bool(ACTIONABLE_SIGNAL_RE.search(title_lower))
+
+
+def is_real_task(task_or_title: TaskLike) -> bool:
+    """Backward-compatible alias for older tests and callers."""
+    if isinstance(task_or_title, str):
+        return is_actionable_task({"title": task_or_title})
+    return is_actionable_task(task_or_title)
 
 
 def filter_real_tasks(

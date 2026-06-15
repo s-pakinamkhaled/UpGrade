@@ -12,7 +12,7 @@ void main() {
       name: 'Database Systems',
     );
 
-    test('maps pending assignment to pending task with medium priority', () {
+    test('maps pending assignment due within 72 hours to high priority', () {
       final deadline = DateTime.now().add(const Duration(days: 2));
       final tasks = ClassroomMapperService.mapToTasks(
         course: course,
@@ -30,7 +30,7 @@ void main() {
 
       expect(tasks.length, 1);
       expect(tasks.first.status, TaskStatus.pending);
-      expect(tasks.first.priority, TaskPriority.medium);
+      expect(tasks.first.priority, TaskPriority.high);
       expect(tasks.first.estimatedMinutes, 60);
       expect(tasks.first.courseName, 'Database Systems');
     });

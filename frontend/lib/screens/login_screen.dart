@@ -47,6 +47,8 @@ class _LoginScreenState extends State<LoginScreen> {
       _error = null;
     });
 
+    final classroomProvider = context.read<ClassroomProvider>();
+
     try {
       final user = await _authService.loginWithEmail(
         _emailController.text.trim(),
@@ -58,10 +60,10 @@ class _LoginScreenState extends State<LoginScreen> {
       }
 
       if (!mounted) return;
-      await context.read<ClassroomProvider>().loadForCurrentUser();
+      await classroomProvider.loadForCurrentUser();
       await UserMatchingProfileSyncService.syncCurrentUserProfile(
-        courses: context.read<ClassroomProvider>().courses,
-        tasks: context.read<ClassroomProvider>().tasks,
+        courses: classroomProvider.courses,
+        tasks: classroomProvider.tasks,
       );
 
       if (!mounted) return;
@@ -85,6 +87,8 @@ class _LoginScreenState extends State<LoginScreen> {
       _error = null;
     });
 
+    final classroomProvider = context.read<ClassroomProvider>();
+
     try {
       final googleResult = await _authService.signInWithGoogle();
 
@@ -93,10 +97,10 @@ class _LoginScreenState extends State<LoginScreen> {
       }
 
       if (!mounted) return;
-      await context.read<ClassroomProvider>().loadForCurrentUser();
+      await classroomProvider.loadForCurrentUser();
       await UserMatchingProfileSyncService.syncCurrentUserProfile(
-        courses: context.read<ClassroomProvider>().courses,
-        tasks: context.read<ClassroomProvider>().tasks,
+        courses: classroomProvider.courses,
+        tasks: classroomProvider.tasks,
       );
 
       if (!mounted) return;

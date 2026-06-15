@@ -27,7 +27,8 @@ class _DevicePairingScreenState extends State<DevicePairingScreen> {
   bool _isCreatingSession = false;
   String? sessionId;
   String _deviceName = 'Desktop - Chrome';
-  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _pairingSubscription;
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>?
+      _pairingSubscription;
 
   @override
   void initState() {
@@ -49,15 +50,12 @@ class _DevicePairingScreenState extends State<DevicePairingScreen> {
     try {
       final auth = FirebaseAuth.instance;
       var user = auth.currentUser;
-      if (user == null) {
-        user = await auth.authStateChanges().first.timeout(
-          const Duration(seconds: 4),
-          onTimeout: () => null,
-        );
-      }
-      final doc = await FirebaseFirestore.instance
-          .collection('pairing_sessions')
-          .add({
+      user ??= await auth.authStateChanges().first.timeout(
+            const Duration(seconds: 4),
+            onTimeout: () => null,
+          );
+      final doc =
+          await FirebaseFirestore.instance.collection('pairing_sessions').add({
         'paired': false,
         'device': null,
         'createdBy': user?.uid,

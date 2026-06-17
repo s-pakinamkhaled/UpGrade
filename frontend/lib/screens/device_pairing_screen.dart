@@ -6,6 +6,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 
 import '../core/theme.dart';
 import '../core/constants.dart';
+import '../core/post_auth_navigation.dart';
 import '../widgets/gradient_card.dart';
 import '../services/device_pairing_storage_service.dart';
 import '../widgets/upgrade_page_shell.dart';
@@ -107,9 +108,7 @@ class _DevicePairingScreenState extends State<DevicePairingScreen> {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (!mounted) return;
             ScaffoldMessenger.of(context).hideCurrentSnackBar();
-            Navigator.of(context).pushReplacementNamed(
-              AppConstants.routeOnboarding,
-            );
+            openHomeAfterAuth(context);
           });
         }
       }
@@ -121,9 +120,7 @@ class _DevicePairingScreenState extends State<DevicePairingScreen> {
       Navigator.of(context).pop();
     } else {
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      Navigator.of(context).pushReplacementNamed(
-        AppConstants.routeOnboarding,
-      );
+      openHomeAfterAuth(context);
     }
   }
 
@@ -243,11 +240,9 @@ class _DevicePairingScreenState extends State<DevicePairingScreen> {
           TextButton(
             onPressed: () {
               ScaffoldMessenger.of(context).hideCurrentSnackBar();
-              Navigator.of(context).pushReplacementNamed(
-                AppConstants.routeOnboarding,
-              );
+              openHomeAfterAuth(context);
             },
-            child: const Text('Continue to Setup'),
+            child: const Text('Continue to dashboard'),
           ),
       ],
     );

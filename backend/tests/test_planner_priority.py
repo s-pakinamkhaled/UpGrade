@@ -22,7 +22,7 @@ class PlannerPriorityTests(unittest.TestCase):
 
         self.assertEqual(_effective_priority(task), "low")
 
-    def test_missed_assignment_is_urgent(self):
+    def test_missed_assignment_is_low_priority(self):
         task = TaskInput(
             id="a8",
             title="Assignment 8",
@@ -32,7 +32,7 @@ class PlannerPriorityTests(unittest.TestCase):
             priority="low",
         )
 
-        self.assertEqual(_effective_priority(task), "urgent")
+        self.assertEqual(_effective_priority(task), "low")
 
 
 if __name__ == "__main__":

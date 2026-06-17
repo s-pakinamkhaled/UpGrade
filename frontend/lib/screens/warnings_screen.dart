@@ -32,6 +32,25 @@ class _WarningsScreenState extends State<WarningsScreen> {
   static const Color _mediumFg = Color(0xFF3B82F6);
   static const Color _borderLight = Color(0xFFE2E8F0);
 
+  static const Color _alertCardDarkBg = Color(0xFF0B1220);
+  static const Color _alertCardDarkBorder = Color(0xFF1F2937);
+  static const Color _alertChipDarkBg = Color(0xFF1E293B);
+  static const Color _alertTitleDark = Color(0xFFE5E7EB);
+  static const Color _alertMutedDark = Color(0xFF9CA3AF);
+
+  Color _alertCardBackground(
+    bool isDark, {
+    required bool isCritical,
+    required bool isHigh,
+    required bool isMedium,
+  }) {
+    if (isDark) return _alertCardDarkBg;
+    if (isCritical) return _criticalBg;
+    if (isHigh) return _highBg;
+    if (isMedium) return _mediumBg;
+    return _highBg;
+  }
+
   Set<String> _dismissed = {};
 
   @override
@@ -522,15 +541,23 @@ class _WarningsScreenState extends State<WarningsScreen> {
     required VoidCallback onTakeAction,
     required VoidCallback onDismiss,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final isCritical = warning.severity == WarningSeverity.urgent;
     final isHigh = warning.severity == WarningSeverity.high;
     final isMedium = warning.severity == WarningSeverity.medium;
-    final cardBg = isCritical
-        ? _criticalBg
-        : (isHigh ? _highBg : (isMedium ? _mediumBg : _highBg));
+    final cardBg = _alertCardBackground(
+      isDark,
+      isCritical: isCritical,
+      isHigh: isHigh,
+      isMedium: isMedium,
+    );
     final fg = isCritical
         ? _criticalFg
         : (isHigh ? _highFg : (isMedium ? _mediumFg : AppTheme.primaryBlue));
+    final titleColor = isDark ? _alertTitleDark : onSurface;
+    final mutedColor = isDark ? _alertMutedDark : secondary;
+    final chipBg =
+        isDark ? _alertChipDarkBg : secondary.withOpacity(0.15);
     final severityLabel = warning.severity == WarningSeverity.urgent
         ? 'critical'
         : warning.severity == WarningSeverity.high
@@ -542,10 +569,14 @@ class _WarningsScreenState extends State<WarningsScreen> {
       decoration: BoxDecoration(
         color: cardBg,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: fg.withOpacity(0.25)),
+        border: Border.all(
+          color: isDark
+              ? fg.withOpacity(0.45)
+              : fg.withOpacity(0.25),
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withOpacity(isDark ? 0.25 : 0.04),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -585,7 +616,7 @@ class _WarningsScreenState extends State<WarningsScreen> {
                             style: TextStyle(
                               fontSize: 17,
                               fontWeight: FontWeight.bold,
-                              color: onSurface,
+                              color: titleColor,
                             ),
                           ),
                         ),
@@ -595,8 +626,13 @@ class _WarningsScreenState extends State<WarningsScreen> {
                             vertical: 4,
                           ),
                           decoration: BoxDecoration(
-                            color: fg.withOpacity(0.15),
+                            color: isDark
+                                ? fg.withOpacity(0.2)
+                                : fg.withOpacity(0.15),
                             borderRadius: BorderRadius.circular(8),
+                            border: isDark
+                                ? Border.all(color: fg.withOpacity(0.35))
+                                : null,
                           ),
                           child: Text(
                             severityLabel,
@@ -614,7 +650,7 @@ class _WarningsScreenState extends State<WarningsScreen> {
                       warning.message,
                       style: TextStyle(
                         fontSize: 14,
-                        color: secondary,
+                        color: mutedColor,
                         height: 1.45,
                       ),
                     ),
@@ -627,26 +663,29 @@ class _WarningsScreenState extends State<WarningsScreen> {
                             vertical: 6,
                           ),
                           decoration: BoxDecoration(
-                            color: secondary.withOpacity(0.15),
+                            color: chipBg,
                             borderRadius: BorderRadius.circular(8),
+                            border: isDark
+                                ? Border.all(color: _alertCardDarkBorder)
+                                : null,
                           ),
                           child: Text(
                             warning.category ?? '—',
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w500,
-                              color: secondary,
+                              color: mutedColor,
                             ),
                           ),
                         ),
                         const SizedBox(width: 12),
-                        Icon(Icons.schedule, size: 14, color: secondary),
+                        Icon(Icons.schedule, size: 14, color: mutedColor),
                         const SizedBox(width: 4),
                         Text(
                           warning.timeAgo ?? '—',
                           style: TextStyle(
                             fontSize: 12,
-                            color: secondary,
+                            color: mutedColor,
                           ),
                         ),
                       ],
@@ -699,15 +738,18 @@ class _WarningsScreenState extends State<WarningsScreen> {
                       vertical: 12,
                     ),
                     decoration: BoxDecoration(
-                      color: secondary.withOpacity(0.15),
+                      color: chipBg,
                       borderRadius: BorderRadius.circular(12),
+                      border: isDark
+                          ? Border.all(color: _alertCardDarkBorder)
+                          : null,
                     ),
                     child: Text(
                       'Dismiss',
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
-                        color: onSurface,
+                        color: titleColor,
                       ),
                     ),
                   ),

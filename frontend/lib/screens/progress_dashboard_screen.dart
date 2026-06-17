@@ -10,6 +10,7 @@ import '../models/dashboard_stats.dart';
 import '../models/task.dart';
 import '../providers/classroom_provider.dart';
 import '../services/dashboard_metrics_service.dart';
+import '../widgets/upgrade_visual_system.dart';
 
 class ProgressDashboardScreen extends StatefulWidget {
   final VoidCallback? openDrawer;
@@ -28,6 +29,35 @@ class ProgressDashboardScreen extends StatefulWidget {
 
 class _ProgressDashboardScreenState extends State<ProgressDashboardScreen> {
   static const String _allCoursesLabel = 'All courses';
+
+  Color _dashboardPanelTint(bool isDark) =>
+      isDark ? const Color(0xFF111827) : AppTheme.lightGray;
+
+  Color _dashboardInnerFill(bool isDark) =>
+      isDark ? AppTheme.darkSurface : Colors.white;
+
+  Color _dashboardMetricFill(bool isDark) =>
+      isDark ? const Color(0xFF0B1220) : Colors.white;
+
+  Color _dashboardBorder(bool isDark) =>
+      isDark ? const Color(0xFF1F2937) : const Color(0xFFE2E8F0);
+
+  Widget _dashboardPanel({
+    required UpGradeRem rem,
+    required bool isDark,
+    required Widget child,
+  }) {
+    return UpGradeListSectionPanel(
+      rem: rem,
+      isDark: isDark,
+      tintTop: _dashboardPanelTint(isDark),
+      borderAccent: AppTheme.primaryBlue,
+      child: child,
+    );
+  }
+
+  Color _dashboardSecondary(bool isDark) =>
+      isDark ? const Color(0xFF9CA3AF) : AppTheme.mediumGray;
 
   DashboardRange _selectedRange = DashboardRange.last7Days;
   String _selectedCourse = _allCoursesLabel;
@@ -65,77 +95,160 @@ class _ProgressDashboardScreenState extends State<ProgressDashboardScreen> {
           appBar: (widget.showAppBar && widget.openDrawer != null)
               ? _buildTopAppBar(context)
               : null,
-          body: Container(
-            color: Colors.transparent,
-            child: allTasks.isEmpty
-                ? _buildEmptyState(context)
-                : SingleChildScrollView(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
+          body: LayoutBuilder(
+            builder: (context, constraints) {
+              final t = UpGradeRem(constraints.maxWidth);
+              final hPad = t.space(1.05);
+
+              if (allTasks.isEmpty) {
+                return _buildEmptyState(context, t, isDark);
+              }
+
+              return SingleChildScrollView(
+                padding: EdgeInsets.fromLTRB(hPad, 8, hPad, t.space(1.4)),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildHeader(context, provider, stats, isDark),
-                        const SizedBox(height: 18),
-                        _buildFilters(
-                            context, courses, effectiveCourse, isDark),
-                        const SizedBox(height: 18),
-                        _buildSummaryCards(context, stats, isDark),
-                        const SizedBox(height: 18),
-                        _buildProgressionCard(context, stats, isDark),
-                        const SizedBox(height: 18),
-                        LayoutBuilder(
-                          builder: (context, constraints) {
-                            if (constraints.maxWidth < 760) {
-                              return Column(
-                                children: [
-                                  _buildStudyHoursChart(
-                                    context,
-                                    stats,
-                                    visibleTasks,
-                                    isDark,
-                                  ),
-                                  const SizedBox(height: 18),
-                                  _buildDailyOutcomeChart(
-                                    context,
-                                    stats,
-                                    visibleTasks,
-                                    isDark,
-                                  ),
-                                ],
-                              );
-                            }
-                            return Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Expanded(
-                                  child: _buildStudyHoursChart(
-                                    context,
-                                    stats,
-                                    visibleTasks,
-                                    isDark,
-                                  ),
-                                ),
-                                const SizedBox(width: 18),
-                                Expanded(
-                                  child: _buildDailyOutcomeChart(
-                                    context,
-                                    stats,
-                                    visibleTasks,
-                                    isDark,
-                                  ),
-                                ),
-                              ],
-                            );
-                          },
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              UpGradeGradientTitle(
+                                'Progress Dashboard',
+                                rem: t,
+                                isDark: isDark,
+                              ),
+                              SizedBox(height: t.space(0.35)),
+                              UpGradeMutedSubtitle(
+                                'Simple, real-time insights from your synced classroom data',
+                                rem: t,
+                                isDark: isDark,
+                              ),
+                            ],
+                          ),
                         ),
-                        const SizedBox(height: 18),
-                        _buildCoursePerformanceChart(context, stats, isDark),
-                        const SizedBox(height: 18),
-                        _buildSimpleInsightsCard(context, stats, isDark),
-                        const SizedBox(height: 30),
+                        _buildPerformanceBadge(stats),
                       ],
                     ),
-                  ),
+                    SizedBox(height: t.space(0.85)),
+                    _dashboardPanel(
+                      rem: t,
+                      isDark: isDark,
+                      child: _buildHeaderChips(context, provider, stats, isDark),
+                    ),
+                    SizedBox(height: t.space(0.85)),
+                    _dashboardPanel(
+                      rem: t,
+                      isDark: isDark,
+                      child: _buildFilters(
+                        context,
+                        courses,
+                        effectiveCourse,
+                        isDark,
+                        t,
+                      ),
+                    ),
+                    SizedBox(height: t.space(0.85)),
+                    _dashboardPanel(
+                      rem: t,
+                      isDark: isDark,
+                      child: _buildSummaryCards(context, stats, isDark, t),
+                    ),
+                    SizedBox(height: t.space(0.85)),
+                    UpGradeAccentStripeCard(
+                      rem: t,
+                      isDark: isDark,
+                      stripeGradient: const [
+                        AppTheme.secondaryPurple,
+                        AppTheme.primaryBlue,
+                      ],
+                      child: _buildProgressionCard(context, stats, isDark),
+                    ),
+                    SizedBox(height: t.space(0.85)),
+                    LayoutBuilder(
+                      builder: (context, chartConstraints) {
+                        if (chartConstraints.maxWidth < 760) {
+                          return Column(
+                            children: [
+                              _dashboardPanel(
+                                rem: t,
+                                isDark: isDark,
+                                child: _buildStudyHoursChart(
+                                  context,
+                                  stats,
+                                  visibleTasks,
+                                  isDark,
+                                ),
+                              ),
+                              SizedBox(height: t.space(0.85)),
+                              _dashboardPanel(
+                                rem: t,
+                                isDark: isDark,
+                                child: _buildDailyOutcomeChart(
+                                  context,
+                                  stats,
+                                  visibleTasks,
+                                  isDark,
+                                ),
+                              ),
+                            ],
+                          );
+                        }
+                        return Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: _dashboardPanel(
+                                rem: t,
+                                isDark: isDark,
+                                child: _buildStudyHoursChart(
+                                  context,
+                                  stats,
+                                  visibleTasks,
+                                  isDark,
+                                ),
+                              ),
+                            ),
+                            SizedBox(width: t.space(0.85)),
+                            Expanded(
+                              child: _dashboardPanel(
+                                rem: t,
+                                isDark: isDark,
+                                child: _buildDailyOutcomeChart(
+                                  context,
+                                  stats,
+                                  visibleTasks,
+                                  isDark,
+                                ),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                    SizedBox(height: t.space(0.85)),
+                    _dashboardPanel(
+                      rem: t,
+                      isDark: isDark,
+                      child: _buildCoursePerformanceChart(
+                        context,
+                        stats,
+                        isDark,
+                      ),
+                    ),
+                    SizedBox(height: t.space(0.85)),
+                    _dashboardPanel(
+                      rem: t,
+                      isDark: isDark,
+                      child: _buildSimpleInsightsCard(context, stats, isDark),
+                    ),
+                  ],
+                ),
+              );
+            },
           ),
         );
       },
@@ -185,113 +298,65 @@ class _ProgressDashboardScreenState extends State<ProgressDashboardScreen> {
     );
   }
 
-  Widget _buildHeader(
+  Widget _buildPerformanceBadge(DashboardStats stats) {
+    final statusColor = _statusColor(stats.performanceLabel);
+    return Container(
+      margin: const EdgeInsets.only(top: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+      decoration: BoxDecoration(
+        color: statusColor.withOpacity(0.16),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: statusColor.withOpacity(0.45)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.circle, size: 9, color: statusColor),
+          const SizedBox(width: 6),
+          Text(
+            stats.performanceLabel,
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              color: statusColor,
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeaderChips(
     BuildContext context,
     ClassroomProvider provider,
     DashboardStats stats,
     bool isDark,
   ) {
-    final onSurface = Theme.of(context).colorScheme.onSurface;
-    final secondary = isDark ? const Color(0xFF9CA3AF) : AppTheme.mediumGray;
-    final statusColor = _statusColor(stats.performanceLabel);
-
     final syncedText = provider.syncedAt == null
         ? 'Not synced yet'
         : DateFormat('EEE, MMM d • h:mm a')
             .format(provider.syncedAt!.toLocal());
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            AppTheme.primaryBlue.withOpacity(isDark ? 0.28 : 0.16),
-            AppTheme.secondaryPurple.withOpacity(isDark ? 0.24 : 0.12),
-          ],
+    return Wrap(
+      spacing: 10,
+      runSpacing: 10,
+      children: [
+        _headerChip(
+          icon: Icons.update_rounded,
+          text: 'Synced: $syncedText',
+          isDark: isDark,
         ),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: AppTheme.primaryBlue.withOpacity(0.22),
+        _headerChip(
+          icon: Icons.calendar_today_outlined,
+          text: 'Window: ${_selectedRange.label}',
+          isDark: isDark,
         ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'Progress Dashboard',
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w800,
-                    color: onSurface,
-                    letterSpacing: -0.6,
-                  ),
-                ),
-              ),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                decoration: BoxDecoration(
-                  color: statusColor.withOpacity(0.16),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: statusColor.withOpacity(0.45)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.circle, size: 9, color: statusColor),
-                    const SizedBox(width: 6),
-                    Text(
-                      stats.performanceLabel,
-                      style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        color: statusColor,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Simple, real-time insights from your synced classroom data',
-            style: TextStyle(
-              color: secondary,
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: 14),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: [
-              _headerChip(
-                icon: Icons.update_rounded,
-                text: 'Synced: $syncedText',
-                isDark: isDark,
-              ),
-              _headerChip(
-                icon: Icons.calendar_today_outlined,
-                text: 'Window: ${_selectedRange.label}',
-                isDark: isDark,
-              ),
-              _headerChip(
-                icon: Icons.flag_outlined,
-                text: 'Focus course: ${stats.focusCourse}',
-                isDark: isDark,
-              ),
-            ],
-          ),
-        ],
-      ),
+        _headerChip(
+          icon: Icons.flag_outlined,
+          text: 'Focus course: ${stats.focusCourse}',
+          isDark: isDark,
+        ),
+      ],
     );
   }
 
@@ -303,13 +368,9 @@ class _ProgressDashboardScreenState extends State<ProgressDashboardScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        color: isDark
-            ? Colors.white.withOpacity(0.06)
-            : Colors.white.withOpacity(0.8),
+        color: isDark ? _dashboardInnerFill(isDark) : Colors.white.withOpacity(0.9),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: AppTheme.primaryBlue.withOpacity(0.18),
-        ),
+        border: Border.all(color: _dashboardBorder(isDark)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -333,93 +394,100 @@ class _ProgressDashboardScreenState extends State<ProgressDashboardScreen> {
     List<String> courses,
     String selectedCourse,
     bool isDark,
+    UpGradeRem t,
   ) {
-    final surface = isDark
-        ? const Color(0xFF1E1E1E)
-        : Theme.of(context).colorScheme.surface;
-    final secondary = isDark ? const Color(0xFF9CA3AF) : AppTheme.mediumGray;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: AppTheme.primaryBlue.withOpacity(0.2),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.tune, size: 18, color: AppTheme.primaryBlue),
-              const SizedBox(width: 8),
-              Text(
-                'View Filters',
-                style: TextStyle(
-                  fontSize: 15,
-                  color: secondary,
-                  fontWeight: FontWeight.w700,
-                ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(
+              padding: EdgeInsets.all(t.space(0.45)),
+              decoration: BoxDecoration(
+                gradient: AppTheme.primaryGradient,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: AppTheme.softShadow,
               ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: DashboardRange.values.map((range) {
-              final selected = _selectedRange == range;
-              return ChoiceChip(
-                selected: selected,
-                label: Text(_rangeLabel(range)),
-                labelStyle: TextStyle(
-                  color: selected ? AppTheme.white : null,
-                  fontWeight: FontWeight.w600,
-                ),
-                selectedColor: AppTheme.primaryBlue,
-                backgroundColor: AppTheme.primaryBlue.withOpacity(0.1),
-                side: BorderSide(
-                  color: selected
-                      ? AppTheme.primaryBlue
-                      : AppTheme.primaryBlue.withOpacity(0.2),
-                ),
-                onSelected: (value) {
-                  if (!value) return;
-                  setState(() {
-                    _selectedRange = range;
-                  });
-                },
-              );
-            }).toList(),
-          ),
-          const SizedBox(height: 12),
-          DropdownButtonFormField<String>(
-            value: selectedCourse,
-            borderRadius: BorderRadius.circular(12),
-            decoration: const InputDecoration(
-              labelText: 'Course filter',
-              prefixIcon: Icon(Icons.menu_book_outlined),
+              child: Icon(
+                Icons.tune_rounded,
+                color: Colors.white,
+                size: t.iconSmall * 1.1,
+              ),
             ),
-            items: courses
-                .map(
-                  (course) => DropdownMenuItem<String>(
-                    value: course,
-                    child: Text(course),
-                  ),
-                )
-                .toList(),
-            onChanged: (value) {
-              if (value == null) return;
-              setState(() {
-                _selectedCourse = value;
-              });
-            },
+            SizedBox(width: t.space(0.55)),
+            Text(
+              'View Filters',
+              style: TextStyle(
+                fontSize: t.sectionTitle,
+                color: isDark ? Colors.white : const Color(0xFF0F172A),
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.35,
+              ),
+            ),
+          ],
+        ),
+        SizedBox(height: t.space(0.85)),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: DashboardRange.values.map((range) {
+            final selected = _selectedRange == range;
+            return ChoiceChip(
+              selected: selected,
+              label: Text(_rangeLabel(range)),
+              labelStyle: TextStyle(
+                color: selected
+                    ? AppTheme.white
+                    : (isDark ? const Color(0xFFE5E7EB) : null),
+                fontWeight: FontWeight.w600,
+              ),
+              selectedColor: AppTheme.primaryBlue,
+              backgroundColor: isDark
+                  ? _dashboardMetricFill(isDark)
+                  : AppTheme.primaryBlue.withOpacity(0.08),
+              side: BorderSide(
+                color: selected
+                    ? AppTheme.primaryBlue
+                    : (isDark
+                        ? _dashboardBorder(isDark)
+                        : AppTheme.primaryBlue.withOpacity(0.2)),
+              ),
+              onSelected: (value) {
+                if (!value) return;
+                setState(() {
+                  _selectedRange = range;
+                });
+              },
+            );
+          }).toList(),
+        ),
+        SizedBox(height: t.space(0.85)),
+        DropdownButtonFormField<String>(
+          value: selectedCourse,
+          borderRadius: BorderRadius.circular(12),
+          dropdownColor: isDark ? const Color(0xFF0B1220) : null,
+          decoration: InputDecoration(
+            labelText: 'Course filter',
+            prefixIcon: const Icon(Icons.menu_book_outlined),
+            filled: true,
+            fillColor: _dashboardInnerFill(isDark),
           ),
-        ],
-      ),
+          items: courses
+              .map(
+                (course) => DropdownMenuItem<String>(
+                  value: course,
+                  child: Text(course),
+                ),
+              )
+              .toList(),
+          onChanged: (value) {
+            if (value == null) return;
+            setState(() {
+              _selectedCourse = value;
+            });
+          },
+        ),
+      ],
     );
   }
 
@@ -427,6 +495,7 @@ class _ProgressDashboardScreenState extends State<ProgressDashboardScreen> {
     BuildContext context,
     DashboardStats stats,
     bool isDark,
+    UpGradeRem t,
   ) {
     final cards = [
       _MetricCardData(
@@ -477,37 +546,70 @@ class _ProgressDashboardScreenState extends State<ProgressDashboardScreen> {
       ),
     ];
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        if (constraints.maxWidth < 760) {
-          return Column(
-            children: cards
-                .map(
-                  (card) => Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: _buildMetricCard(context, card, isDark),
-                  ),
-                )
-                .toList(),
-          );
-        }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(
+              padding: EdgeInsets.all(t.space(0.45)),
+              decoration: BoxDecoration(
+                gradient: AppTheme.primaryGradient,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: AppTheme.softShadow,
+              ),
+              child: Icon(
+                Icons.dashboard_rounded,
+                color: Colors.white,
+                size: t.iconSmall * 1.1,
+              ),
+            ),
+            SizedBox(width: t.space(0.55)),
+            Text(
+              'Overview',
+              style: TextStyle(
+                fontSize: t.sectionTitle,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.35,
+                color: isDark ? Colors.white : const Color(0xFF0F172A),
+              ),
+            ),
+          ],
+        ),
+        SizedBox(height: t.space(0.85)),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            if (constraints.maxWidth < 760) {
+              return Column(
+                children: cards
+                    .map(
+                      (card) => Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: _buildMetricCard(context, card, isDark),
+                      ),
+                    )
+                    .toList(),
+              );
+            }
 
-        return Row(
-          children: cards
-              .asMap()
-              .entries
-              .map(
-                (entry) => Expanded(
-                  child: Padding(
-                    padding: EdgeInsets.only(
-                        right: entry.key == cards.length - 1 ? 0 : 12),
-                    child: _buildMetricCard(context, entry.value, isDark),
-                  ),
-                ),
-              )
-              .toList(),
-        );
-      },
+            return Row(
+              children: cards
+                  .asMap()
+                  .entries
+                  .map(
+                    (entry) => Expanded(
+                      child: Padding(
+                        padding: EdgeInsets.only(
+                            right: entry.key == cards.length - 1 ? 0 : 12),
+                        child: _buildMetricCard(context, entry.value, isDark),
+                      ),
+                    ),
+                  )
+                  .toList(),
+            );
+          },
+        ),
+      ],
     );
   }
 
@@ -516,17 +618,19 @@ class _ProgressDashboardScreenState extends State<ProgressDashboardScreen> {
     _MetricCardData data,
     bool isDark,
   ) {
-    final surface = isDark
-        ? const Color(0xFF1E1E1E)
-        : Theme.of(context).colorScheme.surface;
-    final secondary = isDark ? const Color(0xFF9CA3AF) : AppTheme.mediumGray;
+    final surface = _dashboardMetricFill(isDark);
+    final secondary = _dashboardSecondary(isDark);
 
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: data.color.withOpacity(0.25)),
+        border: Border.all(
+          color: isDark
+              ? _dashboardBorder(isDark)
+              : data.color.withOpacity(0.25),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -590,27 +694,16 @@ class _ProgressDashboardScreenState extends State<ProgressDashboardScreen> {
     DashboardStats stats,
     bool isDark,
   ) {
-    final surface = isDark
-        ? const Color(0xFF1E1E1E)
-        : Theme.of(context).colorScheme.surface;
-    final secondary = isDark ? const Color(0xFF9CA3AF) : AppTheme.mediumGray;
+    final secondary = _dashboardSecondary(isDark);
 
     final total = math.max(stats.totalTasks, 1);
     final completedPart = stats.completedTasks / total;
     final pendingPart = stats.pendingTasks / total;
     final missedPart = stats.missedTasks / total;
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.secondaryPurple.withOpacity(0.25)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
           Row(
             children: [
               Container(
@@ -694,7 +787,6 @@ class _ProgressDashboardScreenState extends State<ProgressDashboardScreen> {
             ),
           ),
         ],
-      ),
     );
   }
 
@@ -733,10 +825,7 @@ class _ProgressDashboardScreenState extends State<ProgressDashboardScreen> {
     List<Task> visibleTasks,
     bool isDark,
   ) {
-    final surface = isDark
-        ? const Color(0xFF1E1E1E)
-        : Theme.of(context).colorScheme.surface;
-    final secondary = isDark ? const Color(0xFF9CA3AF) : AppTheme.mediumGray;
+    final secondary = _dashboardSecondary(isDark);
 
     final hours = stats.dailyPoints
         .map((p) => p.completedMinutes / 60.0)
@@ -744,17 +833,9 @@ class _ProgressDashboardScreenState extends State<ProgressDashboardScreen> {
     final maxHour =
         hours.isEmpty ? 1.0 : math.max(1.0, hours.reduce(math.max) + 1.0);
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.primaryBlue.withOpacity(0.24)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
           Row(
             children: [
               const Icon(Icons.show_chart_rounded, color: AppTheme.primaryBlue),
@@ -888,7 +969,6 @@ class _ProgressDashboardScreenState extends State<ProgressDashboardScreen> {
             ),
           ),
         ],
-      ),
     );
   }
 
@@ -898,10 +978,7 @@ class _ProgressDashboardScreenState extends State<ProgressDashboardScreen> {
     List<Task> visibleTasks,
     bool isDark,
   ) {
-    final surface = isDark
-        ? const Color(0xFF1E1E1E)
-        : Theme.of(context).colorScheme.surface;
-    final secondary = isDark ? const Color(0xFF9CA3AF) : AppTheme.mediumGray;
+    final secondary = _dashboardSecondary(isDark);
 
     final maxDue = stats.dailyPoints.isEmpty
         ? 1.0
@@ -914,17 +991,9 @@ class _ProgressDashboardScreenState extends State<ProgressDashboardScreen> {
                 1.0,
           );
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.secondaryPurple.withOpacity(0.24)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
           const Row(
             children: [
               Icon(Icons.bar_chart_rounded, color: AppTheme.secondaryPurple),
@@ -1098,7 +1167,6 @@ class _ProgressDashboardScreenState extends State<ProgressDashboardScreen> {
             ],
           ),
         ],
-      ),
     );
   }
 
@@ -1107,24 +1175,13 @@ class _ProgressDashboardScreenState extends State<ProgressDashboardScreen> {
     DashboardStats stats,
     bool isDark,
   ) {
-    final surface = isDark
-        ? const Color(0xFF1E1E1E)
-        : Theme.of(context).colorScheme.surface;
-    final secondary = isDark ? const Color(0xFF9CA3AF) : AppTheme.mediumGray;
+    final secondary = _dashboardSecondary(isDark);
 
     final courseStats = stats.courseProgress.take(8).toList();
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.successGreen.withOpacity(0.24)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
           Row(
             children: [
               const Icon(Icons.school_outlined, color: AppTheme.successGreen),
@@ -1265,7 +1322,6 @@ class _ProgressDashboardScreenState extends State<ProgressDashboardScreen> {
                   ),
           ),
         ],
-      ),
     );
   }
 
@@ -1274,22 +1330,11 @@ class _ProgressDashboardScreenState extends State<ProgressDashboardScreen> {
     DashboardStats stats,
     bool isDark,
   ) {
-    final surface = isDark
-        ? const Color(0xFF1E1E1E)
-        : Theme.of(context).colorScheme.surface;
-    final secondary = isDark ? const Color(0xFF9CA3AF) : AppTheme.mediumGray;
+    final secondary = _dashboardSecondary(isDark);
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.warningOrange.withOpacity(0.24)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
           Row(
             children: [
               Container(
@@ -1354,45 +1399,80 @@ class _ProgressDashboardScreenState extends State<ProgressDashboardScreen> {
             ),
           ],
         ],
-      ),
     );
   }
 
-  Widget _buildEmptyState(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final secondary = isDark ? const Color(0xFF9CA3AF) : AppTheme.mediumGray;
+  Widget _buildEmptyState(
+    BuildContext context,
+    UpGradeRem t,
+    bool isDark,
+  ) {
+    final textColor = isDark ? const Color(0xFFE5E7EB) : AppTheme.darkText;
+    final subColor = _dashboardSecondary(isDark);
 
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                gradient: AppTheme.softGradient,
-                borderRadius: BorderRadius.circular(16),
+    return SingleChildScrollView(
+      padding: EdgeInsets.all(t.space(1.1)),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 520),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              UpGradeGradientTitle(
+                'Progress Dashboard',
+                rem: t,
+                isDark: isDark,
               ),
-              child: const Icon(
-                Icons.analytics_outlined,
-                size: 48,
-                color: AppTheme.primaryBlue,
+              SizedBox(height: t.space(0.4)),
+              UpGradeMutedSubtitle(
+                'Sync Google Classroom or add manual courses to unlock interactive insights.',
+                rem: t,
+                isDark: isDark,
               ),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'No student data yet',
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Sync Google Classroom or add manual courses to unlock interactive insights.',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 14, color: secondary),
-            ),
-          ],
+              SizedBox(height: t.space(1.1)),
+              UpGradeGradientFrameCard(
+                rem: t,
+                isDark: isDark,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        gradient: AppTheme.primaryGradient,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Icon(
+                        Icons.analytics_outlined,
+                        size: 32,
+                        color: AppTheme.white,
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    Text(
+                      'No student data yet',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.4,
+                        color: textColor,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Connect your courses and assignments so UpGrade can track your progress here.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: subColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

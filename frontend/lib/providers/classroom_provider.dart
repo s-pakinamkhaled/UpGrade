@@ -26,7 +26,8 @@ class ClassroomProvider extends ChangeNotifier {
   String? get error => _error;
   DateTime? get syncedAt => _syncedAt;
   String? get activeUid => _activeUid;
-  bool get googleClassroomConnected => _googleClassroomConnected;
+  bool get googleClassroomConnected =>
+      _googleClassroomConnected || hasGoogleClassroomData(_courses, _tasks);
   List<ClassroomCourse> get courses => _courses;
   List<Task> get tasks => _tasks;
   List<String> get courseIds => _courses.map((c) => c.id).toList();
@@ -44,9 +45,9 @@ class ClassroomProvider extends ChangeNotifier {
   List<Task> get upcomingActionableTasks => actionableTasksForAI
       .where(
         (task) =>
-            task.status == TaskStatus.pending ||
-            task.status == TaskStatus.missed ||
-            task.status == TaskStatus.inProgress,
+            (task.status == TaskStatus.pending ||
+                task.status == TaskStatus.inProgress) &&
+            task.hasUpcomingDeadline,
       )
       .toList();
 
@@ -156,6 +157,31 @@ class ClassroomProvider extends ChangeNotifier {
       tasks: _tasks,
     );
     await syncTasksToBackend();
+
+    final wasConnected = _googleClassroomConnected;
+    await _reconcileGoogleClassroomConnected(uid);
+    if (_googleClassroomConnected != wasConnected) {
+      notifyListeners();
+    }
+  }
+
+  /// True when the user has synced Google Classroom courses or assignments.
+  @visibleForTesting
+  static bool hasGoogleClassroomData(
+    List<ClassroomCourse> courses,
+    List<Task> tasks,
+  ) {
+    if (courses.any((course) => !course.id.startsWith('manual_'))) {
+      return true;
+    }
+    return tasks.any((task) => task.source == 'google_classroom');
+  }
+
+  Future<void> _reconcileGoogleClassroomConnected(String uid) async {
+    if (_googleClassroomConnected) return;
+    if (!hasGoogleClassroomData(_courses, _tasks)) return;
+    _googleClassroomConnected = true;
+    await ClassroomStorageService.saveGoogleClassroomConnected(uid, true);
   }
 
   Future<

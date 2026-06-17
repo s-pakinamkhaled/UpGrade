@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:provider/provider.dart';
 
 import '../core/theme.dart';
 import '../core/constants.dart';
@@ -9,7 +8,6 @@ import '../core/security_utils.dart';
 import '../core/post_auth_navigation.dart';
 import '../widgets/app_logo.dart';
 import '../services/firebase_auth_service.dart';
-import '../services/api_service.dart';
 import '../services/user_matching_profile_sync_service.dart';
 import '../providers/classroom_provider.dart';
 
@@ -29,7 +27,40 @@ class _LoginScreenState extends State<LoginScreen> {
 
   bool _obscurePassword = true;
   bool _isLoading = false;
+  bool _checkingSession = true;
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _restoreSessionIfNeeded();
+    });
+  }
+
+  Future<void> _restoreSessionIfNeeded() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      if (mounted) setState(() => _checkingSession = false);
+      return;
+    }
+
+    final classroomProvider = context.read<ClassroomProvider>();
+
+    try {
+      await classroomProvider.loadForCurrentUser();
+      await UserMatchingProfileSyncService.syncCurrentUserProfile(
+        courses: classroomProvider.courses,
+        tasks: classroomProvider.tasks,
+      );
+      if (!mounted) return;
+      await navigateAfterAuth(context);
+    } catch (_) {
+      // Stay on login if restore fails.
+    } finally {
+      if (mounted) setState(() => _checkingSession = false);
+    }
+  }
 
   @override
   void dispose() {
@@ -67,7 +98,7 @@ class _LoginScreenState extends State<LoginScreen> {
       );
 
       if (!mounted) return;
-      openWelcomeSyncChoiceAfterAuth(context);
+      await navigateAfterAuth(context);
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -104,7 +135,10 @@ class _LoginScreenState extends State<LoginScreen> {
       );
 
       if (!mounted) return;
-      openWelcomeSyncChoiceAfterAuth(context);
+      await navigateAfterAuth(
+        context,
+        forceOnboarding: googleResult.isNewUser,
+      );
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -119,6 +153,12 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_checkingSession) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     final size = MediaQuery.of(context).size;
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
@@ -346,86 +386,6 @@ class _LoginScreenState extends State<LoginScreen> {
                                       );
                                     },
                               child: const Text('Sign up'),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        Wrap(
-                          alignment: WrapAlignment.center,
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: [
-                            OutlinedButton(
-                              onPressed: () async {
-                                final currentUser =
-                                    FirebaseAuth.instance.currentUser;
-                                if (currentUser == null) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                        'Sign in first, then test Firestore.',
-                                      ),
-                                      backgroundColor: Color(0xFF1E293B),
-                                    ),
-                                  );
-                                  return;
-                                }
-                                try {
-                                  await FirebaseFirestore.instance
-                                      .collection('users')
-                                      .doc(currentUser.uid)
-                                      .set({
-                                    'lastFirestoreCheck':
-                                        FieldValue.serverTimestamp(),
-                                  }, SetOptions(merge: true));
-                                  if (!context.mounted) return;
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('✅ Firestore Connected'),
-                                      backgroundColor: AppTheme.successGreen,
-                                    ),
-                                  );
-                                } catch (e) {
-                                  if (!context.mounted) return;
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text('❌ Firestore: $e'),
-                                      backgroundColor: AppTheme.errorRed,
-                                    ),
-                                  );
-                                }
-                              },
-                              child: const Text('Test Firestore'),
-                            ),
-                            OutlinedButton(
-                              onPressed: () async {
-                                try {
-                                  final message =
-                                      await ApiService().testConnection();
-                                  if (!context.mounted) return;
-                                  final ok =
-                                      message != 'Backend connection failed';
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                          ok ? '✅ $message' : '❌ $message'),
-                                      backgroundColor: ok
-                                          ? AppTheme.successGreen
-                                          : AppTheme.errorRed,
-                                      duration: const Duration(seconds: 3),
-                                    ),
-                                  );
-                                } catch (e) {
-                                  if (!context.mounted) return;
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text('❌ Backend: $e'),
-                                      backgroundColor: AppTheme.errorRed,
-                                    ),
-                                  );
-                                }
-                              },
-                              child: const Text('Test Backend'),
                             ),
                           ],
                         ),

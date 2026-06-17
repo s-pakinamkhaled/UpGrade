@@ -16,10 +16,6 @@ class SettingsProvider extends ChangeNotifier {
 
   bool _aiSuggestionsEnabled = true;
   bool get aiSuggestionsEnabled => _aiSuggestionsEnabled;
-  bool _dataSharingEnabled = false;
-  bool get dataSharingEnabled => _dataSharingEnabled;
-  bool _twoFactorEnabled = false;
-  bool get twoFactorEnabled => _twoFactorEnabled;
 
   // AI preferences
   StudyStyle _studyStyle = StudyStyle.visual;
@@ -58,10 +54,6 @@ class SettingsProvider extends ChangeNotifier {
         prefs.getBool('settings_notifications') ?? true;
     _aiSuggestionsEnabled =
         prefs.getBool('settings_ai_suggestions') ?? true;
-    _dataSharingEnabled =
-        prefs.getBool('settings_data_sharing') ?? false;
-    _twoFactorEnabled =
-        prefs.getBool('settings_two_factor') ?? false;
 
     final styleStr = prefs.getString('settings_study_style') ?? 'visual';
     switch (styleStr) {
@@ -120,20 +112,6 @@ class SettingsProvider extends ChangeNotifier {
     await prefs.setBool('settings_ai_suggestions', value);
   }
 
-  Future<void> setDataSharingEnabled(bool value) async {
-    _dataSharingEnabled = value;
-    notifyListeners();
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('settings_data_sharing', value);
-  }
-
-  Future<void> setTwoFactorEnabled(bool value) async {
-    _twoFactorEnabled = value;
-    notifyListeners();
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('settings_two_factor', value);
-  }
-
   Future<void> setStudyStyle(StudyStyle style) async {
     _studyStyle = style;
     notifyListeners();
@@ -144,7 +122,11 @@ class SettingsProvider extends ChangeNotifier {
       StudyStyle.practice => 'practice',
     };
     await prefs.setString('settings_study_style', value);
-    await UserMatchingProfileSyncService.syncCurrentUserProfile();
+    try {
+      await UserMatchingProfileSyncService.syncCurrentUserProfile();
+    } catch (_) {
+      // Profile sync is best-effort when Firebase is unavailable (e.g. tests).
+    }
   }
 
   Future<void> setDifficulty(DifficultyLevel level) async {
@@ -157,7 +139,11 @@ class SettingsProvider extends ChangeNotifier {
       DifficultyLevel.challenging => 'challenging',
     };
     await prefs.setString('settings_difficulty', value);
-    await UserMatchingProfileSyncService.syncCurrentUserProfile();
+    try {
+      await UserMatchingProfileSyncService.syncCurrentUserProfile();
+    } catch (_) {
+      // Profile sync is best-effort when Firebase is unavailable (e.g. tests).
+    }
   }
 
   Future<void> setAvailability({
@@ -216,5 +202,17 @@ class SettingsProvider extends ChangeNotifier {
       await prefs.setString(key, value);
     }
   }
+
+  static String labelForStudyStyle(StudyStyle style) => switch (style) {
+        StudyStyle.visual => 'Visual',
+        StudyStyle.reading => 'Reading',
+        StudyStyle.practice => 'Practice',
+      };
+
+  static String labelForDifficulty(DifficultyLevel level) => switch (level) {
+        DifficultyLevel.easy => 'Easy',
+        DifficultyLevel.balanced => 'Balanced',
+        DifficultyLevel.challenging => 'Challenging',
+      };
 }
 

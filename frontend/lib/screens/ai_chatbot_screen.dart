@@ -14,7 +14,7 @@
 // 1. Screen opens  → _addWelcomeMessage()
 //      Reads tasks from ClassroomProvider (Google Classroom sync).
 //      Reads student name from FirebaseAuth.
-//      Displays a greeting with task count & urgent count.
+//      Displays a short greeting with the student's first name.
 //
 // 2. Student sends a message  → _sendMessage(text)
 //      a) Adds the user message bubble to the list.
@@ -57,6 +57,7 @@ import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../core/theme.dart';
 import '../core/constants.dart';
+import '../core/profile_display_name.dart';
 import '../models/task.dart';
 import '../widgets/task_card.dart';
 import '../services/api_service.dart';
@@ -101,6 +102,23 @@ class _AIChatbotScreenState extends State<AIChatbotScreen>
   String get _studentName {
     final user = FirebaseAuth.instance.currentUser;
     return user?.displayName ?? user?.email?.split('@').first ?? 'Student';
+  }
+
+  /// First name only for greetings (e.g. pakinam@… → "Pakinam").
+  String get _studentFirstName {
+    final user = FirebaseAuth.instance.currentUser;
+    final displayName = user?.displayName?.trim();
+    if (displayName != null &&
+        displayName.isNotEmpty &&
+        !isPlaceholderProfileName(displayName)) {
+      final first = displayName.split(RegExp(r'\s+')).first.trim();
+      if (first.isNotEmpty) {
+        final lower = first.toLowerCase();
+        return lower[0].toUpperCase() +
+            (lower.length > 1 ? lower.substring(1) : '');
+      }
+    }
+    return displayNameFromEmail(user?.email);
   }
 
   Map<String, dynamic> _taskContextJson(Task task) {
@@ -150,26 +168,8 @@ class _AIChatbotScreenState extends State<AIChatbotScreen>
   }
 
   void _addWelcomeMessage() {
-    final allItems = _studentTasks;
-    final tasks = _studentActionableTasks;
-    final taskCount = tasks.length;
-    final syncedCount = allItems.length;
-    final urgentCount = tasks
-        .where((t) =>
-            t.priority == TaskPriority.urgent ||
-            t.priority == TaskPriority.high)
-        .length;
-
-    final greeting = syncedCount > 0
-        ? 'Hi $_studentName! I\'m your AI study assistant powered by Llama 3.3. '
-            'You have **$taskCount actionable tasks** from **$syncedCount synced items**'
-            '${urgentCount > 0 ? ' ($urgentCount urgent)' : ''}. '
-            'Ask me anything about your studies!'
-        : 'Hi $_studentName! I\'m your AI study assistant powered by Llama 3.3. '
-            'Sync your Google Classroom data so I can give you personalised advice!';
-
     _messages.add(ChatMessage(
-      text: greeting,
+      text: _friendlyWelcomeText(),
       isAI: true,
       timestamp: DateTime.now(),
       suggestions: [
@@ -178,6 +178,20 @@ class _AIChatbotScreenState extends State<AIChatbotScreen>
         'Show my schedule',
       ],
     ));
+  }
+
+  String _friendlyWelcomeText() {
+    final hour = DateTime.now().hour;
+    final timeGreeting = hour < 12
+        ? 'Good morning'
+        : hour < 17
+            ? 'Good afternoon'
+            : 'Good evening';
+
+    return '$timeGreeting, $_studentFirstName! '
+        'So glad you\'re here. I\'m your study assistant, and I\'m happy to help '
+        'you plan your day, choose what to focus on, or work through anything '
+        'that feels overwhelming. No pressure — what\'s on your mind today?';
   }
 
   Future<void> _sendMessage(String text) async {

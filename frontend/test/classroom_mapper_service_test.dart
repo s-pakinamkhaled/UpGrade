@@ -78,6 +78,7 @@ void main() {
       );
 
       expect(tasks.first.status, TaskStatus.missed);
+      expect(tasks.first.priority, TaskPriority.low);
     });
 
     test('mapAll aggregates tasks across courses', () {

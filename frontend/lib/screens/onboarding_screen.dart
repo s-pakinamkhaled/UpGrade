@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import '../core/post_auth_navigation.dart';
 import '../core/theme.dart';
+import '../services/onboarding_storage_service.dart';
 
 /// Four-step product onboarding (visual + copy aligned with marketing screens).
 class OnboardingScreen extends StatefulWidget {
@@ -25,10 +27,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      }
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid == null) return;
+      final seen = await OnboardingStorageService.hasSeenOnboarding(uid);
+      if (!mounted || !seen) return;
+      openHomeAfterAuth(context);
     });
   }
 
@@ -47,6 +53,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   Future<void> _finishOnboarding() async {
+    if (!mounted) return;
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid != null) {
+      await OnboardingStorageService.setHasSeenOnboarding(uid);
+    }
     if (!mounted) return;
     openWelcomeSyncChoiceAfterAuth(context);
   }

@@ -162,7 +162,7 @@ class UpGradeGradientFrameCard extends StatelessWidget {
         padding: const EdgeInsets.all(2),
         child: Container(
           decoration: BoxDecoration(
-            color: const Color(0xFF111827),
+            color: const Color(0xFF0B1220),
             borderRadius: innerRadius,
             border: Border.all(color: const Color(0xFF1F2937)),
           ),
@@ -218,9 +218,9 @@ class UpGradeAccentStripeCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(22),
-        color: isDark ? const Color(0xFF111827) : Colors.white,
+        color: isDark ? const Color(0xFF0B1220) : Colors.white,
         border: Border.all(
-          color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+          color: isDark ? const Color(0xFF1F2937) : const Color(0xFFE2E8F0),
         ),
         boxShadow: [
           BoxShadow(
@@ -287,12 +287,12 @@ class UpGradeListSectionPanel extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(22),
         gradient: isDark
-            ? LinearGradient(
+            ? const LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  const Color(0xFF111827),
-                  const Color(0xFF1E1B4B).withOpacity(0.4),
+                  Color(0xFF0B1220),
+                  Color(0xFF111827),
                 ],
               )
             : LinearGradient(
@@ -304,8 +304,7 @@ class UpGradeListSectionPanel extends StatelessWidget {
                 ],
               ),
         border: Border.all(
-          color:
-              isDark ? const Color(0xFF334155) : borderAccent.withOpacity(0.2),
+          color: isDark ? const Color(0xFF1F2937) : borderAccent.withOpacity(0.2),
         ),
         boxShadow: [
           BoxShadow(

@@ -9,6 +9,7 @@ import 'core/constants.dart';
 import 'core/dashboard_shell_navigation.dart';
 
 import 'services/device_pairing_storage_service.dart';
+import 'screens/splash_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/qr_scanner_screen.dart';
 import 'screens/register_screen.dart';
@@ -24,7 +25,6 @@ import 'screens/warnings_screen.dart';
 import 'screens/progress_dashboard_screen.dart';
 import 'screens/burnout_risk_screen.dart';
 import 'screens/group_study_screen.dart';
-import 'screens/end_of_day_screen.dart';
 import 'screens/ai_chatbot_screen.dart';
 import 'screens/past_tasks_screen.dart';
 import 'screens/missed_tasks_screen.dart';
@@ -39,10 +39,7 @@ import 'screens/manual_courses_screen.dart';
 import 'screens/notifications_screen.dart';
 
 import 'models/task.dart';
-import 'widgets/app_logo.dart';
 import 'widgets/dashboard_shell_row.dart';
-import 'widgets/notification_bell_button.dart';
-import 'widgets/upgrade_visual_system.dart';
 import 'providers/classroom_provider.dart';
 import 'providers/dashboard_shell_provider.dart';
 import 'providers/settings_provider.dart';
@@ -123,8 +120,9 @@ class _UpGradeAppState extends State<UpGradeApp> {
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: settings.themeMode,
-      initialRoute: AppConstants.routeLogin,
+      initialRoute: AppConstants.routeSplash,
       routes: {
+        AppConstants.routeSplash: (context) => const SplashScreen(),
         AppConstants.routeLogin: (context) => const LoginScreen(),
         AppConstants.routeRegister: (context) => const RegisterScreen(),
         AppConstants.routeForgotPassword: (context) =>
@@ -137,7 +135,9 @@ class _UpGradeAppState extends State<UpGradeApp> {
         AppConstants.routeWelcomeSyncChoice: (context) =>
             const WelcomeSyncChoiceScreen(),
         AppConstants.routeDevicePairing: (context) =>
-            const DevicePairingScreen(),
+            AppConstants.usesPairingScannerForContext(context)
+                ? const QrScannerScreen()
+                : const DevicePairingScreen(),
         AppConstants.routeOnboarding: (context) => const OnboardingScreen(),
         AppConstants.routeHome: (context) => const MainNavigationScreen(),
 
@@ -198,7 +198,6 @@ AppConstants.routeProgress: (context) =>
 AppConstants.routeBurnout: (context) => const BurnoutRiskScreen(),
 AppConstants.routeGroupStudy: (context) => const GroupStudyScreen(),
 AppConstants.routeAIChatbot: (context) => const AIChatbotScreen(),
-AppConstants.routeEndOfDay: (context) => EndOfDayScreen(),
 AppConstants.routePastTasks: (context) => const PastTasksScreen(),
 AppConstants.routeMissedTasks: (context) => const MissedTasksScreen(),
 AppConstants.routeFirestoreExample: (context) =>
@@ -215,7 +214,10 @@ AppConstants.routeEditProfile: (context) =>
     const EditProfileScreen(),
 
 AppConstants.routeStudyPlan: (context) => const StudyPlanScreen(),
-AppConstants.routeQrScanner: (context) => const QrScannerScreen(),
+AppConstants.routeQrScanner: (context) =>
+    AppConstants.usesPairingScannerForContext(context)
+        ? const QrScannerScreen()
+        : const DevicePairingScreen(),
         AppConstants.routeManualCourses: (context) =>
             const _RedirectManualCoursesToShellTab(),
       },
@@ -269,7 +271,6 @@ class MainNavigationScreen extends StatefulWidget {
 }
 
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
-  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   late final Widget _shellIndexedStack = const _MainShellIndexedStack();
 
   @override
@@ -285,204 +286,10 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final width = MediaQuery.sizeOf(context).width;
-    final isDesktop = width >= 900;
-    final isTablet = width >= 600;
-
-    if (isDesktop || isTablet) {
-      return Scaffold(
-        backgroundColor: Colors.transparent,
-        body: DashboardShellRow(
-          body: _shellIndexedStack,
-        ),
-      );
-    }
-
-    return Selector<DashboardShellProvider, int>(
-      selector: (_, shell) => shell.currentIndex,
-      builder: (context, currentIndex, child) {
-        return Scaffold(
-          key: _scaffoldKey,
-          backgroundColor: Colors.transparent,
-          drawer: _buildDrawer(context),
-          appBar: AppBar(
-            title: const Text('UpGrade'),
-            actions: const [
-              NotificationBellButton(),
-            ],
-          ),
-          body: DecoratedBox(
-            decoration: UpGradePageDecor.pageBackground(
-              Theme.of(context).brightness == Brightness.dark,
-            ),
-            child: child!,
-          ),
-          bottomNavigationBar: currentIndex >= 8 ||
-                  !const {0, 1, 2, 4}.contains(currentIndex)
-              ? null
-              : NavigationBar(
-                  selectedIndex: currentIndex == 4 ? 3 : currentIndex,
-                  onDestinationSelected: (index) {
-                    final stackIndex = switch (index) {
-                      0 => 0,
-                      1 => 1,
-                      2 => 2,
-                      _ => 4,
-                    };
-                    context
-                        .read<DashboardShellProvider>()
-                        .selectTab(stackIndex);
-                  },
-                  destinations: const [
-                    NavigationDestination(
-                      icon: Icon(Icons.dashboard_outlined),
-                      selectedIcon: Icon(Icons.dashboard),
-                      label: 'Dashboard',
-                    ),
-                    NavigationDestination(
-                      icon: Icon(Icons.calendar_today_outlined),
-                      selectedIcon: Icon(Icons.calendar_today),
-                      label: 'My Tasks',
-                    ),
-                    NavigationDestination(
-                      icon: Icon(Icons.auto_awesome_outlined),
-                      selectedIcon: Icon(Icons.auto_awesome),
-                      label: 'AI Chat',
-                    ),
-                    NavigationDestination(
-                      icon: Icon(Icons.groups_outlined),
-                      selectedIcon: Icon(Icons.groups),
-                      label: 'Groups',
-                    ),
-                  ],
-                ),
-        );
-      },
-      child: _shellIndexedStack,
-    );
-  }
-
-  Drawer _buildDrawer(BuildContext context) {
-    void pushRoute(String route) {
-      Navigator.pop(context);
-      if (DashboardShellProvider.isMainShellTabRoute(route)) {
-        selectMainShellRoute(context, route);
-      } else {
-        Navigator.of(context).pushNamed(route);
-      }
-    }
-
-    return Drawer(
-      child: ListView(
-        padding: EdgeInsets.zero,
-        children: [
-          DrawerHeader(
-            decoration: BoxDecoration(gradient: AppTheme.primaryGradient),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppTheme.white.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: const AppLogo.small(),
-                ),
-                const SizedBox(height: 20),
-                const Text(
-                  AppConstants.appName,
-                  style: TextStyle(
-                    color: AppTheme.white,
-                    fontSize: 26,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  AppConstants.appTagline,
-                  style: TextStyle(
-                    color: AppTheme.white.withOpacity(0.9),
-                    fontSize: 14,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          ListTile(
-            leading: const Icon(Icons.person_outline),
-            title: const Text('Profile'),
-            onTap: () {
-              pushRoute(AppConstants.routeProfile);
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.playlist_add_outlined),
-            title: const Text('My courses'),
-            subtitle: const Text('Add classes not in Classroom'),
-            onTap: () {
-              pushRoute(AppConstants.routeManualCourses);
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.qr_code_scanner),
-            title: const Text('Connect Desktop'),
-            subtitle: const Text('Scan QR on laptop'),
-            onTap: () {
-              pushRoute(AppConstants.routeQrScanner);
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.auto_awesome),
-            title: const Text('AI Assistant'),
-            onTap: () {
-              pushRoute(AppConstants.routeAIChatbot);
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.history_edu),
-            title: const Text('Past Tasks'),
-            onTap: () {
-              pushRoute(AppConstants.routePastTasks);
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.dashboard),
-            title: const Text('Progress Dashboard'),
-            onTap: () {
-              pushRoute(AppConstants.routeProgress);
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.health_and_safety),
-            title: const Text('Burnout Risk'),
-            onTap: () {
-              pushRoute(AppConstants.routeBurnout);
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.groups),
-            title: const Text('Study Group'),
-            onTap: () {
-              pushRoute(AppConstants.routeGroupStudy);
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.rate_review),
-            title: const Text('End of Day Review'),
-            onTap: () {
-              pushRoute(AppConstants.routeEndOfDay);
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.cloud),
-            title: const Text('Firestore Example'),
-            onTap: () {
-              pushRoute(AppConstants.routeFirestoreExample);
-            },
-          ),
-        ],
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: DashboardShellRow(
+        body: _shellIndexedStack,
       ),
     );
   }

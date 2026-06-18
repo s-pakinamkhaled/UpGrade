@@ -82,7 +82,7 @@ class TaskInput(BaseModel):
     title: str
     courseName: Optional[str] = ""
     deadline: Optional[str] = None
-    estimatedMinutes: Optional[int] = 120
+    estimatedMinutes: Optional[int] = 180
     priority: Optional[str] = "medium"
     status: Optional[str] = "pending"
     description: Optional[str] = None
@@ -118,6 +118,7 @@ class PlanItem(BaseModel):
     hoursNeeded: float
     priority: str
     tip: str
+    description:Optional[str] =None
 
 
 class PlanResponse(BaseModel):
@@ -134,7 +135,7 @@ class PlanResponse(BaseModel):
 # ── Priority / deadline helpers ────────────────────────────────────────────────
 
 _PRIORITY_RANK: Dict[str, int] = {"urgent": 0, "high": 1, "medium": 2, "low": 3}
-_MAX_PLANNER_TASKS = 60
+_MAX_PLANNER_TASKS = 80
 
 
 def _parse_deadline(deadline: Optional[str]) -> Optional[datetime]:
@@ -149,17 +150,20 @@ def _parse_deadline(deadline: Optional[str]) -> Optional[datetime]:
 
 def _effective_priority(t: TaskInput, now: Optional[datetime] = None) -> str:
     """Derive effective priority from deadline proximity.
-
-    Overdue/missed work is the most pressing (the student still owes it), so it
-    is urgent — never demoted to low. Otherwise priority scales with how soon
-    the deadline is.
+    Description: The description of the task is used to determine the priority of the task.
+    first the missed tasks should has the highest priority, but in some conditional cases ,
+    like the missed tasks should not have higher piriority with the inprogress or pending tasks that its deadline is too close.
+    for instance i have a pending task after 2 days and a 3 missed tasks the pending task that its deadline after 2 days should have the higher piriority over the missed tasks,
+    because the purpose here is finishing the incoming tasks with the missed tasks but witoout pressing the user and distracting the user with the missed tasks and that will lead the user to be busy with the missed tasks and leave the incoming tasks and that will lead the user to be late with the incoming tasks and handed the incoming tasks lately and that is will make the user at risk. 
+    so the purpose here to put the high piriority to the missed tasks but thye the pending tasks with 
+    close deadline must have the higher piriority over the missed tasks when the user complete the incoming tasks with higher piriority then the missed tasks will take the piriority after the tasks that with closde deadline.
     """
     now = now or datetime.now()
     status = (t.status or "pending").lower()
-    current = (t.priority or "medium").lower()
+    current = (t.priority or "high").lower()
 
     if status in {"missed", "overdue"}:
-        return "urgent"
+        return "high"
 
     dl = _parse_deadline(t.deadline)
     if dl is None or t.hasRealDeadline is False:
@@ -168,9 +172,9 @@ def _effective_priority(t: TaskInput, now: Optional[datetime] = None) -> str:
     hours_left = (dl - now).total_seconds() / 3600
     if hours_left < 0:
         return "urgent"
-    if hours_left <= 24:
+    if hours_left <= 48:
         return "urgent"
-    if hours_left <= 72:
+    if hours_left <= 96:
         return "high"
     if hours_left <= 7 * 24:
         return "medium"
@@ -183,8 +187,9 @@ def _fallback_plan_item(
 ) -> PlanItem:
     """Create a deterministic schedule slot when the LLM omits a validated task.
 
-    Honours the same logic as the prompt: finish ~1 day before the deadline,
-    overdue work goes to today, and no task is scheduled after its deadline.
+    Honours the same logic as the prompt: finish ~2 day before the deadline,
+    overdue work goes to today, and no task is scheduled after its deadline all the pending or inprogress tasks must be finished before its deadline.
+    if the task deadline after 2 days this task must have the highest piriority to be finished and this tasks have the higher piriority over the missed tasks. 
     """
     now = now or datetime.now()
     today = now.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -215,7 +220,7 @@ def _fallback_plan_item(
         status=task.status or "pending",
         suggestedDate=suggested.strftime("%Y-%m-%d"),
         suggestedTime=f"{start_hour:02d}:00 – {end_hour:02d}:00",
-        hoursNeeded=round(hours, 1),
+        hoursNeeded=round(hours, 2),
         priority=priority,
         tip=(
             "Overdue — start today and submit as soon as you can."
@@ -230,7 +235,11 @@ def _fallback_plan_item(
 
 
 def _build_prompt(req: PlanRequest) -> str:
-    """Build a detailed task-list prompt for the planner LLM."""
+    """Build a detailed task-list prompt for the planner LLM. including the tips per course and the tips per task.
+        overdue work goes to today, and no task is scheduled after its deadline all the pending or inprogress tasks must be finished before its deadline.
+    if the task deadline after 2 days this task must have the highest piriority to be finished and this tasks have the higher piriority over the missed tasks. 
+    the purpose here to make the student to finish trhe missed tasks without be late of deadline  with the pending tasks the pending tasks with highest piriority should be finished first and then  if there is not pending or inprogress task with the highest piriority then the missed tasks should be finished and that will make the student to finish the tasks without be late of deadline with the pending or inprogress tasks.
+    """
     now = datetime.now()
     lines = [
         f"Today is {now.strftime('%A, %B %d, %Y')} at {now.strftime('%H:%M')}.",
@@ -270,14 +279,13 @@ def _build_prompt(req: PlanRequest) -> str:
         "Produce a realistic, day-by-day schedule that a real person could follow.",
         "",
         "Scheduling rules (follow them strictly and logically):",
-        "1. ORDER by urgency: overdue/missed work and the soonest deadlines come "
+        "0. The purpose here to make the student to finish the tasks without be late of deadline with the pending or inprogress tasks the pending tasks with highest piriority should be finished first and then  if there is not pending or inprogress task with the highest piriority then the missed tasks should be finished and that will make the student to finish the tasks without be late of deadline with the pending or inprogress tasks.",
+        "1. ORDER by urgency: overdue/missed task is very importand to be finished in case there is no pending or inprogress task that its piriority is urgent or high because we need the student finish the tasks pending or inprogress within high or urgent piriority first and then consider the piriority to the missed tasks. "
         "FIRST. Never place a later deadline before an earlier one.",
         "2. FINISH-BEFORE-DEADLINE: schedule each task to be completed at least one "
         "full day BEFORE its deadline whenever possible (buffer for the unexpected). "
         "Never schedule a task on a day AFTER its deadline.",
-        "3. OVERDUE work: schedule it as early as possible (today/tomorrow) so the "
-        "student catches up.",
-        "4. REALISTIC LOAD: do not pile everything on one day. Aim for at most ~4–6 "
+        "4. REALISTIC LOAD: do not pile everything on one day. Aim for at most ~from 4 to 7 hours per day "
         "study hours per day; spread the remaining tasks across the following days.",
         "5. CHRONOLOGICAL DAYS: use real calendar dates. Today is "
         f"{today_str}; tomorrow is {tomorrow_str}. Spread tasks across consecutive "
@@ -289,7 +297,7 @@ def _build_prompt(req: PlanRequest) -> str:
         "generic advice.",
         "8. Include EVERY task listed above exactly once. Never add, merge, rename, "
         "or invent tasks, courses, grades, or deadlines.",
-        "9. Provide a 2–3 sentence 'summary' explaining the overall strategy "
+        "9. Provide a 2–3 sentence 'summary' explaining the overall strategy like descriping t0o the student how will finish this task"
         "(what to focus on today, how the week is balanced).",
         "10. Respond with VALID JSON ONLY — no markdown fences, no extra text.",
         "",
@@ -362,12 +370,17 @@ async def generate_plan(req: PlanRequest) -> PlanResponse:
     ]
 
     try:
+        # Keep max_tokens at 2000: enough for 13+ tasks with tips and summary
+        # while staying within Groq's free-tier tokens-per-minute budget.
+        # Each task item in the JSON response is ~80-120 tokens, so 2000 covers
+        # up to ~20 tasks with a summary and still leaves budget for a second
+        # concurrent request.
         parsed, gen_result = _llm_provider.generate_json(
             messages=messages,
             model=_llm_config.plan_model,
             fallback_model=_llm_config.plan_fallback_model,
             temperature=0.4,
-            max_tokens=3000,
+            max_tokens=2000,
         )
 
         logger.info(

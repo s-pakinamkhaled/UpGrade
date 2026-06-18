@@ -7,14 +7,18 @@ no extra Python packages are required beyond ``requests``.
 Retry / fallback strategy
 --------------------------
 1. Try primary model on the configured provider.
-2. If that fails, wait 1 s and retry once with the same model/provider.
-3. If both attempts fail, try the fallback model (optionally on a different
-   provider).
+2. If that fails:
+   - 429 (rate-limit): wait for the Retry-After header (or exponential backoff)
+     before retrying.  Non-retriable status codes (4xx except 429) are NOT
+     retried — they surface immediately to fall back.
+   - Other errors: wait 2 s and retry once.
+3. If both primary attempts fail, try the fallback model / provider.
 4. If fallback also fails, raise ``RuntimeError`` with a clean message.
 
 Logging
 -------
-- Logs: provider, model, routing decision, fallback usage, latency (ms).
+- Logs: provider, model, routing decision, fallback usage, latency (ms),
+  HTTP status codes on failure.
 - Does NOT log message content, prompts, or student data.
 """
 
@@ -27,13 +31,21 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
 import requests
-from requests.exceptions import RequestException, Timeout
+from requests.exceptions import HTTPError, RequestException, Timeout
 
 from .config import LLMConfig
 
 logger = logging.getLogger(__name__)
 
-_RETRY_DELAY_S = 1.0
+# Seconds to wait between attempts when the server returns a transient error.
+_BASE_RETRY_DELAY_S = 2.0
+# Maximum backoff cap so we never wait more than this.
+_MAX_RETRY_DELAY_S = 30.0
+
+# HTTP status codes that are worth retrying (transient / rate-limited).
+_RETRIABLE_STATUS = {429, 500, 502, 503, 504}
+# HTTP status codes that are NOT worth retrying (permanent client errors).
+_PERMANENT_ERROR_STATUS = {400, 401, 403, 404, 422}
 
 
 @dataclass
@@ -104,7 +116,15 @@ class LLMProvider:
             json=payload,
             timeout=90,
         )
-        response.raise_for_status()
+        if not response.ok:
+            # Attach the status code and first 200 chars of body so callers can
+            # make smart retry decisions without re-reading the response.
+            err = HTTPError(
+                f"HTTP {response.status_code} from Groq: "
+                f"{response.text[:200].strip()}",
+                response=response,
+            )
+            raise err
         data = response.json()
         return data["choices"][0]["message"]["content"]
 
@@ -147,7 +167,13 @@ class LLMProvider:
             f"{model}:generateContent?key={self.config.gemini_api_key}"
         )
         response = requests.post(url, json=payload, timeout=90)
-        response.raise_for_status()
+        if not response.ok:
+            err = HTTPError(
+                f"HTTP {response.status_code} from Gemini: "
+                f"{response.text[:200].strip()}",
+                response=response,
+            )
+            raise err
         data = response.json()
         return data["candidates"][0]["content"]["parts"][0]["text"]
 
@@ -168,6 +194,43 @@ class LLMProvider:
 
     # ── Public generation methods ──────────────────────────────────────────────
 
+    # ── Retry helpers ─────────────────────────────────────────────────────────
+
+    @staticmethod
+    def _http_status(exc: Exception) -> Optional[int]:
+        """Extract the HTTP status code from an HTTPError, or None."""
+        resp = getattr(exc, "response", None)
+        if resp is not None:
+            return getattr(resp, "status_code", None)
+        return None
+
+    @staticmethod
+    def _retry_after(exc: Exception) -> float:
+        """Return the Retry-After delay in seconds (capped at _MAX_RETRY_DELAY_S)."""
+        resp = getattr(exc, "response", None)
+        if resp is None:
+            return _BASE_RETRY_DELAY_S
+        raw = resp.headers.get("Retry-After") or resp.headers.get("retry-after")
+        if raw is not None:
+            try:
+                return min(float(raw), _MAX_RETRY_DELAY_S)
+            except ValueError:
+                pass
+        return _BASE_RETRY_DELAY_S
+
+    @staticmethod
+    def _is_retriable(exc: Exception) -> bool:
+        """Return True if the error is worth retrying."""
+        status = LLMProvider._http_status(exc)
+        if status is None:
+            # Network error, timeout — always retry.
+            return True
+        if status in _PERMANENT_ERROR_STATUS:
+            return False
+        return status in _RETRIABLE_STATUS
+
+    # ── Public generation methods ──────────────────────────────────────────────
+
     def generate_text(
         self,
         messages: List[Dict[str, str]],
@@ -178,14 +241,22 @@ class LLMProvider:
         temperature: float = 0.7,
         max_tokens: int = 500,
     ) -> GenerationResult:
-        """Generate text with retry + fallback.
+        """Generate text with smart retry + fallback.
+
+        Retry strategy
+        ~~~~~~~~~~~~~~
+        - On a 429 (rate-limit): honour the ``Retry-After`` response header or
+          apply exponential backoff before the second attempt.
+        - On non-retriable 4xx errors (401, 403, 404, 422): skip the retry and
+          fall back immediately — retrying a 401 is pointless.
+        - On transient 5xx / network errors: wait ``_BASE_RETRY_DELAY_S`` then retry.
 
         Args:
             messages:          OpenAI-style message list.
             model:             Primary model name.
             fallback_model:    Model to try after primary exhausts retries.
             provider:          Primary provider; defaults to ``config.llm_provider``.
-            fallback_provider: Provider for fallback model; defaults to primary provider.
+            fallback_provider: Provider for fallback model; defaults to primary.
             temperature:       Sampling temperature.
             max_tokens:        Maximum output tokens.
 
@@ -200,7 +271,7 @@ class LLMProvider:
 
         start = time.monotonic()
 
-        # Primary model — up to 2 attempts
+        # ── Primary model — up to 2 attempts ──────────────────────────────────
         last_error: Exception = RuntimeError("No attempts made")
         for attempt in range(2):
             try:
@@ -224,23 +295,50 @@ class LLMProvider:
                 )
             except Exception as exc:
                 last_error = exc
+                status = self._http_status(exc)
                 logger.warning(
-                    "[LLM] provider=%s model=%s attempt=%d failed: %s",
+                    "[LLM] provider=%s model=%s attempt=%d failed: %s (HTTP %s)",
                     effective_provider,
                     model,
                     attempt + 1,
                     type(exc).__name__,
+                    status if status else "n/a",
                 )
-                if attempt == 0:
-                    time.sleep(_RETRY_DELAY_S)
 
-        # Fallback model — single attempt
+                if attempt == 0:
+                    if not self._is_retriable(exc):
+                        # Permanent error (bad key, bad request) — skip retry.
+                        logger.warning(
+                            "[LLM] HTTP %s is non-retriable, skipping retry for %s",
+                            status,
+                            model,
+                        )
+                        break
+                    # Wait with backoff before the second attempt.
+                    delay = self._retry_after(exc) if status == 429 else _BASE_RETRY_DELAY_S
+                    logger.info("[LLM] waiting %.1fs before retry (status=%s)", delay, status)
+                    time.sleep(delay)
+
+        # ── Fallback model — single attempt ───────────────────────────────────
         logger.warning(
             "[LLM] primary exhausted; falling back to provider=%s model=%s",
             effective_fallback_provider,
             fallback_model,
         )
         try:
+            # If rate-limited on the same provider, back off before the fallback
+            # attempt too — hitting the fallback immediately on a 429 just burns
+            # the same rate-limit budget.
+            primary_status = self._http_status(last_error)
+            if primary_status == 429 and effective_fallback_provider == effective_provider:
+                delay = self._retry_after(last_error)
+                logger.info(
+                    "[LLM] rate-limited on %s; waiting %.1fs before fallback",
+                    effective_provider,
+                    delay,
+                )
+                time.sleep(delay)
+
             content = self._call_provider(
                 effective_fallback_provider,
                 fallback_model,
@@ -263,15 +361,17 @@ class LLMProvider:
                 latency_ms=latency_ms,
             )
         except Exception as exc:
+            status = self._http_status(exc)
             logger.error(
-                "[LLM] fallback provider=%s model=%s failed: %s",
+                "[LLM] fallback provider=%s model=%s failed: %s (HTTP %s)",
                 effective_fallback_provider,
                 fallback_model,
                 type(exc).__name__,
+                status if status else "n/a",
             )
             raise RuntimeError(
                 f"Both primary ({model}) and fallback ({fallback_model}) models failed. "
-                f"Last error: {exc}"
+                f"Last primary error: {last_error} | Last fallback error: {exc}"
             ) from exc
 
     def generate_json(

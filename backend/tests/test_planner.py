@@ -52,7 +52,9 @@ def test_build_prompt_contains_priority():
             TaskInput(
                 id="1",
                 title="OS Project",
-                deadline=(datetime.now() + timedelta(days=2)).isoformat(),
+                # 3 days out = ≤96h = "high" in the merged priority logic.
+                # (≤48h would be "urgent"; we explicitly want HIGH here.)
+                deadline=(datetime.now() + timedelta(days=3)).isoformat(),
                 priority="high",
             )
         ],

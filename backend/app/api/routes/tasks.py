@@ -8,8 +8,8 @@ from pydantic import BaseModel
 
 from app.core.security_utils import is_safe_path_segment, sanitize_display_text
 
-TaskStatus = Literal["pending", "inProgress", "completed"]
-ActivityAction = Literal["started", "completed", "reopened"]
+TaskStatus = Literal["pending", "inProgress", "completed","missed","overdue"]
+ActivityAction = Literal["started", "completed", "reopened","missed","overdue"]
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 

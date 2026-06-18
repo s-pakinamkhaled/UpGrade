@@ -91,7 +91,13 @@ class StudyPlanScreen extends StatefulWidget {
 class _StudyPlanScreenState extends State<StudyPlanScreen> {
   int _tabIndex = 0; // 0 = My Courses, 1 = Upcoming Tasks
   bool _loading = true;
+
+  /// True while a backend request is in flight. Prevents concurrent requests
+  /// that would hit the LLM rate limit and both fail.
+  bool _isGenerating = false;
+
   StudyPlan? _plan;
+  String? _generateError;
 
   /// How the AI finish scenario is grouped (user-customizable view).
   _PlanGrouping _grouping = _PlanGrouping.day;
@@ -103,9 +109,16 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
   }
 
   Future<void> _generate() async {
+    // Prevent concurrent requests: if one is already in flight, do nothing.
+    // This is the first line of defence against rate-limit bursts when the
+    // user taps "Regenerate" rapidly.
+    if (_isGenerating) return;
+
     setState(() {
+      _isGenerating = true;
       _loading = true;
       _plan = null;
+      _generateError = null;
     });
 
     try {
@@ -129,16 +142,32 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
         setState(() {
           _plan = StudyPlan.fromJson(response);
           _loading = false;
+          _isGenerating = false;
         });
       } else {
         setState(() {
           _loading = false;
+          _isGenerating = false;
+          _generateError =
+              'The AI planner did not return a plan. Please try again in a moment.';
         });
       }
     } catch (e) {
       if (!mounted) return;
+      final msg = e.toString().toLowerCase();
+      String userMessage;
+      if (msg.contains('502') || msg.contains('rate') || msg.contains('429')) {
+        userMessage =
+            'The AI service is busy right now. Please wait a few seconds and try again.';
+      } else if (msg.contains('503') || msg.contains('unavailable')) {
+        userMessage = 'AI service is temporarily unavailable. Try again shortly.';
+      } else {
+        userMessage = 'Could not generate a plan. Please try again.';
+      }
       setState(() {
         _loading = false;
+        _isGenerating = false;
+        _generateError = userMessage;
       });
     }
   }
@@ -220,6 +249,67 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
                 return Padding(
                   padding: const EdgeInsets.symmetric(vertical: 48),
                   child: _buildLoading(rem: rem, isDark: isDark),
+                );
+              }
+
+              // Show a friendly error banner if plan generation failed.
+              if (_generateError != null && _plan == null) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 24),
+                  child: Column(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: AppTheme.errorRed.withOpacity(isDark ? 0.18 : 0.08),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: AppTheme.errorRed.withOpacity(0.4),
+                          ),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(Icons.warning_amber_rounded,
+                                color: AppTheme.errorRed, size: 22),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Plan generation failed',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: rem.listTitle,
+                                      color: AppTheme.errorRed,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    _generateError!,
+                                    style: TextStyle(
+                                      fontSize: rem.listSubtitle,
+                                      color: onSurface.withOpacity(0.8),
+                                      height: 1.4,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      UpGradeGradientFilledButton(
+                        onPressed: _isGenerating ? null : _generate,
+                        icon: const Icon(Icons.refresh_rounded, size: 18),
+                        label: const Text('Try Again'),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 24, vertical: 12),
+                      ),
+                    ],
+                  ),
                 );
               }
 
@@ -339,9 +429,14 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
           ],
         );
         final button = UpGradeGradientFilledButton(
-          onPressed: _loading ? null : _generate,
-          icon: const Icon(Icons.add, size: 20),
-          label: const Text('Create New Plan'),
+          // Disable while a request is in flight so the user cannot fire
+          // concurrent calls that would hit the LLM rate limit.
+          onPressed: (_loading || _isGenerating) ? null : _generate,
+          icon: Icon(
+            _isGenerating ? Icons.hourglass_top_rounded : Icons.add,
+            size: 20,
+          ),
+          label: Text(_isGenerating ? 'Generating…' : 'Create New Plan'),
           padding: EdgeInsets.symmetric(
             horizontal: rem.space(1.35),
             vertical: rem.space(0.85),

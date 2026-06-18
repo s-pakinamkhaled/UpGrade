@@ -28,14 +28,17 @@ COMPLETED_STATUSES = {
     "completed",
     "returned",
     "submitted",
-    "graded",
     "turned_in",
     "turnedin",
+    "turned in late",
     "reclaimed_by_student",
 }
 
 ACTIONABLE_STATUSES = {"pending", "inprogress", "in_progress", "missed"}
 
+# NOTE: every entry MUST be lowercase. Titles are lowercased before matching,
+# so any capitalised entry here would silently never match. A helper at module
+# load normalises these defensively, but keep them lowercase by convention.
 EXACT_GRADE_TITLES = {
     "grades",
     "grade",
@@ -45,11 +48,23 @@ EXACT_GRADE_TITLES = {
     "result",
     "results",
     "total",
+    "quiz grades",
+    "mini project grades",
     "total course work",
     "course work",
     "coursework",
+    "total course work (60)",
+    "midterm grades",
+    "midterm",
+    "tasks",
+    "lecture quiz grades (7.5)",
+    "lab quiz grades",
+    "final lab grade",
     "total assignments",
+    "assignments grades",
+    "term work grades out of 60",
     "total labs grades",
+    "total labs grades (out of 10)",
     "total labs",
     "overall grade",
     "course grade",
@@ -76,6 +91,9 @@ STRONG_GRADE_SUBSTRINGS = [
     "attendance grade",
     "term work grades",
     "term work grade",
+    "end term project grades",
+    "project grades",
+    "project grade",
     "lab assignments grades",
     "lab quiz grades",
     "mini project grades",
@@ -85,7 +103,22 @@ STRONG_GRADE_SUBSTRINGS = [
     "instructions and rubric",
     "total course work",
     "total assignments",
+    "assignments grades",
 ]
+
+# Defensive normalisation: matching is always done on lowercased titles, so make
+# sure every reference value is lowercase even if someone pastes a raw title.
+EXACT_GRADE_TITLES = {t.lower().strip() for t in EXACT_GRADE_TITLES}
+STRONG_GRADE_SUBSTRINGS = [s.lower().strip() for s in STRONG_GRADE_SUBSTRINGS]
+
+# A title whose LAST word is "grade"/"grades" (optionally followed by a bracketed
+# weight like "(9)" or "[7.5]") is always a grade record, even if it also
+# contains deliverable words like "project" or "assignment". This is the
+# strongest gradebook-column signal and must override the guards below.
+TRAILING_GRADE_RE = re.compile(
+    r"\bgrades?\s*(\(\s*[\d.%/]+\s*\)|\[\s*[\d.%/]+\s*\])?\s*$",
+    re.I,
+)
 
 GRADE_REGEX_PATTERNS = [
     (
@@ -189,6 +222,11 @@ def _normalized_title(task: TaskLike) -> str:
 def title_looks_grade_related(title_lower: str) -> bool:
     if not title_lower:
         return False
+    # Strongest signal: the title ENDS with "grade"/"grades" (e.g.
+    # "End Term Project Grades", "Assignments Grades (9)"). This is a gradebook
+    # column, never a deliverable, so it overrides every guard below.
+    if TRAILING_GRADE_RE.search(title_lower):
+        return True
     if title_lower in EXACT_GRADE_TITLES:
         return True
     if any(pattern in title_lower for pattern in STRONG_GRADE_SUBSTRINGS):

@@ -152,7 +152,12 @@ class SemesterFilterService {
     required String semesterId,
   }) {
     final detected = detectFromCourse(course);
-    if (detected == null) return semesterId == unknownSemesterId;
+    // Courses without detectable semester metadata (no Spring/Fall/year text in
+    // name/section/description) are kept in EVERY filter so the user does not
+    // silently lose courses whose teachers did not put a semester tag in the
+    // Classroom title. They are also kept under the explicit "Unknown Semester"
+    // bucket so users can still narrow them down if needed.
+    if (detected == null) return true;
     return detected.id == semesterId;
   }
 

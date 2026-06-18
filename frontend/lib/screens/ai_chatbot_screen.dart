@@ -227,15 +227,25 @@ class _AIChatbotScreenState extends State<AIChatbotScreen>
       // Remove last item (we already added the user message above)
       if (history.isNotEmpty) history.removeLast();
 
-      // Build rich student context — send only actionable tasks to the AI,
-      // but include personalization signals derived from ALL data.
+      // Build rich student context — include ALL actionable tasks (including
+      // missed/overdue) so the AI knows about every course and assignment.
+      // Grade items are sent in analyticsContext only, never as schedulable tasks.
       final provider = context.read<ClassroomProvider>();
-      final actionableTasks = provider.upcomingActionableTasks;
+      // Use actionableTasksForAI (not upcomingActionableTasks) so that missed
+      // assignments and tasks from all 8 courses are visible to the AI.
+      final actionableTasks = provider.actionableTasksForAI;
       final signals = provider.personalizationSignals;
       final allSyncedItems = provider.allSyncedItems;
 
       final studentContext = <String, dynamic>{
         'name': _studentName,
+        // Explicit course list so the AI always knows ALL registered courses.
+        'courseList': provider.courses
+            .map((c) => {
+                  'name': c.name,
+                  'section': c.section,
+                })
+            .toList(),
         'tasks': actionableTasks.map(_taskContextJson).toList(),
         'actionableTasks': actionableTasks.map(_taskContextJson).toList(),
         'allSyncedItems': allSyncedItems.map(_taskContextJson).toList(),

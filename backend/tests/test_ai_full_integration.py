@@ -1,6 +1,8 @@
 """
-Frontend-shaped AI integration: classroom tasks → planner + chat (mocked Groq).
+Frontend-shaped AI integration: classroom tasks → planner + chat (mocked LLM).
 Simulates payloads the Flutter app sends to /api/plan/generate and /api/chat/message.
+
+Updated: patches _llm_provider (LLMProvider) instead of the old groq_client.
 """
 import json
 import os
@@ -14,64 +16,65 @@ from app.api.routes import planner, chat as chat_route
 
 client = TestClient(app)
 
+_AI_PATH = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "ai"
+)
+if _AI_PATH not in sys.path:
+    sys.path.insert(0, _AI_PATH)
 
-class IntegrationGroqClient:
-    """Single mock Groq client shared by planner route tests."""
+from llm.provider import GenerationResult
 
-    def chat_completion(self, messages, **kwargs):
-        user_content = messages[-1]["content"]
-        if "active tasks" in user_content.lower() or "student name" in user_content.lower():
-            return {
-                "choices": [
-                    {
-                        "message": {
-                            "content": json.dumps(
-                                {
-                                    "items": [
-                                        {
-                                            "taskTitle": "Database Normalization HW",
-                                            "courseName": "Database Systems",
-                                            "suggestedDate": "2026-06-14",
-                                            "suggestedTime": "15:00 – 17:00",
-                                            "hoursNeeded": 2,
-                                            "priority": "high",
-                                            "tip": "Review 3NF examples before starting.",
-                                        }
-                                    ],
-                                    "summary": "Focus on normalization homework first.",
-                                }
-                            )
-                        }
-                    }
-                ]
-            }
-        return {
-            "choices": [
+
+class IntegrationLLMProvider:
+    """Mock LLMProvider returning a planner response for the integration tests."""
+
+    def generate_json(self, messages, model, fallback_model, **kwargs):
+        parsed = {
+            "items": [
                 {
-                    "message": {
-                        "content": "Start with Database Normalization HW — it is your highest priority task.",
-                    }
+                    "taskTitle": "Database Normalization HW",
+                    "courseName": "Database Systems",
+                    "suggestedDate": "2026-06-14",
+                    "suggestedTime": "15:00 – 17:00",
+                    "hoursNeeded": 2,
+                    "priority": "high",
+                    "tip": "Review 3NF examples before starting.",
                 }
             ],
-            "model": "llama-3.3-70b-versatile",
+            "summary": "Focus on normalization homework first.",
         }
+        result = GenerationResult(
+            content=json.dumps(parsed),
+            model=model,
+            provider="groq",
+            used_fallback=False,
+        )
+        return parsed, result
+
+    def generate_text(self, messages, model, fallback_model, **kwargs):
+        return GenerationResult(
+            content="Start with Database Normalization HW — it is your highest priority task.",
+            model=model,
+            provider="groq",
+            used_fallback=False,
+        )
 
 
 class IntegrationChatService:
+    """Minimal chat service mock for integration tests."""
+
     def __init__(self):
-        self.client = IntegrationGroqClient()
         self.system_prompt = "You are a study assistant."
 
     def chat(self, user_message, conversation_history=None, student_context=None):
-        messages = [{"role": "system", "content": self.system_prompt}]
-        if conversation_history:
-            messages.extend(conversation_history)
-        messages.append({"role": "user", "content": user_message})
-        response = self.client.chat_completion(messages=messages)
+        task_title = "your highest priority task"
+        if student_context and student_context.get("tasks"):
+            first = student_context["tasks"][0]
+            task_title = first.get("title", task_title)
         return {
             "success": True,
-            "message": response["choices"][0]["message"]["content"],
-            "model": response.get("model", "llama-3.3-70b-versatile"),
+            "message": f"Start with {task_title} — it is your highest priority.",
+            "model": "llama-3.3-70b-versatile",
         }
 
     def get_quick_suggestions(self, student_context=None):
@@ -125,7 +128,7 @@ def test_ai_stack_health_integration():
 
 
 def test_flutter_to_planner_ai_flow(monkeypatch):
-    monkeypatch.setattr(planner, "groq_client", IntegrationGroqClient())
+    monkeypatch.setattr(planner, "_llm_provider", IntegrationLLMProvider())
 
     response = client.post(
         "/api/plan/generate",
@@ -179,7 +182,7 @@ def test_flutter_to_chat_ai_flow(monkeypatch):
 
 def test_full_student_ai_journey(monkeypatch):
     """Tasks → study plan → follow-up chat question (mocked LLM)."""
-    monkeypatch.setattr(planner, "groq_client", IntegrationGroqClient())
+    monkeypatch.setattr(planner, "_llm_provider", IntegrationLLMProvider())
     monkeypatch.setattr(chat_route, "chat_service", IntegrationChatService())
 
     tasks = _flutter_task_payload()

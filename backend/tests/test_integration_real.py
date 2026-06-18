@@ -173,37 +173,43 @@ def test_study_group_create_and_status_integration():
 
 def test_planner_generate_flow_integration(monkeypatch):
     import json
+    import sys
+    import os
+
+    _ai_path = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "ai"
+    )
+    if _ai_path not in sys.path:
+        sys.path.insert(0, _ai_path)
 
     from app.api.routes import planner
+    from llm.provider import GenerationResult
 
-    class MockGroqClient:
-        def chat_completion(self, **kwargs):
-            return {
-                "choices": [
+    class MockLLMProvider:
+        def generate_json(self, messages, model, fallback_model, **kwargs):
+            parsed = {
+                "items": [
                     {
-                        "message": {
-                            "content": json.dumps(
-                                {
-                                    "items": [
-                                        {
-                                            "taskTitle": "Database Project",
-                                            "courseName": "Database",
-                                            "suggestedDate": "2026-06-20",
-                                            "suggestedTime": "10:00-12:00",
-                                            "hoursNeeded": 2,
-                                            "priority": "high",
-                                            "tip": "Review notes first",
-                                        }
-                                    ],
-                                    "summary": "Focus on the database project first.",
-                                }
-                            )
-                        }
+                        "taskTitle": "Database Project",
+                        "courseName": "Database",
+                        "suggestedDate": "2026-06-20",
+                        "suggestedTime": "10:00-12:00",
+                        "hoursNeeded": 2,
+                        "priority": "high",
+                        "tip": "Review notes first",
                     }
-                ]
+                ],
+                "summary": "Focus on the database project first.",
             }
+            result = GenerationResult(
+                content=json.dumps(parsed),
+                model=model,
+                provider="groq",
+                used_fallback=False,
+            )
+            return parsed, result
 
-    monkeypatch.setattr(planner, "groq_client", MockGroqClient())
+    monkeypatch.setattr(planner, "_llm_provider", MockLLMProvider())
 
     response = client.post(
         "/api/plan/generate",

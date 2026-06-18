@@ -56,6 +56,13 @@ class CourseProgressStat {
   final int missed;
   final int urgentOrHigh;
 
+  /// Average grade for this course as a percentage (0–100), or null if no
+  /// graded items exist yet.
+  final double? averageGradePct;
+
+  /// How many graded items contributed to [averageGradePct].
+  final int gradedCount;
+
   const CourseProgressStat({
     required this.courseName,
     required this.total,
@@ -63,9 +70,43 @@ class CourseProgressStat {
     required this.pending,
     required this.missed,
     required this.urgentOrHigh,
+    this.averageGradePct,
+    this.gradedCount = 0,
   });
 
   double get completionRate => total == 0 ? 0.0 : completed / total;
+
+  /// Combined academic risk for the course, factoring in both low grades and
+  /// outstanding/missed work. Higher = more at risk.
+  CourseRiskLevel get riskLevel {
+    final grade = averageGradePct;
+    // Grade-driven risk (dominant signal when grades exist).
+    if (grade != null) {
+      if (grade < 50 || missed >= 2) return CourseRiskLevel.high;
+      if (grade < 65 || missed >= 1) return CourseRiskLevel.medium;
+      if (grade < 75 && (pending + missed) > 0) return CourseRiskLevel.medium;
+      return CourseRiskLevel.low;
+    }
+    // No grades yet → fall back to workload signals.
+    if (missed >= 2) return CourseRiskLevel.high;
+    if (missed >= 1 || urgentOrHigh >= 2) return CourseRiskLevel.medium;
+    return CourseRiskLevel.low;
+  }
+}
+
+enum CourseRiskLevel { low, medium, high }
+
+extension CourseRiskLevelX on CourseRiskLevel {
+  String get label {
+    switch (this) {
+      case CourseRiskLevel.low:
+        return 'On track';
+      case CourseRiskLevel.medium:
+        return 'Caution';
+      case CourseRiskLevel.high:
+        return 'At risk';
+    }
+  }
 }
 
 class DashboardStats {

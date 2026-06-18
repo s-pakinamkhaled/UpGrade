@@ -243,6 +243,12 @@ class _ProgressDashboardScreenState extends State<ProgressDashboardScreen> {
                     _dashboardPanel(
                       rem: t,
                       isDark: isDark,
+                      child: _buildCourseRiskCard(context, stats, isDark, t),
+                    ),
+                    SizedBox(height: t.space(0.85)),
+                    _dashboardPanel(
+                      rem: t,
+                      isDark: isDark,
                       child: _buildSimpleInsightsCard(context, stats, isDark),
                     ),
                   ],
@@ -1322,6 +1328,262 @@ class _ProgressDashboardScreenState extends State<ProgressDashboardScreen> {
                   ),
           ),
         ],
+    );
+  }
+
+  Color _riskColor(CourseRiskLevel level) {
+    switch (level) {
+      case CourseRiskLevel.high:
+        return AppTheme.errorRed;
+      case CourseRiskLevel.medium:
+        return AppTheme.warningOrange;
+      case CourseRiskLevel.low:
+        return AppTheme.successGreen;
+    }
+  }
+
+  /// Per-course grade + risk analysis. Tapping a course filters the whole
+  /// dashboard to it. Courses are ordered most-at-risk first.
+  Widget _buildCourseRiskCard(
+    BuildContext context,
+    DashboardStats stats,
+    bool isDark,
+    UpGradeRem t,
+  ) {
+    final secondary = _dashboardSecondary(isDark);
+    // Order: highest risk first, then lowest grade, then most outstanding work.
+    final courses = List<CourseProgressStat>.from(stats.courseProgress)
+      ..sort((a, b) {
+        final r = b.riskLevel.index.compareTo(a.riskLevel.index);
+        if (r != 0) return r;
+        final ga = a.averageGradePct ?? 200;
+        final gb = b.averageGradePct ?? 200;
+        if (ga != gb) return ga.compareTo(gb);
+        return (b.pending + b.missed).compareTo(a.pending + a.missed);
+      });
+
+    final graded = courses.where((c) => c.averageGradePct != null).toList();
+    final overallGrade = graded.isEmpty
+        ? null
+        : graded
+                .map((c) => c.averageGradePct!)
+                .reduce((a, b) => a + b) /
+            graded.length;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(Icons.warning_amber_rounded,
+                color: AppTheme.warningOrange),
+            const SizedBox(width: 8),
+            const Expanded(
+              child: Text(
+                'Course Risk & Grades',
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+              ),
+            ),
+            if (overallGrade != null)
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryBlue.withOpacity(isDark ? 0.2 : 0.1),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  'Avg ${overallGrade.toStringAsFixed(0)}%',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    color: AppTheme.primaryBlue,
+                  ),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Grade and workload per course. Tap a course to focus the dashboard on it.',
+          style: TextStyle(fontSize: 12.5, color: secondary, height: 1.35),
+        ),
+        const SizedBox(height: 14),
+        if (courses.isEmpty)
+          Text('No course data yet.', style: TextStyle(color: secondary))
+        else
+          ...courses.map(
+            (c) => _courseRiskRow(context, c, isDark, secondary),
+          ),
+      ],
+    );
+  }
+
+  Widget _courseRiskRow(
+    BuildContext context,
+    CourseProgressStat course,
+    bool isDark,
+    Color secondary,
+  ) {
+    final risk = course.riskLevel;
+    final riskColor = _riskColor(risk);
+    final grade = course.averageGradePct;
+    final selected = _selectedCourse == course.courseName;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: () {
+            setState(() {
+              _selectedCourse =
+                  selected ? _allCoursesLabel : course.courseName;
+            });
+          },
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: selected
+                  ? AppTheme.primaryBlue.withOpacity(isDark ? 0.16 : 0.07)
+                  : (isDark ? const Color(0xFF0B1220) : Colors.white),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: selected
+                    ? AppTheme.primaryBlue.withOpacity(0.55)
+                    : riskColor.withOpacity(0.28),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        course.courseName,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14.5,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 9, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: riskColor.withOpacity(isDark ? 0.22 : 0.13),
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(color: riskColor.withOpacity(0.4)),
+                      ),
+                      child: Text(
+                        risk.label,
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w800,
+                          color: riskColor,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 9),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment:
+                                MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                grade == null
+                                    ? 'No grades yet'
+                                    : 'Grade ${grade.toStringAsFixed(0)}%',
+                                style: TextStyle(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: grade == null ? secondary : riskColor,
+                                ),
+                              ),
+                              Text(
+                                '${course.gradedCount} graded',
+                                style:
+                                    TextStyle(fontSize: 11, color: secondary),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 5),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(6),
+                            child: LinearProgressIndicator(
+                              value: grade == null
+                                  ? 0
+                                  : (grade / 100).clamp(0.0, 1.0),
+                              minHeight: 7,
+                              backgroundColor: secondary.withOpacity(0.18),
+                              valueColor:
+                                  AlwaysStoppedAnimation<Color>(riskColor),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 9),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    _riskCountChip(Icons.check_circle_outline,
+                        '${course.completed} done', AppTheme.successGreen, isDark),
+                    _riskCountChip(Icons.schedule,
+                        '${course.pending} pending', AppTheme.primaryBlue, isDark),
+                    _riskCountChip(Icons.error_outline,
+                        '${course.missed} missed', AppTheme.errorRed, isDark),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _riskCountChip(
+    IconData icon,
+    String label,
+    Color color,
+    bool isDark,
+  ) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(isDark ? 0.18 : 0.1),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: color),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w700,
+              color: color,
+            ),
+          ),
+        ],
+      ),
     );
   }
 

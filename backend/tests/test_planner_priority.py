@@ -22,7 +22,9 @@ class PlannerPriorityTests(unittest.TestCase):
 
         self.assertEqual(_effective_priority(task), "low")
 
-    def test_missed_assignment_is_low_priority(self):
+    def test_missed_assignment_is_urgent_priority(self):
+        # Overdue/missed work is still owed by the student, so it must surface as
+        # urgent (the highest priority) rather than being buried as low.
         task = TaskInput(
             id="a8",
             title="Assignment 8",
@@ -32,7 +34,7 @@ class PlannerPriorityTests(unittest.TestCase):
             priority="low",
         )
 
-        self.assertEqual(_effective_priority(task), "low")
+        self.assertEqual(_effective_priority(task), "urgent")
 
 
 if __name__ == "__main__":

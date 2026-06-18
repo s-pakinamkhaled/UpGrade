@@ -85,7 +85,7 @@ class DashboardMetricsService {
 
     final averageGradePct = _averageGrade(filteredAll);
 
-    final courseProgress = _buildCourseProgress(taskMetricItems);
+    final courseProgress = _buildCourseProgress(taskMetricItems, tasks);
     final focusCourse = _pickFocusCourse(courseProgress);
 
     final performanceLabel = _performanceLabel(
@@ -221,6 +221,31 @@ class DashboardMetricsService {
     return completed / dueWindow.length;
   }
 
+  /// Returns a map of course name -> (averageGradePct, gradedItemCount),
+  /// computed from every item that carries a real grade.
+  static Map<String, (double, int)> _gradeByCourse(List<Task> tasks) {
+    final sums = <String, double>{};
+    final counts = <String, int>{};
+
+    for (final task in tasks) {
+      if (task.assignedGrade == null ||
+          task.maxPoints == null ||
+          task.maxPoints! <= 0) {
+        continue;
+      }
+      final name = _courseName(task);
+      final pct = (task.assignedGrade! / task.maxPoints!) * 100;
+      sums[name] = (sums[name] ?? 0) + pct;
+      counts[name] = (counts[name] ?? 0) + 1;
+    }
+
+    final result = <String, (double, int)>{};
+    for (final entry in counts.entries) {
+      result[entry.key] = (sums[entry.key]! / entry.value, entry.value);
+    }
+    return result;
+  }
+
   static double? _averageGrade(List<Task> tasks) {
     final graded = tasks
         .where(
@@ -240,7 +265,10 @@ class DashboardMetricsService {
     return sum / graded.length;
   }
 
-  static List<CourseProgressStat> _buildCourseProgress(List<Task> tasks) {
+  static List<CourseProgressStat> _buildCourseProgress(
+    List<Task> tasks,
+    List<Task> allTasksForGrades,
+  ) {
     final byCourse = <String, List<Task>>{};
     final now = DateTime.now();
 
@@ -248,6 +276,10 @@ class DashboardMetricsService {
       final name = _courseName(task);
       byCourse.putIfAbsent(name, () => []).add(task);
     }
+
+    // Per-course grade averages come from every graded item (including grade
+    // records that are excluded from the task metrics), keyed by course name.
+    final gradeByCourse = _gradeByCourse(allTasksForGrades);
 
     final stats = byCourse.entries.map((entry) {
       final list = entry.value;
@@ -269,6 +301,8 @@ class DashboardMetricsService {
           )
           .length;
 
+      final grade = gradeByCourse[entry.key];
+
       return CourseProgressStat(
         courseName: entry.key,
         total: list.length,
@@ -276,6 +310,8 @@ class DashboardMetricsService {
         pending: pending,
         missed: missed,
         urgentOrHigh: urgentOrHigh,
+        averageGradePct: grade?.$1,
+        gradedCount: grade?.$2 ?? 0,
       );
     }).toList();
 

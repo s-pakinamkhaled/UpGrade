@@ -33,8 +33,9 @@
       "email": "pakinam@test.com",
       "major": "AI",
       "academicYear": "Junior",
-      "gpa": "3.85",
-      "updatedAt": "2026-06-14T19:28:50.447162"
+      "gpa": "3.5",
+      "updatedAt": "2026-06-18T09:15:12.877940",
+      "studentId": "202202233"
     },
     "int_user": {
       "userId": "int_user",
@@ -43,7 +44,8 @@
       "major": "Computer Science",
       "academicYear": "Junior",
       "gpa": "3.85",
-      "updatedAt": "2026-06-14T19:28:49.428023"
+      "updatedAt": "2026-06-18T09:15:10.937499",
+      "studentId": ""
     },
     "student_3bc6d3d76d00": {
       "userId": "student_3bc6d3d76d00",
@@ -6901,7 +6903,8 @@
       "major": "Computer Science",
       "academicYear": "Junior",
       "gpa": "3.85",
-      "updatedAt": "2026-06-14T19:28:50.708846"
+      "updatedAt": "2026-06-18T09:15:12.969645",
+      "studentId": ""
     },
     "student_sec": {
       "userId": "student_sec",

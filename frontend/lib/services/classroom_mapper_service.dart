@@ -158,7 +158,9 @@ class ClassroomMapperService {
     return (courses: courses, tasks: classifiedTasks);
   }
 
-  /// Priority reflects how soon a deadline is — not how long ago it passed.
+  /// Priority reflects how soon a deadline is, and overdue work is the most
+  /// pressing. Final priority is re-normalised by
+  /// [ClassroomItemClassifierService] — this is just the initial value.
   static TaskPriority _calculatePriority({
     required DateTime? deadline,
     required TaskStatus status,
@@ -167,13 +169,14 @@ class ClassroomMapperService {
   }) {
     if (isSubmitted) return TaskPriority.low;
 
-    if (status == TaskStatus.missed) return TaskPriority.low;
+    // Missed/overdue assignments still owed by the student are urgent.
+    if (status == TaskStatus.missed) return TaskPriority.urgent;
 
     if (deadline == null || !hasRealDeadline) return TaskPriority.low;
 
     final hoursLeft = deadline.difference(DateTime.now()).inHours;
 
-    if (hoursLeft < 0) return TaskPriority.low;
+    if (hoursLeft < 0) return TaskPriority.urgent;
     if (hoursLeft <= 24) return TaskPriority.urgent;
     if (hoursLeft <= 72) return TaskPriority.high;
     if (hoursLeft <= 7 * 24) return TaskPriority.medium;

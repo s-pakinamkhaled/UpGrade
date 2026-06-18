@@ -93,6 +93,9 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
   bool _loading = true;
   StudyPlan? _plan;
 
+  /// How the AI finish scenario is grouped (user-customizable view).
+  _PlanGrouping _grouping = _PlanGrouping.day;
+
   @override
   void initState() {
     super.initState();
@@ -107,8 +110,9 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
 
     try {
       final provider = context.read<ClassroomProvider>();
-      // Only send real actionable unfinished tasks to the AI planner
-      final activeTasks = provider.upcomingActionableTasks;
+      // Send ALL actionable tasks (including missed/overdue) to the AI planner
+      // so it can schedule catch-up work alongside upcoming assignments.
+      final activeTasks = provider.actionableTasksForAI;
 
       final user = FirebaseAuth.instance.currentUser;
       final studentName =
@@ -205,7 +209,9 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
 
           return Consumer<ClassroomProvider>(
             builder: (context, provider, _) {
-              final planningTasks = provider.upcomingActionableTasks;
+              // Use all actionable tasks (including missed) for the plan table
+              // so every incomplete assignment is visible to the student.
+              final planningTasks = provider.actionableTasksForAI;
               final stats = _computeStats(planningTasks);
               final courseStats = _computeCourseStats(planningTasks);
               final upcomingTasks = _upcomingTasks(planningTasks);
@@ -1051,24 +1057,39 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
         ),
         if (items.isNotEmpty) ...[
           SizedBox(height: rem.space(1.25)),
-          _sectionTitle('AI Finish Scenario', rem, onSurface),
-          SizedBox(height: rem.space(0.8)),
-          ...items.map(
-            (item) => Padding(
-              padding: EdgeInsets.only(bottom: rem.space(0.75)),
-              child: _upcomingTaskCard(
-                context,
-                rem: rem,
-                isDark: isDark,
-                title: item.taskTitle,
-                courseName: item.courseName.trim().isNotEmpty
-                    ? item.courseName.trim()
-                    : '—',
-                dueText: 'Due ${item.suggestedDate}',
-                priority: item.priority,
-                onSurface: onSurface,
+          Row(
+            children: [
+              Expanded(
+                child: _sectionTitle(
+                  'AI Finish Scenario — day by day',
+                  rem,
+                  onSurface,
+                ),
               ),
+              _groupingToggle(rem: rem, isDark: isDark, onSurface: onSurface),
+            ],
+          ),
+          SizedBox(height: rem.space(0.4)),
+          Text(
+            _grouping == _PlanGrouping.day
+                ? 'A realistic schedule: what to finish today, tomorrow, and beyond.'
+                : _grouping == _PlanGrouping.priority
+                    ? 'Tasks grouped by how urgent they are.'
+                    : 'Tasks grouped by course.',
+            style: TextStyle(
+              fontSize: rem.listSubtitle,
+              color: secondary,
+              fontWeight: FontWeight.w500,
             ),
+          ),
+          SizedBox(height: rem.space(0.85)),
+          ..._buildGroupedSchedule(
+            context,
+            rem: rem,
+            isDark: isDark,
+            items: items,
+            onSurface: onSurface,
+            secondary: secondary,
           ),
         ],
         if (items.isEmpty && _loading)
@@ -1487,6 +1508,414 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
     );
   }
 
+  // ── AI finish scenario: grouped day-by-day schedule ────────────────────────
+
+  Widget _groupingToggle({
+    required UpGradeRem rem,
+    required bool isDark,
+    required Color onSurface,
+  }) {
+    Widget chip(String label, _PlanGrouping value, IconData icon) {
+      final selected = _grouping == value;
+      return Padding(
+        padding: const EdgeInsets.only(left: 6),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(10),
+            onTap: () => setState(() => _grouping = value),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 160),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+              decoration: BoxDecoration(
+                gradient: selected ? AppTheme.primaryGradient : null,
+                color: selected
+                    ? null
+                    : (isDark ? const Color(0xFF1E293B) : Colors.white),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: selected
+                      ? Colors.transparent
+                      : AppTheme.primaryBlue.withOpacity(0.22),
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    icon,
+                    size: 14,
+                    color: selected ? Colors.white : AppTheme.primaryBlue,
+                  ),
+                  const SizedBox(width: 5),
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: selected ? Colors.white : onSurface,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        chip('Day', _PlanGrouping.day, Icons.calendar_today_rounded),
+        chip('Priority', _PlanGrouping.priority, Icons.flag_rounded),
+        chip('Course', _PlanGrouping.course, Icons.menu_book_rounded),
+      ],
+    );
+  }
+
+  List<Widget> _buildGroupedSchedule(
+    BuildContext context, {
+    required UpGradeRem rem,
+    required bool isDark,
+    required List<StudyPlanItem> items,
+    required Color onSurface,
+    required Color secondary,
+  }) {
+    // Build ordered groups of (header, items) based on the selected grouping.
+    final groups = <MapEntry<String, List<StudyPlanItem>>>[];
+
+    if (_grouping == _PlanGrouping.day) {
+      final byDate = <String, List<StudyPlanItem>>{};
+      for (final item in items) {
+        byDate.putIfAbsent(item.suggestedDate, () => []).add(item);
+      }
+      final keys = byDate.keys.toList()..sort();
+      for (final k in keys) {
+        groups.add(MapEntry(_dayHeaderLabel(k), byDate[k]!));
+      }
+    } else if (_grouping == _PlanGrouping.priority) {
+      const order = ['urgent', 'high', 'medium', 'low'];
+      final byPriority = <String, List<StudyPlanItem>>{};
+      for (final item in items) {
+        byPriority.putIfAbsent(item.priority.toLowerCase(), () => []).add(item);
+      }
+      for (final p in order) {
+        if (byPriority.containsKey(p)) {
+          groups.add(MapEntry(
+            '${p[0].toUpperCase()}${p.substring(1)} priority',
+            byPriority[p]!,
+          ));
+        }
+      }
+    } else {
+      final byCourse = <String, List<StudyPlanItem>>{};
+      for (final item in items) {
+        final c = item.courseName.trim().isEmpty ? 'Other' : item.courseName.trim();
+        byCourse.putIfAbsent(c, () => []).add(item);
+      }
+      final keys = byCourse.keys.toList()..sort();
+      for (final k in keys) {
+        groups.add(MapEntry(k, byCourse[k]!));
+      }
+    }
+
+    final widgets = <Widget>[];
+    for (final group in groups) {
+      final groupItems = group.value;
+      final totalHours =
+          groupItems.fold<double>(0, (sum, i) => sum + i.hoursNeeded);
+      widgets.add(
+        Padding(
+          padding: EdgeInsets.only(
+            top: rem.space(0.4),
+            bottom: rem.space(0.7),
+          ),
+          child: _dayGroupHeader(
+            rem: rem,
+            isDark: isDark,
+            title: group.key,
+            taskCount: groupItems.length,
+            totalHours: totalHours,
+            onSurface: onSurface,
+            secondary: secondary,
+          ),
+        ),
+      );
+      for (final item in groupItems) {
+        widgets.add(
+          Padding(
+            padding: EdgeInsets.only(
+              bottom: rem.space(0.7),
+              left: rem.space(0.5),
+            ),
+            child: _scheduleItemCard(
+              context,
+              rem: rem,
+              isDark: isDark,
+              item: item,
+              onSurface: onSurface,
+              secondary: secondary,
+            ),
+          ),
+        );
+      }
+    }
+    return widgets;
+  }
+
+  Widget _dayGroupHeader({
+    required UpGradeRem rem,
+    required bool isDark,
+    required String title,
+    required int taskCount,
+    required double totalHours,
+    required Color onSurface,
+    required Color secondary,
+  }) {
+    final hoursStr = totalHours >= 1
+        ? '${totalHours.toStringAsFixed(totalHours.truncateToDouble() == totalHours ? 0 : 1)}h'
+        : '${(totalHours * 60).round()}m';
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(7),
+          decoration: BoxDecoration(
+            gradient: AppTheme.primaryGradient,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: const Icon(Icons.event_note_rounded,
+              color: Colors.white, size: 16),
+        ),
+        SizedBox(width: rem.space(0.55)),
+        Expanded(
+          child: Text(
+            title,
+            style: TextStyle(
+              fontSize: rem.cardTitle,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.3,
+              color: onSurface,
+            ),
+          ),
+        ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          decoration: BoxDecoration(
+            color: AppTheme.primaryBlue.withOpacity(isDark ? 0.2 : 0.1),
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: Text(
+            '$taskCount ${taskCount == 1 ? 'task' : 'tasks'} · $hoursStr',
+            style: TextStyle(
+              fontSize: rem.listSubtitle,
+              fontWeight: FontWeight.w700,
+              color: AppTheme.primaryBlue,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _scheduleItemCard(
+    BuildContext context, {
+    required UpGradeRem rem,
+    required bool isDark,
+    required StudyPlanItem item,
+    required Color onSurface,
+    required Color secondary,
+  }) {
+    final priorityColor = _priorityColor(item.priority);
+    final courseName =
+        item.courseName.trim().isEmpty ? '—' : item.courseName.trim();
+
+    return Container(
+      padding: EdgeInsets.all(rem.space(1.0)),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF111827) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: priorityColor.withOpacity(isDark ? 0.12 : 0.07),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 4,
+                height: rem.cardTitle * 1.5,
+                margin: const EdgeInsets.only(right: 10, top: 2),
+                decoration: BoxDecoration(
+                  color: priorityColor,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.taskTitle,
+                      style: TextStyle(
+                        fontSize: rem.listTitle,
+                        fontWeight: FontWeight.w700,
+                        color: onSurface,
+                      ),
+                    ),
+                    SizedBox(height: rem.space(0.2)),
+                    Text(
+                      courseName,
+                      style: TextStyle(
+                        fontSize: rem.listSubtitle,
+                        color: secondary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                decoration: BoxDecoration(
+                  color: priorityColor.withOpacity(isDark ? 0.22 : 0.13),
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: priorityColor.withOpacity(0.35)),
+                ),
+                child: Text(
+                  item.priority.toLowerCase(),
+                  style: TextStyle(
+                    fontSize: rem.listSubtitle * 0.95,
+                    fontWeight: FontWeight.w800,
+                    color: priorityColor,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: rem.space(0.6)),
+          Wrap(
+            spacing: rem.space(0.5),
+            runSpacing: rem.space(0.35),
+            children: [
+              if (item.suggestedTime.trim().isNotEmpty)
+                _scheduleInfoChip(
+                  Icons.schedule_rounded,
+                  item.suggestedTime.trim(),
+                  AppTheme.primaryBlue,
+                  isDark,
+                ),
+              _scheduleInfoChip(
+                Icons.hourglass_bottom_rounded,
+                '${item.hoursNeeded.toStringAsFixed(item.hoursNeeded.truncateToDouble() == item.hoursNeeded ? 0 : 1)}h',
+                AppTheme.secondaryPurple,
+                isDark,
+              ),
+              if (item.deadline != null && item.deadline!.trim().isNotEmpty)
+                _scheduleInfoChip(
+                  Icons.flag_rounded,
+                  'Due ${_shortDate(item.deadline!)}',
+                  AppTheme.warningOrange,
+                  isDark,
+                ),
+            ],
+          ),
+          if (item.tip.trim().isNotEmpty) ...[
+            SizedBox(height: rem.space(0.6)),
+            Container(
+              padding: EdgeInsets.all(rem.space(0.7)),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryBlue.withOpacity(isDark ? 0.1 : 0.05),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.lightbulb_outline_rounded,
+                      size: 15, color: AppTheme.secondaryPurple),
+                  SizedBox(width: rem.space(0.45)),
+                  Expanded(
+                    child: Text(
+                      item.tip.trim(),
+                      style: TextStyle(
+                        fontSize: rem.listSubtitle,
+                        color: secondary,
+                        height: 1.4,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _scheduleInfoChip(
+    IconData icon,
+    String label,
+    Color color,
+    bool isDark,
+  ) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(isDark ? 0.18 : 0.1),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: color),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Turns "2026-06-18" into "Today · Thu, Jun 18" / "Tomorrow · ..." / date.
+  String _dayHeaderLabel(String isoDate) {
+    final date = DateTime.tryParse(isoDate);
+    if (date == null) return isoDate.isEmpty ? 'Unscheduled' : isoDate;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final target = DateTime(date.year, date.month, date.day);
+    final diff = target.difference(today).inDays;
+    final formatted = DateFormat('EEE, MMM d').format(date);
+    if (diff == 0) return 'Today · $formatted';
+    if (diff == 1) return 'Tomorrow · $formatted';
+    if (diff < 0) return 'Overdue window · $formatted';
+    return formatted;
+  }
+
+  String _shortDate(String isoDate) {
+    final date = DateTime.tryParse(isoDate);
+    if (date == null) return isoDate;
+    return DateFormat('MMM d').format(date);
+  }
+
   Color _priorityColor(String priority) {
     switch (priority.toLowerCase()) {
       case 'urgent':
@@ -1773,18 +2202,26 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
   }
 
   static List<Task> _upcomingTasks(List<Task> tasks) {
+    // Include ALL actionable tasks: pending, in-progress, AND missed/overdue.
     final planning = tasks
         .where(
           (t) =>
-              (t.status == TaskStatus.pending ||
-                  t.status == TaskStatus.inProgress) &&
-              t.hasUpcomingDeadline,
+              t.status == TaskStatus.pending ||
+              t.status == TaskStatus.inProgress ||
+              t.status == TaskStatus.missed,
         )
         .toList();
     planning.sort((a, b) {
-      final priorityCompare =
-          _priorityRank(a.priority).compareTo(_priorityRank(b.priority));
-      if (priorityCompare != 0) return priorityCompare;
+      // Order strictly by deadline ascending (earliest first) so the plan is
+      // chronological — this matches the backend planner and fixes ordering
+      // bugs where a later deadline appeared before an earlier one. Tasks
+      // without a real deadline are placed last.
+      final aHas = a.hasRealDeadline;
+      final bHas = b.hasRealDeadline;
+      if (aHas != bHas) return aHas ? -1 : 1;
+      if (!aHas && !bHas) {
+        return _priorityRank(a.priority).compareTo(_priorityRank(b.priority));
+      }
       return a.deadline.compareTo(b.deadline);
     });
     return planning;
@@ -1829,3 +2266,6 @@ class _CourseStat {
     required this.completed,
   });
 }
+
+/// How the AI finish scenario schedule is grouped in the UI.
+enum _PlanGrouping { day, priority, course }

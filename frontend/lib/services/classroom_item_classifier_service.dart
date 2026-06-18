@@ -137,8 +137,11 @@ class ClassroomItemClassifierService {
     }
 
     final hoursLeft = task.deadline.difference(DateTime.now()).inHours;
+    // Missed/overdue actionable work is urgent — the student still owes the
+    // submission. Sort logic ranks fresh urgent (close deadline, not yet
+    // overdue) ABOVE missed work, so this only affects visual priority tags.
     if (task.status == TaskStatus.missed || hoursLeft < 0) {
-      return task.copyWith(priority: TaskPriority.low);
+      return task.copyWith(priority: TaskPriority.urgent);
     }
     if (hoursLeft <= 24) {
       return task.copyWith(priority: TaskPriority.urgent);
@@ -272,8 +275,25 @@ class ClassroomItemClassifierService {
     );
   }
 
+  /// A title whose LAST word is "grade"/"grades" (optionally followed by a
+  /// bracketed weight like "(9)" or "[7.5]") is always a gradebook column —
+  /// e.g. "End Term Project Grades", "Assignments Grades (9)" — even if it also
+  /// contains deliverable words. This must override every guard below.
+  static final RegExp _trailingGradeRe = RegExp(
+    r'grades?\s*(\(\s*[\d.%/]+\s*\)|\[\s*[\d.%/]+\s*\])?\s*$',
+    caseSensitive: false,
+  );
+
   static _GradeMatchResult? _matchesGradePattern(String titleLower) {
     if (titleLower.isEmpty) return null;
+
+    if (_trailingGradeRe.hasMatch(titleLower)) {
+      return _GradeMatchResult(
+        itemType: gradeItem,
+        confidence: 0.97,
+        reason: 'Title ends with grade/grades (gradebook column)',
+      );
+    }
 
     for (final title in _exactGradePatterns) {
       if (titleLower == title || titleLower.startsWith('$title ')) {

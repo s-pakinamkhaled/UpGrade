@@ -16,7 +16,10 @@ class ClassroomSyncService {
       'Content-Type': 'application/json',
     };
 
-    final coursesUrl = '$baseUrl/courses?studentId=me';
+    // Only fetch ACTIVE courses. Google Classroom archives past-semester
+    // courses, so requesting courseStates=ACTIVE keeps the current term's
+    // courses and drops old ones at the source.
+    final coursesUrl = '$baseUrl/courses?studentId=me&courseStates=ACTIVE';
 
     if (debug) {
       debugPrint('[ClassroomSync] GET $coursesUrl');

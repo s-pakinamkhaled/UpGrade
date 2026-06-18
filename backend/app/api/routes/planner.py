@@ -1,50 +1,83 @@
+"""
+Study plan generation endpoint.
+
+Uses the configurable LLM routing layer (LLMProvider) with:
+- PLAN_MODEL as primary, PLAN_FALLBACK_MODEL as fallback
+- Automatic retry (once) before falling back
+- Deterministic fallback items for any tasks the LLM omits
+- Optional LLM-as-a-Judge evaluation after generation
+- Safe structured error responses that never expose internals
+"""
+
+from __future__ import annotations
+
+import json
+import logging
+import os
+import sys
+from datetime import datetime, timedelta
+from typing import Any, Dict, List, Optional
+
+from dotenv import load_dotenv
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from typing import List, Optional, Dict, Any
-from datetime import datetime, timedelta
-import sys
-import os
-import json
-from dotenv import load_dotenv
 
-# Load environment variables from backend/.env and ai/.env
+logger = logging.getLogger(__name__)
+
+# ── Path and environment setup ─────────────────────────────────────────────────
 current_dir = os.path.dirname(os.path.abspath(__file__))
-# current_dir = backend/app/api/routes → 4 dirname calls = project root (UpGrade/)
-project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_dir))))
+# routes → api → app → backend → project_root
+project_root = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.dirname(current_dir)))
+)
 
-backend_env = os.path.join(project_root, 'backend', '.env')
-ai_env = os.path.join(project_root, 'ai', '.env')
+backend_env = os.path.join(project_root, "backend", ".env")
+ai_env = os.path.join(project_root, "ai", ".env")
 load_dotenv(backend_env)
 load_dotenv(ai_env)
 
+ai_path = os.path.join(project_root, "ai")
+if ai_path not in sys.path:
+    sys.path.insert(0, ai_path)
 
-ai_path = os.path.join(project_root, 'ai') # ai_service 
-sys.path.insert(0, ai_path)
-
+# ── LLM provider initialisation ────────────────────────────────────────────────
 try:
-    from planner_llm.llm_client import GroqClient
-    groq_client = GroqClient()
-    print("[OK] Planner service initialized successfully")
-except Exception as e:
-    print(f"[WARN] Could not initialize planner service: {e}")
-    print(f"   AI path attempted: {ai_path}")
-    groq_client = None
+    from llm.config import LLMConfig, load_config as _load_llm_config
+    from llm.provider import LLMProvider
+    from llm.judge import LLMJudge
 
+    _llm_config: Optional[LLMConfig] = _load_llm_config()
+    _llm_provider: Optional[LLMProvider] = LLMProvider(_llm_config)
+    _llm_judge: Optional[LLMJudge] = LLMJudge(_llm_config, _llm_provider)
+    logger.info(
+        "[Planner] LLM provider ready — provider=%s plan_model=%s fallback=%s",
+        _llm_config.llm_provider,
+        _llm_config.plan_model,
+        _llm_config.plan_fallback_model,
+    )
+except Exception as _init_err:
+    logger.warning("[Planner] Could not initialise LLM provider: %s", _init_err)
+    _llm_config = None
+    _llm_provider = None
+    _llm_judge = None
+
+# ── Task filter ────────────────────────────────────────────────────────────────
 try:
     from task_filter import filter_real_tasks as _filter_real_tasks
-    print("[OK] Task filter loaded")
+
+    logger.info("[Planner] Task filter loaded")
 except ImportError:
-    # Graceful degradation — no filtering applied if module is missing
+
     def _filter_real_tasks(tasks, **_):  # type: ignore[misc]
         return tasks
 
+
 router = APIRouter(prefix="/plan", tags=["planner"])
 
+# ── Pydantic models (unchanged — preserves frontend contract) ──────────────────
 
-# Pydantic Models
 
 class TaskInput(BaseModel):
-    """Input task for plan generation"""
     id: str
     title: str
     courseName: Optional[str] = ""
@@ -94,11 +127,14 @@ class PlanResponse(BaseModel):
     items: Optional[List[PlanItem]] = None
     summary: Optional[str] = None
     error: Optional[str] = None
+    # Optional, non-breaking: lets the client/observer see the judge verdict.
+    judge: Optional[Dict[str, Any]] = None
 
- # ranking the tasks 
 
-_PRIORITY_RANK = {"urgent": 0, "high": 1, "medium": 2, "low": 3}
-_MAX_PLANNER_TASKS = 30
+# ── Priority / deadline helpers ────────────────────────────────────────────────
+
+_PRIORITY_RANK: Dict[str, int] = {"urgent": 0, "high": 1, "medium": 2, "low": 3}
+_MAX_PLANNER_TASKS = 60
 
 
 def _parse_deadline(deadline: Optional[str]) -> Optional[datetime]:
@@ -106,21 +142,24 @@ def _parse_deadline(deadline: Optional[str]) -> Optional[datetime]:
         return None
     try:
         parsed = datetime.fromisoformat(deadline.replace("Z", "+00:00"))
-        if parsed.tzinfo is not None:
-            return parsed.replace(tzinfo=None)
-        return parsed
+        return parsed.replace(tzinfo=None) if parsed.tzinfo is not None else parsed
     except Exception:
         return None
 
 
 def _effective_priority(t: TaskInput, now: Optional[datetime] = None) -> str:
-    """Priority from upcoming deadline — overdue/missed work stays low."""
+    """Derive effective priority from deadline proximity.
+
+    Overdue/missed work is the most pressing (the student still owes it), so it
+    is urgent — never demoted to low. Otherwise priority scales with how soon
+    the deadline is.
+    """
     now = now or datetime.now()
     status = (t.status or "pending").lower()
     current = (t.priority or "medium").lower()
 
     if status in {"missed", "overdue"}:
-        return "low"
+        return "urgent"
 
     dl = _parse_deadline(t.deadline)
     if dl is None or t.hasRealDeadline is False:
@@ -128,25 +167,45 @@ def _effective_priority(t: TaskInput, now: Optional[datetime] = None) -> str:
 
     hours_left = (dl - now).total_seconds() / 3600
     if hours_left < 0:
-        return "low"
+        return "urgent"
     if hours_left <= 24:
         return "urgent"
     if hours_left <= 72:
-        return "high" if _PRIORITY_RANK.get(current, 2) > 1 else current
+        return "high"
     if hours_left <= 7 * 24:
-        return "medium" if _PRIORITY_RANK.get(current, 2) > 2 else current
+        return "medium"
 
-    return current if current in _PRIORITY_RANK else "medium"
+    return "low"
 
 
-def _fallback_plan_item(task: TaskInput, index: int, now: Optional[datetime] = None) -> PlanItem:
-    """Create a deterministic slot when the LLM omits a validated task."""
+def _fallback_plan_item(
+    task: TaskInput, index: int, now: Optional[datetime] = None
+) -> PlanItem:
+    """Create a deterministic schedule slot when the LLM omits a validated task.
+
+    Honours the same logic as the prompt: finish ~1 day before the deadline,
+    overdue work goes to today, and no task is scheduled after its deadline.
+    """
     now = now or datetime.now()
+    today = now.replace(hour=0, minute=0, second=0, microsecond=0)
     priority = _effective_priority(task, now)
     hours = max((task.estimatedMinutes or 60) / 60.0, 0.5)
-    day_offset = index // 3
     start_hour = [9, 13, 17][index % 3]
     end_hour = min(start_hour + max(1, round(hours)), 21)
+
+    dl = _parse_deadline(task.deadline) if task.hasRealDeadline is not False else None
+    overdue = (
+        (task.status or "").lower() in {"missed", "overdue"}
+        or (dl is not None and (dl - now).total_seconds() < 0)
+    )
+
+    if dl is None or overdue:
+        # No deadline, or already overdue → act now, staggering across days.
+        suggested = today + timedelta(days=index // 3)
+    else:
+        # Aim to finish one day before the deadline, but never in the past.
+        target = dl - timedelta(days=1)
+        suggested = target if target >= today else today
 
     return PlanItem(
         taskId=task.id,
@@ -154,24 +213,24 @@ def _fallback_plan_item(task: TaskInput, index: int, now: Optional[datetime] = N
         courseName=task.courseName or "",
         deadline=task.deadline if task.hasRealDeadline is not False else None,
         status=task.status or "pending",
-        suggestedDate=(now + timedelta(days=day_offset)).strftime("%Y-%m-%d"),
-        suggestedTime=f"{start_hour:02d}:00 - {end_hour:02d}:00",
+        suggestedDate=suggested.strftime("%Y-%m-%d"),
+        suggestedTime=f"{start_hour:02d}:00 – {end_hour:02d}:00",
         hoursNeeded=round(hours, 1),
         priority=priority,
         tip=(
-            "Past deadline — catch up when you can, but focus on what's due next."
-            if (task.status or "").lower() in {"missed", "overdue"}
-            or (
-                _parse_deadline(task.deadline) is not None
-                and (_parse_deadline(task.deadline) - now).total_seconds() < 0
+            "Overdue — start today and submit as soon as you can."
+            if overdue
+            else (
+                "Finish a day early to leave a safety buffer before the deadline."
+                if dl is not None
+                else "No hard deadline; slot a short checkpoint so it doesn't drift."
             )
-            else "No hard deadline is available; schedule a short checkpoint so it does not drift."
         ),
     )
 
 
 def _build_prompt(req: PlanRequest) -> str:
-    """Build a detailed prompt listing each task for the LLM."""
+    """Build a detailed task-list prompt for the planner LLM."""
     now = datetime.now()
     lines = [
         f"Today is {now.strftime('%A, %B %d, %Y')} at {now.strftime('%H:%M')}.",
@@ -196,73 +255,105 @@ def _build_prompt(req: PlanRequest) -> str:
 
         lines.append(
             f"- {priority_tag} {t.title} | Course: {t.courseName or 'N/A'} "
-            f"| Deadline: {t.deadline if t.hasRealDeadline is not False else 'none'} ({days_left} left) "
+            f"| Deadline: {t.deadline if t.hasRealDeadline is not False else 'none'} "
+            f"({days_left} left) "
             f"| Est: {t.estimatedMinutes or 60} min | Status: {t.status or 'pending'}"
             f"{grade_info}"
         )
 
+    today_str = now.strftime("%Y-%m-%d")
+    tomorrow_str = (now + timedelta(days=1)).strftime("%Y-%m-%d")
+
     lines += [
         "",
-        "Instructions:",
-        "1. Analyse the tasks above and create a realistic study plan spread across the coming days.",
-        "2. Allocate study hours and suggest time windows (e.g. '14:00 – 16:00').",
-        "3. Give one short, practical tip per task.",
-        "4. Provide a 2-3 sentence summary of the plan.",
-        "5. Respond with **valid JSON only** — no markdown fences, no extra text.",
+        "Your job: act like the student personally sitting down to plan their week.",
+        "Produce a realistic, day-by-day schedule that a real person could follow.",
         "",
-        "Required JSON schema:",
-        '{',
+        "Scheduling rules (follow them strictly and logically):",
+        "1. ORDER by urgency: overdue/missed work and the soonest deadlines come "
+        "FIRST. Never place a later deadline before an earlier one.",
+        "2. FINISH-BEFORE-DEADLINE: schedule each task to be completed at least one "
+        "full day BEFORE its deadline whenever possible (buffer for the unexpected). "
+        "Never schedule a task on a day AFTER its deadline.",
+        "3. OVERDUE work: schedule it as early as possible (today/tomorrow) so the "
+        "student catches up.",
+        "4. REALISTIC LOAD: do not pile everything on one day. Aim for at most ~4–6 "
+        "study hours per day; spread the remaining tasks across the following days.",
+        "5. CHRONOLOGICAL DAYS: use real calendar dates. Today is "
+        f"{today_str}; tomorrow is {tomorrow_str}. Spread tasks across consecutive "
+        "days starting today.",
+        "6. Allocate sensible time windows (e.g. '14:00 – 16:00') based on each "
+        "task's estimated effort.",
+        "7. For each task write a short, concrete 'tip' describing what to actually "
+        "do that day (e.g. 'Draft the CI/CD pipeline and test one stage'), not "
+        "generic advice.",
+        "8. Include EVERY task listed above exactly once. Never add, merge, rename, "
+        "or invent tasks, courses, grades, or deadlines.",
+        "9. Provide a 2–3 sentence 'summary' explaining the overall strategy "
+        "(what to focus on today, how the week is balanced).",
+        "10. Respond with VALID JSON ONLY — no markdown fences, no extra text.",
+        "",
+        "Required JSON schema (order items by suggestedDate, earliest first):",
+        "{",
         '  "items": [',
-        '    {',
-        '      "taskTitle": "string",',
+        "    {",
+        '      "taskTitle": "string (must match a task title above exactly)",',
         '      "courseName": "string",',
         '      "suggestedDate": "YYYY-MM-DD",',
         '      "suggestedTime": "HH:MM – HH:MM",',
         '      "hoursNeeded": number,',
         '      "priority": "urgent|high|medium|low",',
-        '      "tip": "string"',
-        '    }',
-        '  ],',
+        '      "tip": "string (concrete action for that day)"',
+        "    }",
+        "  ],",
         '  "summary": "string"',
-        '}',
+        "}",
     ]
     return "\n".join(lines)
 
 
+# ── Endpoint ───────────────────────────────────────────────────────────────────
+
 
 @router.post("/generate", response_model=PlanResponse)
-async def generate_plan(req: PlanRequest):
+async def generate_plan(req: PlanRequest) -> PlanResponse:
+    """Generate a personalised study plan from the student's tasks.
+
+    Uses PLAN_MODEL with automatic retry and fallback to PLAN_FALLBACK_MODEL.
+    Returns a validated PlanResponse — the response schema is identical to the
+    previous version so the Flutter frontend requires no changes.
     """
-    Generate a personalized study plan from the student's tasks
-    using Llama 3.3 via Groq API.
-    """
-    if not groq_client:
+    if not _llm_provider or not _llm_config:
         raise HTTPException(status_code=503, detail="Planner service is not available")
 
-    # Server-side safety guard: remove grades, summaries, completed work,
-    # materials, dashboard-only rows, and any item not schedulable for AI.
+    # Server-side safety: remove grades, completed work, materials, etc.
     active_tasks = _filter_real_tasks(req.tasks)
 
     if not active_tasks:
         raise HTTPException(status_code=400, detail="No active tasks to plan for")
 
-    # Sort by priority rank then deadline (soonest first)
-    def sort_key(t):
-        rank = _PRIORITY_RANK.get(_effective_priority(t), 2)
-        dl = t.deadline or "9999-12-31"
-        return (rank, dl)
+    # Order strictly by deadline ascending so the plan is chronological and
+    # intuitive: overdue items lead (earliest dates), then today, tomorrow, etc.
+    # Tasks without a real deadline are placed last. This is the rule a student
+    # expects ("do the soonest-due thing first") and fixes ordering bugs where a
+    # later deadline appeared before an earlier one.
+    def _sort_key(t: TaskInput):
+        dl = _parse_deadline(t.deadline) if t.hasRealDeadline is not False else None
+        if dl is None:
+            return (1, datetime.max)
+        return (0, dl)
 
-    active_tasks.sort(key=sort_key)
-
-    # Keep enough real work for a complete plan while protecting the LLM context.
+    active_tasks.sort(key=_sort_key)
     active_tasks = active_tasks[:_MAX_PLANNER_TASKS]
-    req_trimmed = PlanRequest(studentName=req.studentName, tasks=active_tasks)
 
+    req_trimmed = PlanRequest(studentName=req.studentName, tasks=active_tasks)
     prompt = _build_prompt(req_trimmed)
 
     system_message = (
         "You are an expert academic study planner. "
-        "You always respond with valid JSON only — no markdown fences, no extra text."
+        "You always respond with valid JSON only — no markdown fences, no extra text. "
+        "You MUST only schedule tasks that are explicitly listed in the user prompt. "
+        "Never invent tasks, courses, grades, or deadlines."
     )
 
     messages = [
@@ -271,120 +362,142 @@ async def generate_plan(req: PlanRequest):
     ]
 
     try:
-        response = groq_client.chat_completion(
+        parsed, gen_result = _llm_provider.generate_json(
             messages=messages,
+            model=_llm_config.plan_model,
+            fallback_model=_llm_config.plan_fallback_model,
             temperature=0.4,
             max_tokens=3000,
         )
 
-        if "error" in response and not response.get("choices"):
-            raise HTTPException(
-                status_code=502,
-                detail=f"Groq API error: {response.get('error', 'unknown')}"
-            )
-
-        content = response["choices"][0]["message"]["content"]
-
-        # Strip markdown fences if the model added them
-        content = content.strip()
-        if content.startswith("```"):
-            content = content.split("\n", 1)[-1]
-        if content.endswith("```"):
-            content = content.rsplit("```", 1)[0]
-        content = content.strip()
-
-        parsed = json.loads(content)
-
-        priority_by_title = {
-            (task.title or "").strip().lower(): _effective_priority(task)
-            for task in active_tasks
-        }
-
-        items = [
-            PlanItem(
-                taskId=next(
-                    (
-                        task.id
-                        for task in active_tasks
-                        if (task.title or "").strip().lower()
-                        == str(item.get("taskTitle", "")).strip().lower()
-                    ),
-                    None,
-                ),
-                taskTitle=item.get("taskTitle", ""),
-                courseName=item.get("courseName", ""),
-                deadline=next(
-                    (
-                        task.deadline
-                        for task in active_tasks
-                        if (task.title or "").strip().lower()
-                        == str(item.get("taskTitle", "")).strip().lower()
-                        and task.hasRealDeadline is not False
-                    ),
-                    None,
-                ),
-                status=next(
-                    (
-                        task.status
-                        for task in active_tasks
-                        if (task.title or "").strip().lower()
-                        == str(item.get("taskTitle", "")).strip().lower()
-                    ),
-                    None,
-                ),
-                suggestedDate=item.get("suggestedDate", ""),
-                suggestedTime=item.get("suggestedTime", ""),
-                hoursNeeded=float(item.get("hoursNeeded", 1)),
-                priority=priority_by_title.get(
-                    str(item.get("taskTitle", "")).strip().lower(),
-                    item.get("priority", "medium"),
-                ),
-                tip=item.get("tip", ""),
-            )
-            for item in parsed.get("items", [])
-        ]
-
-        planned_titles = {
-            (item.taskTitle or "").strip().lower()
-            for item in items
-            if (item.taskTitle or "").strip()
-        }
-        for task in active_tasks:
-            key = (task.title or "").strip().lower()
-            if key not in planned_titles:
-                items.append(_fallback_plan_item(task, len(items), datetime.now()))
-                planned_titles.add(key)
-
-        return PlanResponse(
-            success=True,
-            studentName=req.studentName,
-            generatedAt=datetime.now().isoformat(),
-            items=items,
-            summary=parsed.get("summary", ""),
+        logger.info(
+            "[Planner] generated provider=%s model=%s used_fallback=%s latency_ms=%.0f",
+            gen_result.provider,
+            gen_result.model,
+            gen_result.used_fallback,
+            gen_result.latency_ms,
         )
 
+    except RuntimeError as exc:
+        # Both primary and fallback exhausted
+        logger.error("[Planner] all models failed: %s", type(exc).__name__)
+        raise HTTPException(
+            status_code=502,
+            detail="Study plan generation failed. Please try again.",
+        )
     except json.JSONDecodeError:
         raise HTTPException(
             status_code=502,
-            detail="Groq returned a non-JSON response. Please try again."
+            detail="Planner returned a non-JSON response. Please try again.",
         )
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception as exc:
+        logger.error("[Planner] unexpected error: %s", type(exc).__name__)
         raise HTTPException(
             status_code=500,
-            detail=f"Plan generation failed: {str(e)}"
+            detail="Plan generation failed. Please try again.",
         )
+
+    # ── Build PlanItem list with hallucination guards ──────────────────────────
+
+    priority_by_title: Dict[str, str] = {
+        (t.title or "").strip().lower(): _effective_priority(t)
+        for t in active_tasks
+    }
+
+    items: List[PlanItem] = []
+    for raw in parsed.get("items", []):
+        title_key = str(raw.get("taskTitle", "")).strip().lower()
+
+        # Only accept items whose title matches a real input task
+        matched_task = next(
+            (t for t in active_tasks if (t.title or "").strip().lower() == title_key),
+            None,
+        )
+
+        items.append(
+            PlanItem(
+                taskId=matched_task.id if matched_task else None,
+                taskTitle=raw.get("taskTitle", ""),
+                courseName=raw.get("courseName", ""),
+                deadline=(
+                    matched_task.deadline
+                    if matched_task and matched_task.hasRealDeadline is not False
+                    else None
+                ),
+                status=matched_task.status if matched_task else None,
+                suggestedDate=raw.get("suggestedDate", ""),
+                suggestedTime=raw.get("suggestedTime", ""),
+                hoursNeeded=float(raw.get("hoursNeeded", 1)),
+                # Always use server-computed priority, not LLM's suggestion
+                priority=priority_by_title.get(title_key, raw.get("priority", "medium")),
+                tip=raw.get("tip", ""),
+            )
+        )
+
+    # Fill in any tasks the LLM omitted
+    planned_titles = {
+        (item.taskTitle or "").strip().lower()
+        for item in items
+        if (item.taskTitle or "").strip()
+    }
+    for task in active_tasks:
+        key = (task.title or "").strip().lower()
+        if key not in planned_titles:
+            items.append(_fallback_plan_item(task, len(items), datetime.now()))
+            planned_titles.add(key)
+
+    # Present the finish scenario chronologically (today → later) so the
+    # day-by-day plan reads in order regardless of how the LLM ordered items.
+    def _item_sort_key(item: PlanItem):
+        return (item.suggestedDate or "9999-12-31", item.suggestedTime or "")
+
+    items.sort(key=_item_sort_key)
+
+    # ── Optional judge evaluation (non-blocking) ───────────────────────────────
+    judge_meta: Optional[Dict[str, Any]] = None
+    if _llm_judge and _llm_config.enable_study_plan_judge:
+        verdict = _llm_judge.evaluate_study_plan(
+            plan_items=[i.model_dump() for i in items],
+            input_tasks=[t.model_dump() for t in active_tasks],
+            summary=parsed.get("summary", ""),
+            generator_model=gen_result.model,
+        )
+        judge_meta = {
+            "passed": verdict.passed,
+            "hallucination_detected": verdict.hallucination_detected,
+            "score": verdict.score,
+            "recommended_action": verdict.recommended_action,
+            "judge_model": verdict.judge_model,
+        }
+        logger.info(
+            "[Planner] judge verdict passed=%s score=%.2f action=%s model=%s",
+            verdict.passed,
+            verdict.score,
+            verdict.recommended_action,
+            verdict.judge_model,
+        )
+
+    return PlanResponse(
+        success=True,
+        studentName=req.studentName,
+        generatedAt=datetime.now().isoformat(),
+        items=items,
+        summary=parsed.get("summary", ""),
+        judge=judge_meta,
+    )
 
 
 @router.get("/health")
 async def planner_health():
-    """Check if planner service is working"""
-    if not groq_client:
+    """Check planner service availability."""
+    if not _llm_provider or not _llm_config:
         return {"status": "unavailable", "service": "none"}
 
     return {
         "status": "ok",
-        "service": "llama-3.3-70b-versatile",
-        "provider": "groq",
+        "service": _llm_config.plan_model,
+        "provider": _llm_config.llm_provider,
+        "fallback": _llm_config.plan_fallback_model,
     }

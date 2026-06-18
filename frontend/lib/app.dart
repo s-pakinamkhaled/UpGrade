@@ -279,7 +279,9 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       if (!mounted) return;
       await context.read<ClassroomProvider>().syncTasksToBackend();
       if (!mounted) return;
-      await context.read<NotificationProvider>().refreshUnreadCount();
+      await context.read<ClassroomProvider>().syncDeadlineNotifications();
+      if (!mounted) return;
+      context.read<NotificationProvider>().startListening();
     });
   }
 

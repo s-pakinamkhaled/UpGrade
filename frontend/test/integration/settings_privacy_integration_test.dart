@@ -6,7 +6,7 @@ import 'helpers/integration_app_harness.dart';
 
 void main() {
   group('Privacy settings flow (integration)', () {
-    testWidgets('toggle dark mode and data sharing updates provider state',
+    testWidgets('toggle dark mode and study style updates provider state',
         (tester) async {
       resetIntegrationPrefs();
       final settings = SettingsProvider();
@@ -16,7 +16,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(settings.themeMode, ThemeMode.light);
-      expect(settings.dataSharingEnabled, isFalse);
+      expect(settings.studyStyle, StudyStyle.visual);
 
       await tester.tap(find.text('Dark Mode'));
       await tester.pumpAndSettle();
@@ -33,23 +33,13 @@ void main() {
 
       expect(settings.themeMode, ThemeMode.dark);
 
-      await tester.tap(find.text('Data Sharing'));
+      await tester.tap(find.text('Practice'));
       await tester.pumpAndSettle();
 
-      final shareSwitch = find.descendant(
-        of: find.ancestor(
-          of: find.text('Data Sharing'),
-          matching: find.byType(Row),
-        ),
-        matching: find.byType(Switch),
-      );
-      await tester.tap(shareSwitch);
-      await tester.pumpAndSettle();
-
-      expect(settings.dataSharingEnabled, isTrue);
+      expect(settings.studyStyle, StudyStyle.practice);
     });
 
-    testWidgets('privacy toggles persist across widget rebuild', (tester) async {
+    testWidgets('planner difficulty persists across widget rebuild', (tester) async {
       resetIntegrationPrefs();
       final settings = SettingsProvider();
       await settings.load();
@@ -57,22 +47,15 @@ void main() {
       await tester.pumpWidget(buildPrivacyIntegrationApp(settingsProvider: settings));
       await tester.pumpAndSettle();
 
-      await settings.setTwoFactorEnabled(true);
+      await settings.setDifficulty(DifficultyLevel.challenging);
       await tester.pumpAndSettle();
 
-      expect(settings.twoFactorEnabled, isTrue);
+      expect(settings.difficulty, DifficultyLevel.challenging);
 
       await tester.pumpWidget(buildPrivacyIntegrationApp(settingsProvider: settings));
       await tester.pumpAndSettle();
 
-      final twoFactorSwitch = find.descendant(
-        of: find.ancestor(
-          of: find.text('Two-Factor Authentication'),
-          matching: find.byType(Row),
-        ),
-        matching: find.byType(Switch),
-      );
-      expect(tester.widget<Switch>(twoFactorSwitch).value, isTrue);
+      expect(find.text('Challenging'), findsWidgets);
     });
   });
 }

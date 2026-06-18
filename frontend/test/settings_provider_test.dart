@@ -15,34 +15,30 @@ void main() {
       await settings.load();
 
       expect(settings.isLoaded, isTrue);
-      expect(settings.dataSharingEnabled, isFalse);
-      expect(settings.twoFactorEnabled, isFalse);
+      expect(settings.studyStyle, StudyStyle.visual);
+      expect(settings.difficulty, DifficultyLevel.balanced);
       expect(settings.notificationsEnabled, isTrue);
       expect(settings.aiSuggestionsEnabled, isTrue);
     });
 
-    test('persists data sharing opt-in/out', () async {
+    test('persists study style preference', () async {
       await settings.load();
 
-      await settings.setDataSharingEnabled(true);
-      expect(settings.dataSharingEnabled, isTrue);
+      await settings.setStudyStyle(StudyStyle.practice);
+      expect(settings.studyStyle, StudyStyle.practice);
 
       final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getBool('settings_data_sharing'), isTrue);
-
-      await settings.setDataSharingEnabled(false);
-      expect(settings.dataSharingEnabled, isFalse);
-      expect(prefs.getBool('settings_data_sharing'), isFalse);
+      expect(prefs.getString('settings_study_style'), 'practice');
     });
 
-    test('persists two-factor toggle', () async {
+    test('persists planner difficulty preference', () async {
       await settings.load();
 
-      await settings.setTwoFactorEnabled(true);
-      expect(settings.twoFactorEnabled, isTrue);
+      await settings.setDifficulty(DifficultyLevel.challenging);
+      expect(settings.difficulty, DifficultyLevel.challenging);
 
       final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getBool('settings_two_factor'), isTrue);
+      expect(prefs.getString('settings_difficulty'), 'challenging');
     });
 
     test('persists notification and AI suggestion toggles', () async {
@@ -59,10 +55,10 @@ void main() {
       expect(prefs.getBool('settings_ai_suggestions'), isFalse);
     });
 
-    test('restores saved privacy preferences on reload', () async {
+    test('restores saved preferences on reload', () async {
       SharedPreferences.setMockInitialValues({
-        'settings_data_sharing': true,
-        'settings_two_factor': true,
+        'settings_study_style': 'reading',
+        'settings_difficulty': 'easy',
         'settings_notifications': false,
         'settings_ai_suggestions': false,
       });
@@ -70,19 +66,19 @@ void main() {
       final reloaded = SettingsProvider();
       await reloaded.load();
 
-      expect(reloaded.dataSharingEnabled, isTrue);
-      expect(reloaded.twoFactorEnabled, isTrue);
+      expect(reloaded.studyStyle, StudyStyle.reading);
+      expect(reloaded.difficulty, DifficultyLevel.easy);
       expect(reloaded.notificationsEnabled, isFalse);
       expect(reloaded.aiSuggestionsEnabled, isFalse);
     });
 
-    test('notifies listeners when privacy toggles change', () async {
+    test('notifies listeners when preferences change', () async {
       await settings.load();
       var notifications = 0;
       settings.addListener(() => notifications++);
 
-      await settings.setDataSharingEnabled(true);
-      await settings.setTwoFactorEnabled(true);
+      await settings.setStudyStyle(StudyStyle.reading);
+      await settings.setDifficulty(DifficultyLevel.easy);
 
       expect(notifications, greaterThanOrEqualTo(2));
     });

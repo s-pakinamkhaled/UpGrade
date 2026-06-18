@@ -105,10 +105,8 @@ class ClassroomItemClassifierService {
   }
 
   static List<Task> classifyAllIfNeeded(List<Task> tasks) {
-    if (tasks.any((task) => task.classificationConfidence == 0.0)) {
-      return classifyAll(tasks);
-    }
-    return tasks;
+    if (tasks.isEmpty) return tasks;
+    return classifyAll(tasks);
   }
 
   static Task _classifyManualTask(Task task) {
@@ -140,7 +138,7 @@ class ClassroomItemClassifierService {
 
     final hoursLeft = task.deadline.difference(DateTime.now()).inHours;
     if (task.status == TaskStatus.missed || hoursLeft < 0) {
-      return task.copyWith(priority: TaskPriority.urgent);
+      return task.copyWith(priority: TaskPriority.low);
     }
     if (hoursLeft <= 24) {
       return task.copyWith(priority: TaskPriority.urgent);
@@ -222,6 +220,18 @@ class ClassroomItemClassifierService {
     final actionableWorkType = _isActionableWorkType(workType);
 
     if (activeStatus && hasRealDeadline) {
+      if (!(hasActionableSignal || actionableWorkType)) {
+        return task.copyWith(
+          source: 'google_classroom',
+          itemType: dashboardOnly,
+          isActionableForAI: false,
+          isGradeRelated: false,
+          isDashboardOnly: true,
+          classificationConfidence: 0.8,
+          classificationReason:
+              'Classroom row has a due date but no deliverable signals',
+        );
+      }
       return task.copyWith(
         source: 'google_classroom',
         itemType: actionableTask,
@@ -312,10 +322,6 @@ class ClassroomItemClassifierService {
         workType == 'MULTIPLE_CHOICE_QUESTION';
   }
 
-  static bool _hasActionableSignal(String titleLower) {
-    return _actionableSignalRegex.hasMatch(titleLower);
-  }
-
   static final List<String> _exactGradePatterns = [
     'grades',
     'grade',
@@ -336,6 +342,8 @@ class ClassroomItemClassifierService {
   ];
 
   static final List<String> _strongGradeSubstrings = [
+    'lecture participation',
+    '(grades)',
     'labs grades',
     'labs grade',
     'lab grades',
@@ -368,6 +376,39 @@ class ClassroomItemClassifierService {
   ];
 
   static final List<_GradeRegexEntry> _gradeRegexPatterns = [
+    _GradeRegexEntry(
+      regex: RegExp(r'\(\s*grades?\s*\)'),
+      itemType: gradeItem,
+      confidence: 0.94,
+      reason: 'Title contains a (Grades) category marker',
+    ),
+    _GradeRegexEntry(
+      regex: RegExp(r'^assignment\s*#\s*\d+\s*$'),
+      itemType: gradeItem,
+      confidence: 0.97,
+      reason: 'Title is only an Assignment#N gradebook column',
+    ),
+    _GradeRegexEntry(
+      regex: RegExp(r'^project\s+phase\s*#\s*\d+\s*$'),
+      itemType: gradeItem,
+      confidence: 0.97,
+      reason: 'Title is only a Project Phase#N gradebook column',
+    ),
+    _GradeRegexEntry(
+      regex: RegExp(r'\bproject\s+total\b'),
+      itemType: gradeBucket,
+      confidence: 0.96,
+      reason: 'Project total grade bucket',
+    ),
+    _GradeRegexEntry(
+      regex: RegExp(r'\bparticipation\b'),
+      itemType: gradeBucket,
+      confidence: 0.9,
+      reason: 'Participation rows are grade categories, not deliverables',
+      guardAgainst: RegExp(
+        r'\b(assignment|homework|delivery|submission|project\s*#)\b',
+      ),
+    ),
     _GradeRegexEntry(
       regex: RegExp(r'\bassignment\s+\d+\s+grades?\b'),
       itemType: gradeItem,
@@ -403,6 +444,15 @@ class ClassroomItemClassifierService {
       reason: 'Title is a lab session row, not a deliverable',
       guardAgainst: RegExp(
         r'\b(delivery|practice|report|submission|homework|assignment|project)\b',
+      ),
+    ),
+    _GradeRegexEntry(
+      regex: RegExp(r'\(\s*\d+(\.\d+)?\s*\)\s*$'),
+      itemType: gradeBucket,
+      confidence: 0.84,
+      reason: 'Title ends with a point-weight bucket like (20)',
+      guardAgainst: RegExp(
+        r'\b(assignment|homework|delivery|submission|#)\b',
       ),
     ),
     _GradeRegexEntry(
@@ -458,8 +508,13 @@ class ClassroomItemClassifierService {
     ),
   ];
 
+  static bool _hasActionableSignal(String titleLower) {
+    return _actionableSignalRegex.hasMatch(titleLower) ||
+        RegExp(r'phase\s*#\s*\d+\s*:').hasMatch(titleLower);
+  }
+
   static final RegExp _actionableSignalRegex = RegExp(
-    r'\b(assignment|project|task|homework|report|delivery|submission|'
+    r'\b(assignment|project|task|homework|report|delivery|submissions?|'
     r'practical|exercise|case\s+study|mini\s*project|presentation|'
     r'proposal|paper|essay|worksheet|lab\s*report)\b',
   );

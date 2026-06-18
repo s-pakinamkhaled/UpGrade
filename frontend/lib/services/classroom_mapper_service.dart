@@ -158,7 +158,7 @@ class ClassroomMapperService {
     return (courses: courses, tasks: classifiedTasks);
   }
 
-  /// 🔹 AI-ish priority logic (important)
+  /// Priority reflects how soon a deadline is — not how long ago it passed.
   static TaskPriority _calculatePriority({
     required DateTime? deadline,
     required TaskStatus status,
@@ -167,13 +167,13 @@ class ClassroomMapperService {
   }) {
     if (isSubmitted) return TaskPriority.low;
 
-    if (status == TaskStatus.missed) return TaskPriority.urgent;
+    if (status == TaskStatus.missed) return TaskPriority.low;
 
     if (deadline == null || !hasRealDeadline) return TaskPriority.low;
 
     final hoursLeft = deadline.difference(DateTime.now()).inHours;
 
-    if (hoursLeft < 0) return TaskPriority.urgent;
+    if (hoursLeft < 0) return TaskPriority.low;
     if (hoursLeft <= 24) return TaskPriority.urgent;
     if (hoursLeft <= 72) return TaskPriority.high;
     if (hoursLeft <= 7 * 24) return TaskPriority.medium;

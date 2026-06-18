@@ -15,7 +15,7 @@ import 'integration_main_shell.dart';
 /// Desktop/tablet size so [IntegrationMainShell] renders the sidebar rail.
 const Size kIntegrationDesktopSize = Size(1920, 1080);
 
-/// Mobile size for bottom [NavigationBar] flows.
+/// Mobile viewport — same sidebar rail shell as web.
 const Size kIntegrationMobileSize = Size(390, 844);
 
 /// Resets SharedPreferences mock storage before each integration test.

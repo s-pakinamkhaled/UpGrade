@@ -1776,18 +1776,15 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
     final planning = tasks
         .where(
           (t) =>
-              t.status == TaskStatus.pending ||
-              t.status == TaskStatus.inProgress ||
-              t.status == TaskStatus.missed,
+              (t.status == TaskStatus.pending ||
+                  t.status == TaskStatus.inProgress) &&
+              t.hasUpcomingDeadline,
         )
         .toList();
     planning.sort((a, b) {
       final priorityCompare =
           _priorityRank(a.priority).compareTo(_priorityRank(b.priority));
       if (priorityCompare != 0) return priorityCompare;
-      if (a.hasRealDeadline != b.hasRealDeadline) {
-        return a.hasRealDeadline ? -1 : 1;
-      }
       return a.deadline.compareTo(b.deadline);
     });
     return planning;

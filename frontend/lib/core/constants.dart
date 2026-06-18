@@ -1,3 +1,6 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+
 class AppConstants {
   // ================== COLORS ==================
   static const String primaryBlue = '#3b82f6';
@@ -28,6 +31,7 @@ class AppConstants {
       'https://apps.apple.com/search?term=UpGrade';
 
   // ================== ROUTES ==================
+  static const String routeSplash = '/';
   static const String routeLogin = '/login';
   static const String routeRegister = '/register';
   static const String routeForgotPassword = '/forgot-password';
@@ -55,6 +59,41 @@ class AppConstants {
   static const String routeStudyPlan = '/study-plan';
   static const String routeQrScanner = '/qr-scanner';
   static const String routeProfile = '/profile';
+
+  /// Matches [kSidebarExpandBreakpoint] — at or above this width the web client hosts the QR.
+  static const double pairingQrHostMinWidth = 600;
+
+  /// `true` → open camera scanner; `false` → show QR code for the phone to scan.
+  static bool shouldUsePairingScanner({
+    required bool isWeb,
+    required TargetPlatform platform,
+    required double viewportWidth,
+  }) {
+    if (!isWeb) {
+      switch (platform) {
+        case TargetPlatform.android:
+        case TargetPlatform.iOS:
+          return true;
+        default:
+          return false;
+      }
+    }
+    return viewportWidth < pairingQrHostMinWidth;
+  }
+
+  static bool usesPairingScannerForContext(BuildContext context) {
+    return shouldUsePairingScanner(
+      isWeb: kIsWeb,
+      platform: defaultTargetPlatform,
+      viewportWidth: MediaQuery.sizeOf(context).width,
+    );
+  }
+
+  static String devicePairingEntryRouteFor(BuildContext context) {
+    return usesPairingScannerForContext(context)
+        ? routeQrScanner
+        : routeDevicePairing;
+  }
 
   /// In-app full privacy policy text
   static const String routePrivacy = '/privacy-policy';

@@ -205,55 +205,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         final pageRem = UpGradeRem(width);
         final side = t.space(1.15);
 
-        Widget settingsChips() {
-          return Wrap(
-            spacing: t.space(0.55),
-            runSpacing: t.space(0.55),
-            children: [
-              _statusBadge(
-                'Notifications ${settings.notificationsEnabled ? 'On' : 'Off'}',
-                settings.notificationsEnabled
-                    ? const Color(0xFFDCFCE7)
-                    : const Color(0xFFE5E7EB),
-                settings.notificationsEnabled
-                    ? const Color(0xFF166534)
-                    : const Color(0xFF334155),
-                t.chip,
-              ),
-              _statusBadge(
-                'Focus Tracking ${settings.aiSuggestionsEnabled ? 'On' : 'Off'}',
-                settings.aiSuggestionsEnabled
-                    ? const Color(0xFFEDE9FE)
-                    : const Color(0xFFE5E7EB),
-                settings.aiSuggestionsEnabled
-                    ? const Color(0xFF6D28D9)
-                    : const Color(0xFF334155),
-                t.chip,
-              ),
-              _statusBadge(
-                'Data Sharing ${settings.dataSharingEnabled ? 'On' : 'Off'}',
-                settings.dataSharingEnabled
-                    ? const Color(0xFFDBEAFE)
-                    : const Color(0xFFE5E7EB),
-                settings.dataSharingEnabled
-                    ? const Color(0xFF1D4ED8)
-                    : const Color(0xFF334155),
-                t.chip,
-              ),
-              _statusBadge(
-                '2FA ${settings.twoFactorEnabled ? 'On' : 'Off'}',
-                settings.twoFactorEnabled
-                    ? const Color(0xFFFFEDD5)
-                    : const Color(0xFFE5E7EB),
-                settings.twoFactorEnabled
-                    ? const Color(0xFF9A3412)
-                    : const Color(0xFF334155),
-                t.chip,
-              ),
-            ],
-          );
-        }
-
         return Align(
           alignment: Alignment.topCenter,
           child: SingleChildScrollView(
@@ -291,34 +242,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const LinearProgressIndicator(minHeight: 2),
                 ],
                 SizedBox(height: t.space(1.0)),
-                Row(
-                  children: [
-                    Container(
-                      width: t.space(0.22).clamp(3.0, 5.0),
-                      height: t.sectionTitle * 1.15,
-                      decoration: BoxDecoration(
-                        gradient: AppTheme.primaryGradient,
-                        borderRadius: BorderRadius.circular(3),
-                        boxShadow: AppTheme.softShadow,
-                      ),
-                    ),
-                    SizedBox(width: t.space(0.5)),
-                    Text(
-                      'Settings',
-                      style: TextStyle(
-                        fontSize: t.sectionTitle,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.3,
-                        color: isDark ? Colors.white : const Color(0xFF0F172A),
-                      ),
-                    ),
-                  ],
-                ),
-                SizedBox(height: t.space(0.65)),
-                settingsChips(),
-                SizedBox(height: t.space(0.65)),
-                _buildPrivacyDeviceRows(context, t, isDark),
-                SizedBox(height: t.space(0.85)),
                 _buildProfileCompletionCard(
                   completion: completion,
                   t: t,
@@ -560,41 +483,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 SizedBox(width: double.infinity, child: editButton),
               ],
             ),
-    );
-  }
-  Widget _buildPrivacyDeviceRows(
-    BuildContext context,
-    _ProfileTypeScale t,
-    bool isDark,
-  ) {
-    return Column(
-      children: [
-        _settingRow(
-          icon: Icons.settings_outlined,
-          title: 'Privacy Settings',
-          action: 'Configure',
-          iconBg: const Color(0xFFDBEAFE),
-          iconFg: AppTheme.primaryBlue,
-          splash: AppTheme.primaryBlue,
-          t: t,
-          isDark: isDark,
-          onTap: () =>
-              Navigator.of(context).pushNamed(AppConstants.routePrivacySettings),
-        ),
-        SizedBox(height: t.space(0.5)),
-        _settingRow(
-          icon: Icons.phonelink_setup_outlined,
-          title: 'Device Pairing',
-          action: 'Manage',
-          iconBg: const Color(0xFFEDE9FE),
-          iconFg: AppTheme.secondaryPurple,
-          splash: AppTheme.secondaryPurple,
-          t: t,
-          isDark: isDark,
-          onTap: () =>
-              Navigator.of(context).pushNamed(AppConstants.routeDevicePairing),
-        ),
-      ],
     );
   }
 
@@ -959,7 +847,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             isDark: isDark,
             onTap: () async {
               await Navigator.of(context)
-                  .pushNamed(AppConstants.routeDevicePairing);
+                  .pushNamed(AppConstants.devicePairingEntryRouteFor(context));
               if (!mounted) return;
               await _loadDevicePairingStatus();
             },
@@ -1266,93 +1154,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           color: fg,
           fontSize: fontSize,
           fontWeight: FontWeight.w600,
-        ),
-      ),
-    );
-  }
-
-  Widget _settingRow({
-    required IconData icon,
-    required String title,
-    required String action,
-    required Color iconBg,
-    required Color iconFg,
-    required Color splash,
-    required _ProfileTypeScale t,
-    required bool isDark,
-    required VoidCallback onTap,
-  }) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        splashColor: splash.withOpacity(0.14),
-        highlightColor: splash.withOpacity(0.07),
-        child: Container(
-          padding: EdgeInsets.symmetric(
-            horizontal: t.space(1.15),
-            vertical: t.space(0.95),
-          ),
-          decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF111827) : Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: isDark
-                  ? const Color(0xFF334155)
-                  : splash.withOpacity(0.22),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: splash.withOpacity(isDark ? 0.12 : 0.08),
-                blurRadius: 14,
-                offset: const Offset(0, 5),
-              ),
-              BoxShadow(
-                color: Colors.black.withOpacity(isDark ? 0.15 : 0.03),
-                blurRadius: 10,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              Container(
-                padding: EdgeInsets.all(t.space(0.45)),
-                decoration: BoxDecoration(
-                  color: iconBg,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: iconFg.withOpacity(0.2)),
-                ),
-                child: Icon(
-                  icon,
-                  color: iconFg,
-                  size: t.settingTitle * 1.15,
-                ),
-              ),
-              SizedBox(width: t.space(0.65)),
-              Expanded(
-                child: Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: t.settingTitle,
-                    fontWeight: FontWeight.w600,
-                    color: isDark ? Colors.white : const Color(0xFF1E293B),
-                  ),
-                ),
-              ),
-              Text(
-                action,
-                style: TextStyle(
-                  fontSize: t.settingAction,
-                  fontWeight: FontWeight.w800,
-                  color: splash,
-                ),
-              ),
-              SizedBox(width: t.space(0.25)),
-              Icon(Icons.chevron_right, size: t.settingTitle * 1.1, color: splash.withOpacity(0.75)),
-            ],
-          ),
         ),
       ),
     );

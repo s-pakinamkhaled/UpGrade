@@ -114,13 +114,13 @@ def _parse_deadline(deadline: Optional[str]) -> Optional[datetime]:
 
 
 def _effective_priority(t: TaskInput, now: Optional[datetime] = None) -> str:
-    """Upgrade stale client priorities for missed and near-deadline tasks."""
+    """Priority from upcoming deadline — overdue/missed work stays low."""
     now = now or datetime.now()
     status = (t.status or "pending").lower()
     current = (t.priority or "medium").lower()
 
     if status in {"missed", "overdue"}:
-        return "urgent"
+        return "low"
 
     dl = _parse_deadline(t.deadline)
     if dl is None or t.hasRealDeadline is False:
@@ -128,7 +128,7 @@ def _effective_priority(t: TaskInput, now: Optional[datetime] = None) -> str:
 
     hours_left = (dl - now).total_seconds() / 3600
     if hours_left < 0:
-        return "urgent"
+        return "low"
     if hours_left <= 24:
         return "urgent"
     if hours_left <= 72:
@@ -159,8 +159,12 @@ def _fallback_plan_item(task: TaskInput, index: int, now: Optional[datetime] = N
         hoursNeeded=round(hours, 1),
         priority=priority,
         tip=(
-            "Recovery item: start with the required deliverables and submit the missing work as soon as possible."
-            if priority == "urgent"
+            "Past deadline — catch up when you can, but focus on what's due next."
+            if (task.status or "").lower() in {"missed", "overdue"}
+            or (
+                _parse_deadline(task.deadline) is not None
+                and (_parse_deadline(task.deadline) - now).total_seconds() < 0
+            )
             else "No hard deadline is available; schedule a short checkpoint so it does not drift."
         ),
     )

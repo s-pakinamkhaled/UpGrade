@@ -54,7 +54,7 @@ void main() {
       expect(find.text('Active Warnings'), findsOneWidget);
     });
 
-    testWidgets('mobile bottom nav switches dashboard and tasks tabs', (tester) async {
+    testWidgets('mobile shell uses the same sidebar rail as web', (tester) async {
       await tester.binding.setSurfaceSize(kIntegrationMobileSize);
       addTearDown(() => tester.binding.setSurfaceSize(null));
 
@@ -63,17 +63,15 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.byType(NavigationBar), findsOneWidget);
+      expect(find.byType(NavigationBar), findsNothing);
+      expect(find.byTooltip('My Tasks'), findsOneWidget);
 
-      final navBar = tester.widget<NavigationBar>(find.byType(NavigationBar));
-      expect(navBar.selectedIndex, 0);
-
-      await tester.tap(find.text('My Tasks').last);
+      await tester.tap(find.byTooltip('My Tasks'));
       await tester.pumpAndSettle();
 
       expect(find.text('My Tasks'), findsWidgets);
 
-      await tester.tap(find.text('Dashboard').last);
+      await tester.tap(find.byTooltip('Dashboard'));
       await tester.pumpAndSettle();
 
       expect(find.text('No student data yet'), findsOneWidget);

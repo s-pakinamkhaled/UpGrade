@@ -97,7 +97,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       );
 
       if (!mounted) return;
-      openWelcomeSyncChoiceAfterAuth(context);
+      await navigateAfterAuth(context, forceOnboarding: true);
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -129,7 +129,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
       );
 
       if (!mounted) return;
-      openWelcomeSyncChoiceAfterAuth(context);
+      await navigateAfterAuth(
+        context,
+        forceOnboarding: googleResult.isNewUser,
+      );
     } catch (e) {
       if (!mounted) return;
       setState(() {

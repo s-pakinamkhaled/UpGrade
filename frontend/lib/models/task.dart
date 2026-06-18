@@ -285,6 +285,11 @@ class Task {
       hasRealDeadline &&
       deadline.isBefore(DateTime.now()) &&
       status != TaskStatus.completed;
+
+  /// True when the item has a real Classroom/user deadline still in the future.
+  bool get hasUpcomingDeadline =>
+      hasRealDeadline && !deadline.isBefore(DateTime.now());
+
   bool get isToday =>
       scheduledTime != null &&
       scheduledTime!.year == DateTime.now().year &&

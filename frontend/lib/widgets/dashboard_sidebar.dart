@@ -174,12 +174,22 @@ class DashboardSidebar extends StatelessWidget {
                     height: 24,
                   ),
                   _NavItem(
+                    icon: Icons.settings_outlined,
+                    label: 'Privacy Settings',
+                    isActive: activeMenuKey == _SidebarMenuKey.privacySettings,
+                    compact: compactH,
+                    onTap: () => onPushAuxiliaryRoute(
+                      AppConstants.routePrivacySettings,
+                    ),
+                  ),
+                  _NavItem(
                     icon: Icons.qr_code_scanner_outlined,
                     label: 'Device Pairing',
                     isActive: false,
                     compact: compactH,
-                    onTap: () =>
-                        onPushAuxiliaryRoute(AppConstants.routeQrScanner),
+                    onTap: () => onPushAuxiliaryRoute(
+                        AppConstants.devicePairingEntryRouteFor(context),
+                      ),
                   ),
                   _NavItem(
                     icon: Icons.class_outlined,
@@ -310,6 +320,15 @@ class DashboardSidebarCollapsedRail extends StatelessWidget {
           ),
         ),
         PopupMenuItem(
+          value: _RailMoreAction.privacySettings,
+          child: ListTile(
+            leading: Icon(Icons.settings_outlined),
+            title: Text('Privacy Settings'),
+            contentPadding: EdgeInsets.zero,
+            visualDensity: VisualDensity.compact,
+          ),
+        ),
+        PopupMenuItem(
           value: _RailMoreAction.devicePairing,
           child: ListTile(
             leading: Icon(Icons.qr_code_scanner_outlined),
@@ -338,8 +357,10 @@ class DashboardSidebarCollapsedRail extends StatelessWidget {
         onSelectShellRoute(AppConstants.routeGoogleClassroomSync);
       case _RailMoreAction.myCourses:
         onSelectShellRoute(AppConstants.routeManualCourses);
+      case _RailMoreAction.privacySettings:
+        onPushAuxiliaryRoute(AppConstants.routePrivacySettings);
       case _RailMoreAction.devicePairing:
-        onPushAuxiliaryRoute(AppConstants.routeQrScanner);
+        onPushAuxiliaryRoute(AppConstants.devicePairingEntryRouteFor(context));
       case _RailMoreAction.expandSidebar:
         onExpand();
     }
@@ -458,6 +479,7 @@ class _SidebarRailDestination {
 enum _RailMoreAction {
   googleClassroom,
   myCourses,
+  privacySettings,
   devicePairing,
   expandSidebar,
 }
@@ -545,6 +567,7 @@ enum _SidebarMenuKey {
   groupStudy,
   warnings,
   profile,
+  privacySettings,
   googleClassroom,
   myCourses,
 }
@@ -565,8 +588,9 @@ _SidebarMenuKey? _activeMenuKeyForRoute(String route) {
       return _SidebarMenuKey.warnings;
     case AppConstants.routeProfile:
     case AppConstants.routeEditProfile:
-    case AppConstants.routePrivacySettings:
       return _SidebarMenuKey.profile;
+    case AppConstants.routePrivacySettings:
+      return _SidebarMenuKey.privacySettings;
     case AppConstants.routeGoogleClassroomSync:
       return _SidebarMenuKey.googleClassroom;
     case AppConstants.routeManualCourses:

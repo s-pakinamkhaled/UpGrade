@@ -116,8 +116,9 @@ class _DailyPlannerScreenState extends State<DailyPlannerScreen> {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<ClassroomProvider>();
-    final allTasks = provider.tasks;
-    final weeklyTasks = _weeklyTasksFromProvider(allTasks);
+    final schedulableTasks = provider.upcomingActionableTasks;
+    final hasSyncedData = provider.tasks.isNotEmpty;
+    final weeklyTasks = _weeklyTasksFromProvider(schedulableTasks);
     final selectedDayTasks = weeklyTasks[_dateOnly(_selectedDate)] ?? [];
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final subtitle =
@@ -149,9 +150,11 @@ class _DailyPlannerScreenState extends State<DailyPlannerScreen> {
                   ),
                 ),
               Expanded(
-                child: allTasks.isEmpty
+                child: !hasSyncedData
                     ? _buildEmptyState(provider.syncedAt == null, t, isDark)
-                    : SingleChildScrollView(
+                    : schedulableTasks.isEmpty
+                        ? _buildEmptyState(false, t, isDark)
+                        : SingleChildScrollView(
                         padding: EdgeInsets.fromLTRB(
                           hPad,
                           8,

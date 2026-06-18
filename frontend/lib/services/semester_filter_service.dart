@@ -17,15 +17,15 @@ class SemesterFilterService {
   static const String unknownSemesterLabel = 'Unknown Semester';
 
   static final RegExp _termYearPattern = RegExp(
-    r'\b(Spring|Summer|Fall|Autumn|Winter)\s*[-_/]?\s*(20\d{2})\b',
+    r'\b(Spring|Summer|Fall|Autumn|Winter)\s*[-_/]?\s*((?:20)?\d{2})\b',
     caseSensitive: false,
   );
   static final RegExp _yearTermPattern = RegExp(
-    r'\b(20\d{2})\s*[-_/]?\s*(Spring|Summer|Fall|Autumn|Winter)\b',
+    r'\b((?:20)?\d{2})\s*[-_/]?\s*(Spring|Summer|Fall|Autumn|Winter)\b',
     caseSensitive: false,
   );
   static final RegExp _semesterNumPattern = RegExp(
-    r'\b(20\d{2})\s*[-_/]?\s*(S(?:em(?:ester)?)?\s*[12])\b',
+    r'\b((?:20)?\d{2})\s*[-_/]?\s*(S(?:em(?:ester)?)?\s*[12])\b',
     caseSensitive: false,
   );
   static final RegExp _yearRangePattern = RegExp(r'\b(20\d{2})\s*[-/]\s*(\d{2,4})\b');
@@ -91,20 +91,20 @@ class SemesterFilterService {
     final termYear = _termYearPattern.firstMatch(text);
     if (termYear != null) {
       final term = _normalizeTerm(termYear.group(1)!);
-      final year = int.tryParse(termYear.group(2)!);
+      final year = _normalizeYear(termYear.group(2)!);
       if (year != null) return _buildOption(term: term, year: year);
     }
 
     final yearTerm = _yearTermPattern.firstMatch(text);
     if (yearTerm != null) {
-      final year = int.tryParse(yearTerm.group(1)!);
+      final year = _normalizeYear(yearTerm.group(1)!);
       final term = _normalizeTerm(yearTerm.group(2)!);
       if (year != null) return _buildOption(term: term, year: year);
     }
 
     final semesterNum = _semesterNumPattern.firstMatch(text);
     if (semesterNum != null) {
-      final year = int.tryParse(semesterNum.group(1)!);
+      final year = _normalizeYear(semesterNum.group(1)!);
       final raw = semesterNum.group(2)!.toLowerCase();
       final term = raw.contains('2') ? 'Semester 2' : 'Semester 1';
       if (year != null) return _buildOption(term: term, year: year);
@@ -152,13 +152,17 @@ class SemesterFilterService {
     required String semesterId,
   }) {
     final detected = detectFromCourse(course);
-    // Courses without detectable semester metadata (no Spring/Fall/year text in
-    // name/section/description) are kept in EVERY filter so the user does not
-    // silently lose courses whose teachers did not put a semester tag in the
-    // Classroom title. They are also kept under the explicit "Unknown Semester"
-    // bucket so users can still narrow them down if needed.
-    if (detected == null) return true;
+    if (detected == null) return semesterId == unknownSemesterId;
     return detected.id == semesterId;
+  }
+
+  /// Expands 2-digit years (e.g. "24") to 4-digit (2024). Already-4-digit
+  /// values pass through unchanged.
+  static int? _normalizeYear(String raw) {
+    final parsed = int.tryParse(raw);
+    if (parsed == null) return null;
+    if (parsed >= 100) return parsed;
+    return 2000 + parsed;
   }
 
   static SemesterOption _buildOption({

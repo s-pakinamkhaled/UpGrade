@@ -157,9 +157,15 @@ class ClassroomProvider extends ChangeNotifier {
       courses: _courses,
       tasks: _tasks,
     );
+
     await syncTasksToBackend();
-<<<<<<< HEAD
     await syncDeadlineNotifications();
+
+    final wasConnected = _googleClassroomConnected;
+    await _reconcileGoogleClassroomConnected(uid);
+    if (_googleClassroomConnected != wasConnected) {
+      notifyListeners();
+    }
   }
 
   /// Creates Firestore deadline notifications for the current user's tasks.
@@ -176,13 +182,6 @@ class ClassroomProvider extends ChangeNotifier {
       if (kDebugMode) {
         debugPrint('[Classroom] deadline notification sync failed: $e');
       }
-    }
-=======
-
-    final wasConnected = _googleClassroomConnected;
-    await _reconcileGoogleClassroomConnected(uid);
-    if (_googleClassroomConnected != wasConnected) {
-      notifyListeners();
     }
   }
 
@@ -203,7 +202,6 @@ class ClassroomProvider extends ChangeNotifier {
     if (!hasGoogleClassroomData(_courses, _tasks)) return;
     _googleClassroomConnected = true;
     await ClassroomStorageService.saveGoogleClassroomConnected(uid, true);
->>>>>>> origin/main
   }
 
   Future<

@@ -10,6 +10,7 @@ import '../services/classroom_item_classifier_service.dart';
 import '../services/classroom_mapper_service.dart';
 import '../services/classroom_storage_service.dart';
 import '../services/classroom_sync_service.dart';
+import '../services/deadline_notification_sync_service.dart';
 import '../services/user_matching_profile_sync_service.dart';
 
 class ClassroomProvider extends ChangeNotifier {
@@ -156,12 +157,31 @@ class ClassroomProvider extends ChangeNotifier {
       courses: _courses,
       tasks: _tasks,
     );
+
     await syncTasksToBackend();
+    await syncDeadlineNotifications();
 
     final wasConnected = _googleClassroomConnected;
     await _reconcileGoogleClassroomConnected(uid);
     if (_googleClassroomConnected != wasConnected) {
       notifyListeners();
+    }
+  }
+
+  /// Creates Firestore deadline notifications for the current user's tasks.
+  Future<void> syncDeadlineNotifications() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null || _tasks.isEmpty) return;
+
+    try {
+      await DeadlineNotificationSyncService().syncForTasks(
+        userId: uid,
+        tasks: _tasks,
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[Classroom] deadline notification sync failed: $e');
+      }
     }
   }
 
@@ -350,6 +370,7 @@ class ClassroomProvider extends ChangeNotifier {
         tasks: _tasks,
       );
       await syncTasksToBackend();
+      await syncDeadlineNotifications();
     } catch (error) {
       _error = error.toString();
     }
@@ -437,6 +458,7 @@ class ClassroomProvider extends ChangeNotifier {
       courses: _courses,
       tasks: _tasks,
     );
+    await syncDeadlineNotifications();
     notifyListeners();
   }
 
@@ -508,6 +530,7 @@ class ClassroomProvider extends ChangeNotifier {
     } catch (_) {
       // Backend may be offline; local deadline updates should still succeed.
     }
+    await syncDeadlineNotifications();
   }
 
   String _requireActiveUid() {
@@ -593,6 +616,7 @@ class ClassroomProvider extends ChangeNotifier {
 
     _tasks[index] = ClassroomItemClassifierService.classifyTask(updated);
     await _saveToStorage();
+    await syncDeadlineNotifications();
     notifyListeners();
   }
 

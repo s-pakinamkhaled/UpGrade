@@ -8,11 +8,7 @@
 
 | Name           | ID        | Program |
 |----------------|-----------|---------|
-<<<<<<< HEAD
-| Karim  Wael    | 202202212  | DSAI   |
-=======
 | Karim  Wael    | 202202212 | DSAI    |
->>>>>>> origin/main
 | Pakinam Khaled | 202202233 | SWD     |
 | Sama Reda      | 202202246 | SWD     |
 

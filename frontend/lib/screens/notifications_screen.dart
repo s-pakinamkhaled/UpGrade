@@ -2,11 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
-import '../core/constants.dart';
-import '../core/dashboard_shell_navigation.dart';
 import '../core/theme.dart';
 import '../models/app_notification.dart';
 import '../providers/notification_provider.dart';
+import '../widgets/dashboard_secondary_shell.dart';
 import '../widgets/upgrade_visual_system.dart';
 
 class NotificationsScreen extends StatefulWidget {
@@ -19,12 +18,6 @@ class NotificationsScreen extends StatefulWidget {
 class _NotificationsScreenState extends State<NotificationsScreen> {
   static final _fullDateFormat = DateFormat('MMM d, yyyy · h:mm a');
   static final _shortTimeFormat = DateFormat('h:mm a');
-
-  /// Matches [GoogleClassroomSyncScreen._shellInnerMaxWidth].
-  double _shellInnerMaxWidth(double bodyWidth) {
-    if (bodyWidth <= 0) return 640;
-    return (bodyWidth - 40).clamp(640.0, 1320.0);
-  }
 
   @override
   void initState() {
@@ -54,7 +47,14 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     );
   }
 
-  void _goBack() => returnToMainShellFromOverlay(context);
+  double _contentMaxWidth(double bodyWidth) {
+    if (bodyWidth <= 0) return 640;
+    if (bodyWidth < 640) return bodyWidth;
+    if (bodyWidth < 1024) {
+      return (bodyWidth - 40).clamp(560.0, 820.0);
+    }
+    return (bodyWidth - 48).clamp(720.0, 960.0);
+  }
 
   String _relativeTime(DateTime dateTime) {
     final diff = DateTime.now().difference(dateTime.toLocal());
@@ -65,165 +65,163 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     return DateFormat('MMM d').format(dateTime.toLocal());
   }
 
-  Widget _buildCardContent(
-    BuildContext context, {
-    required double innerWidth,
-    required UpGradeRem rem,
-    required bool isDark,
-  }) {
+  Widget _buildPage(BuildContext context, double width) {
     final provider = context.watch<NotificationProvider>();
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final rem = UpGradeRem(width);
     final onSurface = theme.colorScheme.onSurface;
     final secondary =
         isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
-    final isCompact = innerWidth < 640;
-    final listItems = provider.listItems;
-    final totalCount = provider.totalCount;
+    final isCompact = width < 640;
+    final totalCount = provider.items.length;
     final unreadCount = provider.unreadCount;
-    final missedCount = provider.missedCount;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _NotificationsHeader(
-          rem: rem,
-          isDark: isDark,
-          isCompact: isCompact,
-          unreadCount: unreadCount,
-          isLoading: provider.isLoading,
-          onRefresh: _onRefresh,
-          onMarkAllAsRead: _onMarkAllAsRead,
-        ),
-        _NotificationsSummary(
-          rem: rem,
-          isDark: isDark,
-          isCompact: isCompact,
-          totalCount: totalCount,
-          unreadCount: unreadCount,
-          missedCount: missedCount,
-        ),
-        Divider(
-          height: 1,
-          color: isDark
-              ? Colors.white.withOpacity(0.08)
-              : const Color(0xFFE2E8F0),
-        ),
-        AnimatedSwitcher(
-          duration: const Duration(milliseconds: 220),
-          switchInCurve: Curves.easeOutCubic,
-          switchOutCurve: Curves.easeInCubic,
-          child: provider.isLoading && listItems.isEmpty
-              ? const Padding(
-                  key: ValueKey('loading'),
-                  padding: EdgeInsets.symmetric(vertical: 40),
-                  child: Center(child: CircularProgressIndicator()),
-                )
-              : provider.error != null && listItems.isEmpty
-                  ? _NotificationsEmptyState(
-                      key: const ValueKey('error'),
-                      isDark: isDark,
-                      icon: Icons.cloud_off_rounded,
-                      title: 'Unable to load notifications',
-                              subtitle:
-                                  'Check your connection and Firestore rules, then use Refresh above.',
-                      detail: provider.error,
-                    )
-                  : listItems.isEmpty
-                      ? _NotificationsEmptyState(
-                          key: const ValueKey('empty'),
-                          isDark: isDark,
-                          icon: Icons.notifications_none_rounded,
-                          title: 'No notifications yet',
-                          subtitle:
-                              'When deadlines approach or tasks need attention, alerts from your study planner will appear here.',
+    return Align(
+      alignment: Alignment.topCenter,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: _contentMaxWidth(width)),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: isDark
+                ? const Color(0xFF111827).withOpacity(0.94)
+                : AppTheme.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: isDark
+                  ? Colors.white.withOpacity(0.08)
+                  : const Color(0xFFE2E8F0),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(isDark ? 0.22 : 0.05),
+                blurRadius: 20,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _NotificationsHeader(
+                  rem: rem,
+                  isDark: isDark,
+                  isCompact: isCompact,
+                  unreadCount: unreadCount,
+                  isLoading: provider.isLoading,
+                  onRefresh: _onRefresh,
+                  onMarkAllAsRead: _onMarkAllAsRead,
+                ),
+                _NotificationsSummary(
+                  isDark: isDark,
+                  isCompact: isCompact,
+                  totalCount: totalCount,
+                  unreadCount: unreadCount,
+                ),
+                Divider(
+                  height: 1,
+                  color: isDark
+                      ? Colors.white.withOpacity(0.08)
+                      : const Color(0xFFE2E8F0),
+                ),
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 220),
+                  switchInCurve: Curves.easeOutCubic,
+                  switchOutCurve: Curves.easeInCubic,
+                  child: provider.isLoading && provider.items.isEmpty
+                      ? const Padding(
+                          key: ValueKey('loading'),
+                          padding: EdgeInsets.symmetric(vertical: 40),
+                          child: Center(child: CircularProgressIndicator()),
                         )
-                      : _NotificationsList(
-                          key: ValueKey('list-$totalCount'),
-                          items: listItems,
-                          onSurface: onSurface,
-                          secondary: secondary,
-                          isDark: isDark,
-                          isCompact: isCompact,
-                          onTap: _onTapNotification,
-                          relativeTime: _relativeTime,
-                          fullDateFormat: _fullDateFormat,
-                          shortTimeFormat: _shortTimeFormat,
-                        ),
+                      : provider.error != null && provider.items.isEmpty
+                          ? _NotificationsEmptyState(
+                              key: const ValueKey('error'),
+                              isDark: isDark,
+                              icon: Icons.cloud_off_rounded,
+                              title: 'Unable to load notifications',
+                              subtitle:
+                                  'Check that the backend is running, then use Refresh above.',
+                              detail: provider.error,
+                            )
+                          : provider.items.isEmpty
+                              ? _NotificationsEmptyState(
+                                  key: const ValueKey('empty'),
+                                  isDark: isDark,
+                                  icon: Icons.notifications_none_rounded,
+                                  title: 'No notifications yet',
+                                  subtitle:
+                                      'When deadlines approach or tasks need attention, alerts from your study planner will appear here.',
+                                )
+                              : _NotificationsList(
+                                  key: ValueKey('list-$totalCount'),
+                                  items: provider.items,
+                                  onSurface: onSurface,
+                                  secondary: secondary,
+                                  isDark: isDark,
+                                  isCompact: isCompact,
+                                  onTap: _onTapNotification,
+                                  relativeTime: _relativeTime,
+                                  fullDateFormat: _fullDateFormat,
+                                  shortTimeFormat: _shortTimeFormat,
+                                ),
+                ),
+              ],
+            ),
+          ),
         ),
-      ],
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final wide = MediaQuery.sizeOf(context).width >= 700;
+    Widget body(double width) {
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          return SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: EdgeInsets.fromLTRB(
+              constraints.maxWidth < 640 ? 12 : 20,
+              10,
+              constraints.maxWidth < 640 ? 12 : 20,
+              16,
+            ),
+            child: _buildPage(context, constraints.maxWidth),
+          );
+        },
+      );
+    }
 
-    return Scaffold(
+    final narrow = Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded),
-          onPressed: _goBack,
+          onPressed: () => Navigator.maybePop(context),
           tooltip: 'Back',
         ),
+        title: const Text('Notifications'),
         backgroundColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
-        surfaceTintColor: Colors.transparent,
       ),
-      body: DecoratedBox(
-        decoration: UpGradePageDecor.pageBackground(isDark),
-        child: SafeArea(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final maxCard = wide
-                  ? _shellInnerMaxWidth(constraints.maxWidth)
-                  : constraints.maxWidth;
-              final hPad =
-                  wide ? (constraints.maxWidth > 1100 ? 28.0 : 20.0) : 16.0;
-              final vPad = wide
-                  ? (constraints.maxHeight > 800 ? 20.0 : 16.0)
-                  : 12.0;
-              final rem = UpGradeRem(
-                wide
-                    ? maxCard
-                    : (maxCard - hPad * 2).clamp(280.0, 520.0),
-              );
-              final innerContentW = wide
-                  ? (maxCard - rem.space(1.2) * 2 - 4).clamp(260.0, 2000.0)
-                  : (maxCard - hPad * 2).clamp(260.0, 520.0);
-              final bodyRem = UpGradeRem(innerContentW);
+      body: body(MediaQuery.sizeOf(context).width),
+    );
 
-              return SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding:
-                    EdgeInsets.symmetric(horizontal: hPad, vertical: vPad),
-                child: Align(
-                  alignment: Alignment.topCenter,
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      maxWidth: wide ? maxCard : double.infinity,
-                      minHeight:
-                          wide ? constraints.maxHeight - vPad * 2 : 0,
-                    ),
-                    child: UpGradeGradientFrameCard(
-                      rem: rem,
-                      isDark: isDark,
-                      child: _buildCardContent(
-                        context,
-                        innerWidth: innerContentW,
-                        rem: bodyRem,
-                        isDark: isDark,
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            },
-          ),
+    return DashboardSecondaryShell(
+      narrow: narrow,
+      wideBody: body(MediaQuery.sizeOf(context).width),
+      wideAppBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded),
+          onPressed: () => Navigator.maybePop(context),
+          tooltip: 'Back',
         ),
+        title: const Text('Notifications'),
       ),
     );
   }
@@ -250,6 +248,9 @@ class _NotificationsHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final secondary =
+        isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
+
     final actions = _HeaderActions(
       isLoading: isLoading,
       showMarkAll: unreadCount > 0,
@@ -259,7 +260,7 @@ class _NotificationsHeader extends StatelessWidget {
     );
 
     return Padding(
-      padding: EdgeInsets.only(bottom: rem.space(0.75)),
+      padding: EdgeInsets.fromLTRB(isCompact ? 16 : 22, 16, isCompact ? 16 : 22, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -301,23 +302,26 @@ class _NotificationsHeader extends StatelessWidget {
                           ),
                       ],
                     ),
-                    SizedBox(height: rem.space(0.35)),
-                    UpGradeMutedSubtitle(
+                    const SizedBox(height: 4),
+                    Text(
                       'Deadline reminders and study alerts',
-                      rem: rem,
-                      isDark: isDark,
+                      style: TextStyle(
+                        fontSize: rem.pageSubtitle,
+                        color: secondary,
+                        height: 1.3,
+                      ),
                     ),
                   ],
                 ),
               ),
               if (!isCompact) ...[
-                SizedBox(width: rem.space(0.65)),
+                const SizedBox(width: 12),
                 actions,
               ],
             ],
           ),
           if (isCompact) ...[
-            SizedBox(height: rem.space(0.65)),
+            const SizedBox(height: 12),
             actions,
           ],
         ],
@@ -406,36 +410,22 @@ class _HeaderActions extends StatelessWidget {
 }
 
 class _NotificationsSummary extends StatelessWidget {
-  final UpGradeRem rem;
   final bool isDark;
   final bool isCompact;
   final int totalCount;
   final int unreadCount;
-  final int missedCount;
 
   const _NotificationsSummary({
-    required this.rem,
     required this.isDark,
     required this.isCompact,
     required this.totalCount,
     required this.unreadCount,
-    required this.missedCount,
   });
-
-  void _openMissedTasks(BuildContext context) {
-    Navigator.of(context).pushNamed(AppConstants.routeMissedTasks);
-  }
 
   @override
   Widget build(BuildContext context) {
-    final missedCard = _MissedTasksSummaryCard(
-      isDark: isDark,
-      missedCount: missedCount,
-      onTap: () => _openMissedTasks(context),
-    );
-
     return Padding(
-      padding: EdgeInsets.only(bottom: rem.space(0.75)),
+      padding: EdgeInsets.fromLTRB(isCompact ? 16 : 22, 0, isCompact ? 16 : 22, 12),
       child: isCompact
           ? Column(
               children: [
@@ -456,8 +446,6 @@ class _NotificationsSummary extends StatelessWidget {
                       ? AppTheme.warningOrange
                       : AppTheme.successGreen,
                 ),
-                const SizedBox(height: 8),
-                missedCard,
               ],
             )
           : Row(
@@ -483,97 +471,8 @@ class _NotificationsSummary extends StatelessWidget {
                         : AppTheme.successGreen,
                   ),
                 ),
-                const SizedBox(width: 10),
-                Expanded(child: missedCard),
               ],
             ),
-    );
-  }
-}
-
-class _MissedTasksSummaryCard extends StatelessWidget {
-  final bool isDark;
-  final int missedCount;
-  final VoidCallback onTap;
-
-  const _MissedTasksSummaryCard({
-    required this.isDark,
-    required this.missedCount,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    const accent = AppTheme.errorRed;
-
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: Ink(
-          decoration: BoxDecoration(
-            color: isDark
-                ? AppTheme.errorRed.withOpacity(0.12)
-                : const Color(0xFFFFF1F2),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: AppTheme.errorRed.withOpacity(isDark ? 0.45 : 0.28),
-            ),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            child: Row(
-              children: [
-                Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: accent.withOpacity(isDark ? 0.22 : 0.14),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(
-                    Icons.warning_amber_rounded,
-                    size: 18,
-                    color: accent,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Missed tasks',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: isDark
-                              ? const Color(0xFFFCA5A5)
-                              : const Color(0xFFB91C1C),
-                        ),
-                      ),
-                      Text(
-                        '$missedCount',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: -0.4,
-                          color: isDark ? Colors.white : AppTheme.darkText,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Icon(
-                  Icons.arrow_forward_ios_rounded,
-                  size: 14,
-                  color: accent.withOpacity(0.85),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
     );
   }
 }
@@ -822,27 +721,6 @@ class _NotificationVisual {
   });
 
   static _NotificationVisual forType(String type, bool isDark) {
-    if (type == 'deadline_6h') {
-      return const _NotificationVisual(
-        icon: Icons.error_outline_rounded,
-        accent: AppTheme.errorRed,
-        label: 'Urgent',
-      );
-    }
-    if (type == 'deadline_24h') {
-      return const _NotificationVisual(
-        icon: Icons.access_time_rounded,
-        accent: AppTheme.primaryBlue,
-        label: 'Due today',
-      );
-    }
-    if (type == 'deadline_3d') {
-      return const _NotificationVisual(
-        icon: Icons.event_rounded,
-        accent: AppTheme.successGreen,
-        label: 'Upcoming',
-      );
-    }
     if (type.contains('overdue')) {
       return const _NotificationVisual(
         icon: Icons.error_outline_rounded,
@@ -852,22 +730,22 @@ class _NotificationVisual {
     }
     if (type.contains('6h')) {
       return const _NotificationVisual(
-        icon: Icons.error_outline_rounded,
-        accent: AppTheme.errorRed,
-        label: 'Urgent',
+        icon: Icons.schedule_rounded,
+        accent: AppTheme.warningOrange,
+        label: 'Due soon',
       );
     }
     if (type.contains('24h')) {
       return const _NotificationVisual(
         icon: Icons.access_time_rounded,
-        accent: AppTheme.primaryBlue,
+        accent: AppTheme.warningOrange,
         label: 'Due today',
       );
     }
     if (type.contains('3d') || type.contains('deadline')) {
       return const _NotificationVisual(
         icon: Icons.event_rounded,
-        accent: AppTheme.successGreen,
+        accent: AppTheme.primaryBlue,
         label: 'Upcoming',
       );
     }

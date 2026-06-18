@@ -24,25 +24,3 @@ void enterMainShellEndSession(BuildContext context) {
     (r) => r.settings.name == AppConstants.routeHome || r.isFirst,
   );
 }
-
-/// Pops overlay routes (e.g. notifications, profile) back to [routeHome].
-/// Falls back to opening home when there is nothing to pop (direct/deep link).
-void returnToMainShellFromOverlay(BuildContext context) {
-  final navigator = Navigator.of(context);
-  var reachedHome = false;
-
-  navigator.popUntil((route) {
-    if (route.settings.name == AppConstants.routeHome) {
-      reachedHome = true;
-      return true;
-    }
-    return route.isFirst;
-  });
-
-  if (!reachedHome && context.mounted) {
-    navigator.pushNamedAndRemoveUntil(
-      AppConstants.routeHome,
-      (route) => false,
-    );
-  }
-}

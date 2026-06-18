@@ -63,12 +63,17 @@ class StudyPlan {
   final List<StudyPlanItem> items;
   final String summary;
 
+  /// True when the plan was generated locally because the AI service was
+  /// unavailable or rate-limited. The schedule is still valid and complete.
+  final bool degraded;
+
   const StudyPlan({
     required this.success,
     required this.studentName,
     required this.generatedAt,
     required this.items,
     required this.summary,
+    this.degraded = false,
   });
 
   factory StudyPlan.fromJson(Map<String, dynamic> json) {
@@ -81,6 +86,7 @@ class StudyPlan {
               .toList() ??
           [],
       summary: json['summary'] as String? ?? '',
+      degraded: json['degraded'] as bool? ?? false,
     );
   }
 
@@ -90,5 +96,6 @@ class StudyPlan {
         'generatedAt': generatedAt,
         'items': items.map((e) => e.toJson()).toList(),
         'summary': summary,
+        'degraded': degraded,
       };
 }

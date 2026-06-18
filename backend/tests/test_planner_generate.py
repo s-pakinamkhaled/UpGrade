@@ -73,7 +73,9 @@ def test_generate_plan_success(monkeypatch):
     assert data["success"] is True
 
 
-def test_generate_plan_invalid_json(monkeypatch):
+def test_generate_plan_invalid_json_degrades(monkeypatch):
+    # When the LLM returns unparseable JSON, the planner gracefully degrades to a
+    # locally-built deterministic plan instead of returning an error.
     monkeypatch.setattr(planner, "_llm_provider", _make_provider_mock([], bad_json=True))
 
     response = client.post(
@@ -81,10 +83,19 @@ def test_generate_plan_invalid_json(monkeypatch):
         json={"studentName": "Pakinam", "tasks": [{"id": "1", "title": "Task"}]},
     )
 
-    assert response.status_code == 502
+    assert response.status_code == 200
+    data = response.json()
+    assert data["success"] is True
+    assert data["degraded"] is True
+    # A complete plan is still produced from the input task.
+    assert len(data["items"]) == 1
+    assert data["items"][0]["taskTitle"] == "Task"
 
 
-def test_generate_plan_groq_error(monkeypatch):
+def test_generate_plan_llm_error_degrades(monkeypatch):
+    # When all LLM models fail (e.g. sustained 429 rate-limit), the planner
+    # returns a deterministic plan rather than a 502 so the student is never
+    # left without a schedule.
     monkeypatch.setattr(planner, "_llm_provider", _make_provider_mock([], raise_error=True))
 
     response = client.post(
@@ -92,4 +103,21 @@ def test_generate_plan_groq_error(monkeypatch):
         json={"studentName": "Pakinam", "tasks": [{"id": "1", "title": "Task"}]},
     )
 
-    assert response.status_code == 502
+    assert response.status_code == 200
+    data = response.json()
+    assert data["success"] is True
+    assert data["degraded"] is True
+    assert len(data["items"]) == 1
+
+
+def test_generate_plan_no_tasks_still_400(monkeypatch):
+    # A request with no actionable tasks is still a client error — there is
+    # nothing to plan, so degradation does not apply.
+    monkeypatch.setattr(planner, "_llm_provider", _make_provider_mock([], raise_error=True))
+
+    response = client.post(
+        "/api/plan/generate",
+        json={"studentName": "Pakinam", "tasks": []},
+    )
+
+    assert response.status_code == 400

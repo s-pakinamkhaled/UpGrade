@@ -314,10 +314,23 @@ class LLMProvider:
                             model,
                         )
                         break
-                    # Wait with backoff before the second attempt.
-                    delay = self._retry_after(exc) if status == 429 else _BASE_RETRY_DELAY_S
-                    logger.info("[LLM] waiting %.1fs before retry (status=%s)", delay, status)
-                    time.sleep(delay)
+                    if status == 429:
+                        # Rate-limited: retrying the SAME model means waiting out
+                        # a long Retry-After on an exhausted per-model bucket.
+                        # The fallback model has its own separate bucket, so go
+                        # straight there instead of stalling the request.
+                        logger.info(
+                            "[LLM] %s rate-limited (429); skipping retry, going to fallback model",
+                            model,
+                        )
+                        break
+                    # Transient 5xx / network error — short backoff then retry.
+                    logger.info(
+                        "[LLM] waiting %.1fs before retry (status=%s)",
+                        _BASE_RETRY_DELAY_S,
+                        status,
+                    )
+                    time.sleep(_BASE_RETRY_DELAY_S)
 
         # ── Fallback model — single attempt ───────────────────────────────────
         logger.warning(
@@ -326,19 +339,9 @@ class LLMProvider:
             fallback_model,
         )
         try:
-            # If rate-limited on the same provider, back off before the fallback
-            # attempt too — hitting the fallback immediately on a 429 just burns
-            # the same rate-limit budget.
-            primary_status = self._http_status(last_error)
-            if primary_status == 429 and effective_fallback_provider == effective_provider:
-                delay = self._retry_after(last_error)
-                logger.info(
-                    "[LLM] rate-limited on %s; waiting %.1fs before fallback",
-                    effective_provider,
-                    delay,
-                )
-                time.sleep(delay)
-
+            # The fallback model has a separate per-model rate-limit bucket, so
+            # we attempt it immediately even if the primary was rate-limited —
+            # waiting here would only slow the response without helping.
             content = self._call_provider(
                 effective_fallback_provider,
                 fallback_model,

@@ -130,6 +130,8 @@ class PlanResponse(BaseModel):
     error: Optional[str] = None
     # Optional, non-breaking: lets the client/observer see the judge verdict.
     judge: Optional[Dict[str, Any]] = None
+    # True when the plan was generated locally (LLM unavailable/rate-limited).
+    degraded: Optional[bool] = None
 
 
 # ── Priority / deadline helpers ────────────────────────────────────────────────
@@ -232,6 +234,53 @@ def _fallback_plan_item(
             )
         ),
     )
+
+
+def _build_deterministic_plan(
+    active_tasks: List[TaskInput],
+    now: Optional[datetime] = None,
+) -> Tuple[List[PlanItem], str]:
+    """Build a complete study plan WITHOUT the LLM.
+
+    Used as a graceful fallback when the LLM provider is unavailable or
+    rate-limited, so the student always receives a usable, logical schedule
+    instead of an error. The schedule honours the same rules as the prompt:
+    deadline-ordered, finish ~1 day early, overdue work first.
+    """
+    now = now or datetime.now()
+    items = [
+        _fallback_plan_item(task, idx, now) for idx, task in enumerate(active_tasks)
+    ]
+    items.sort(
+        key=lambda it: (it.suggestedDate or "9999-12-31", it.suggestedTime or "")
+    )
+
+    today_str = now.strftime("%Y-%m-%d")
+    due_today = sum(1 for it in items if it.suggestedDate == today_str)
+    overdue = sum(
+        1 for it in items if (it.status or "").lower() in {"missed", "overdue"}
+    )
+
+    parts = [
+        f"Here is a deadline-ordered plan for your {len(items)} task"
+        f"{'s' if len(items) != 1 else ''}."
+    ]
+    if due_today:
+        parts.append(
+            f"Start with the {due_today} item{'s' if due_today != 1 else ''} "
+            f"scheduled for today."
+        )
+    if overdue:
+        parts.append(
+            f"You have {overdue} overdue item{'s' if overdue != 1 else ''} — "
+            f"tackle those first to catch up."
+        )
+    parts.append(
+        "Each task is scheduled to finish a day before its deadline so you keep "
+        "a safety buffer."
+    )
+    summary = " ".join(parts)
+    return items, summary
 
 
 def _build_prompt(req: PlanRequest) -> str:
@@ -370,17 +419,16 @@ async def generate_plan(req: PlanRequest) -> PlanResponse:
     ]
 
     try:
-        # Keep max_tokens at 2000: enough for 13+ tasks with tips and summary
-        # while staying within Groq's free-tier tokens-per-minute budget.
-        # Each task item in the JSON response is ~80-120 tokens, so 2000 covers
-        # up to ~20 tasks with a summary and still leaves budget for a second
-        # concurrent request.
+        # max_tokens=1500 keeps each request well within Groq's free-tier
+        # tokens-per-minute budget (each JSON task item is ~80-120 tokens, so
+        # 1500 covers ~15 tasks + summary). If the LLM truncates or fails, the
+        # deterministic fallback below still returns a complete plan.
         parsed, gen_result = _llm_provider.generate_json(
             messages=messages,
             model=_llm_config.plan_model,
             fallback_model=_llm_config.plan_fallback_model,
             temperature=0.4,
-            max_tokens=2000,
+            max_tokens=1500,
         )
 
         logger.info(
@@ -391,25 +439,25 @@ async def generate_plan(req: PlanRequest) -> PlanResponse:
             gen_result.latency_ms,
         )
 
-    except RuntimeError as exc:
-        # Both primary and fallback exhausted
-        logger.error("[Planner] all models failed: %s", type(exc).__name__)
-        raise HTTPException(
-            status_code=502,
-            detail="Study plan generation failed. Please try again.",
+    except (RuntimeError, json.JSONDecodeError, Exception) as exc:
+        # The LLM is unavailable / rate-limited / returned bad JSON. Rather than
+        # failing the request (502/500), gracefully degrade to a locally
+        # generated, deadline-ordered plan so the student always gets a usable
+        # schedule. HTTPException is re-raised so explicit 400/503 still surface.
+        if isinstance(exc, HTTPException):
+            raise
+        logger.warning(
+            "[Planner] LLM unavailable (%s) — returning deterministic plan",
+            type(exc).__name__,
         )
-    except json.JSONDecodeError:
-        raise HTTPException(
-            status_code=502,
-            detail="Planner returned a non-JSON response. Please try again.",
-        )
-    except HTTPException:
-        raise
-    except Exception as exc:
-        logger.error("[Planner] unexpected error: %s", type(exc).__name__)
-        raise HTTPException(
-            status_code=500,
-            detail="Plan generation failed. Please try again.",
+        items, summary = _build_deterministic_plan(active_tasks, datetime.now())
+        return PlanResponse(
+            success=True,
+            studentName=req.studentName,
+            generatedAt=datetime.now().isoformat(),
+            items=items,
+            summary=summary,
+            degraded=True,
         )
 
     # ── Build PlanItem list with hallucination guards ──────────────────────────

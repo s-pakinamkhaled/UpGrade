@@ -317,6 +317,10 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildHeader(context, isDark, rem),
+                  if (_plan?.degraded == true) ...[
+                    SizedBox(height: rem.space(1.0)),
+                    _buildDegradedNotice(rem: rem, isDark: isDark),
+                  ],
                   SizedBox(height: rem.space(1.65)),
                   _buildSummaryCards(
                     context,
@@ -403,6 +407,41 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
           padding: const EdgeInsets.all(24),
           child: planContent(),
         ),
+      ),
+    );
+  }
+
+  /// Subtle banner shown when the plan was built locally (AI rate-limited).
+  Widget _buildDegradedNotice({
+    required UpGradeRem rem,
+    required bool isDark,
+  }) {
+    return Container(
+      padding: EdgeInsets.all(rem.space(0.85)),
+      decoration: BoxDecoration(
+        color: AppTheme.warningOrange.withOpacity(isDark ? 0.16 : 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.warningOrange.withOpacity(0.35)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.offline_bolt_rounded,
+              color: AppTheme.warningOrange, size: 20),
+          SizedBox(width: rem.space(0.6)),
+          Expanded(
+            child: Text(
+              'The AI service was busy, so this plan was built automatically '
+              'from your deadlines. It is complete and ordered — tap '
+              '"Create New Plan" in a moment for AI-written tips.',
+              style: TextStyle(
+                fontSize: rem.listSubtitle,
+                height: 1.4,
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.8),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

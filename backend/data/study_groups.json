@@ -503,6 +503,78 @@
       "updatedAt": "2026-06-18T16:36:19.200845",
       "relatedAssignmentOrTopic": "Normalization",
       "groupName": "Database Normalization Group"
+    },
+    {
+      "groupId": "1969353e-66d1-4c9a-be30-5e5317cf1693",
+      "creatorId": "integration_sg_user",
+      "courseId": "cs101",
+      "courseName": "Database",
+      "assignmentId": null,
+      "topic": "Normalization",
+      "goal": "Finish project",
+      "members": [
+        {
+          "userId": "integration_sg_user",
+          "name": "Pakinam",
+          "matchScore": null
+        },
+        {
+          "userId": "peer_1",
+          "name": "Alex Rivera",
+          "matchScore": 50
+        },
+        {
+          "userId": "peer_2",
+          "name": "Sam Chen",
+          "matchScore": 50
+        }
+      ],
+      "invitedUsers": [],
+      "maxGroupSize": 4,
+      "meetingTime": "18:00",
+      "availableStart": "2026-06-01T18:00:00",
+      "availableEnd": "2026-06-01T21:00:00",
+      "status": "active",
+      "createdAt": "2026-06-18T20:39:44.546930",
+      "updatedAt": "2026-06-18T20:39:44.588212",
+      "relatedAssignmentOrTopic": "Normalization",
+      "groupName": "Database Normalization Group"
+    },
+    {
+      "groupId": "1e8402e2-c7cf-4dff-8cc7-5fb86ddad9da",
+      "creatorId": "integration_sg_user",
+      "courseId": "cs101",
+      "courseName": "Database",
+      "assignmentId": null,
+      "topic": "Normalization",
+      "goal": "Finish project",
+      "members": [
+        {
+          "userId": "integration_sg_user",
+          "name": "Pakinam",
+          "matchScore": null
+        },
+        {
+          "userId": "peer_1",
+          "name": "Alex Rivera",
+          "matchScore": 50
+        },
+        {
+          "userId": "peer_2",
+          "name": "Sam Chen",
+          "matchScore": 50
+        }
+      ],
+      "invitedUsers": [],
+      "maxGroupSize": 4,
+      "meetingTime": "18:00",
+      "availableStart": "2026-06-01T18:00:00",
+      "availableEnd": "2026-06-01T21:00:00",
+      "status": "active",
+      "createdAt": "2026-06-18T20:40:35.914493",
+      "updatedAt": "2026-06-18T20:40:35.940438",
+      "relatedAssignmentOrTopic": "Normalization",
+      "groupName": "Database Normalization Group"
     }
   ]
 }

@@ -98,6 +98,7 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
   /// that would hit the LLM rate limit and both fail.
   bool _isGenerating = false;
   StudyPlan? _plan;
+  String? _generateError;
 
   /// Selected day index in the interactive AI schedule strip.
   int _selectedScheduleDay = 0;
@@ -189,6 +190,7 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
         _expandedScheduleKeys.clear();
       }
       if (previousPlan == null) _plan = null;
+      _generateError = null;
     });
 
     try {
@@ -213,6 +215,7 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
       if (response != null) {
         setState(() {
           _plan = StudyPlan.fromJson(response);
+          _generateError = null;
           _loading = false;
           _isGenerating = false;
           if (revealSchedule) {
@@ -224,6 +227,8 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
         setState(() {
           _loading = false;
           _isGenerating = false;
+          _generateError =
+              'The AI planner did not return a plan. Please try again in a moment.';
           if (revealSchedule) _showAiSchedule = false;
         });
         if (mounted) {
@@ -252,6 +257,7 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
       setState(() {
         _loading = false;
         _isGenerating = false;
+        _generateError = userMessage;
         if (revealSchedule) _showAiSchedule = false;
       });
       ScaffoldMessenger.of(context).showSnackBar(
@@ -432,7 +438,8 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
               if (_loading && _plan == null) {
                 return Padding(
                   padding: const EdgeInsets.symmetric(vertical: 48),
-                  child: _buildLoading(rem: rem, isDark: isDark),
+                  child:
+                      _buildScheduleGeneratingBanner(rem: rem, isDark: isDark),
                 );
               }
 

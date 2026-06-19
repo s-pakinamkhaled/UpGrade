@@ -2,6 +2,7 @@
 # Open a terminal and run:
 cd "C:\Users\HD  TECH\UpGrade_fixes\backend"
 python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8001
+
 # API docs: http://127.0.0.1:8001/docs
 
 
@@ -9,7 +10,9 @@ python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8001
 # How to run the Frontend
 # Open a NEW terminal and run:
 cd "C:\Users\HD  TECH\UpGrade_fixes\frontend"
+flutter pub get 
 flutter run -d web-server --web-port 5000 --web-hostname localhost
+
 # Then open http://localhost:5000 in Chrome/Edge
 #
 # IMPORTANT: Use --web-hostname localhost (NOT 127.0.0.1)

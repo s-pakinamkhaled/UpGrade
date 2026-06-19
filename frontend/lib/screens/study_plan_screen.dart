@@ -373,45 +373,6 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
     await _generate();
   }
 
-  /// Edit the default hours/day the student wants to study.
-  Future<void> _editDefaultCapacity(BuildContext context) async {
-    final picked = await _pickHours(
-      title: 'Daily study capacity',
-      subtitle: 'How many hours do you usually want to study each day?',
-      current: _defaultDailyHours,
-    );
-    if (picked == null || picked <= 0 || !mounted) return;
-    setState(() => _defaultDailyHours = picked);
-    await _saveCapacity();
-    await _generate();
-  }
-
-  /// Edit how many hours the student can study on one specific day.
-  Future<void> _editDayCapacity(BuildContext context, String dateKey) async {
-    final messenger = ScaffoldMessenger.of(context);
-    final current = _dayHourOverrides[dateKey] ?? _defaultDailyHours;
-    final picked = await _pickHours(
-      title: 'Hours for this day',
-      subtitle: 'Set how much you can study on ${_dayHeaderLabel(dateKey)}.',
-      current: current,
-      allowZero: true,
-    );
-    if (picked == null || !mounted) return;
-    setState(() {
-      if ((picked - _defaultDailyHours).abs() < 0.01) {
-        _dayHourOverrides.remove(dateKey); // back to default
-      } else {
-        _dayHourOverrides[dateKey] = picked;
-      }
-    });
-    await _saveCapacity();
-    if (!mounted) return;
-    messenger.showSnackBar(
-      const SnackBar(content: Text('Updated daily hours. Regenerating plan.')),
-    );
-    await _generate();
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);

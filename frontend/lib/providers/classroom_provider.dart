@@ -533,6 +533,39 @@ class ClassroomProvider extends ChangeNotifier {
     await syncDeadlineNotifications();
   }
 
+  /// Updates the student's expected time-to-finish (in minutes) for a task.
+  /// Persisted locally and synced so the AI planner uses the customized value.
+  Future<void> updateTaskEstimatedMinutes(String taskId, int minutes) async {
+    final index = _tasks.indexWhere((task) => task.id == taskId);
+    if (index < 0) return;
+
+    final clamped = minutes.clamp(15, 16 * 60);
+    final now = DateTime.now();
+    final updated = _tasks[index].copyWith(
+      estimatedMinutes: clamped,
+      updatedAt: now,
+    );
+
+    _tasks[index] = updated;
+    _syncedAt ??= now;
+    await _saveToStorage();
+    await UserMatchingProfileSyncService.syncCurrentUserProfile(
+      courses: _courses,
+      tasks: _tasks,
+    );
+    notifyListeners();
+
+    try {
+      await ApiService().upsertTaskForTracking(
+        taskId: updated.id,
+        userId: _defaultUserId,
+        taskJson: updated.toJson(),
+      );
+    } catch (_) {
+      // Backend may be offline; local estimate updates should still succeed.
+    }
+  }
+
   String _requireActiveUid() {
     final uid = _activeUid ?? FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) {

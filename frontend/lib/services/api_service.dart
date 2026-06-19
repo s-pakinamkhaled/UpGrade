@@ -132,9 +132,15 @@ class ApiService {
   }
 
   /// Generate a personalised study plan from the student's active tasks.
+  ///
+  /// [defaultDailyHours] is how many hours/day the student wants to study by
+  /// default; [dailyHours] holds per-date overrides (date 'yyyy-MM-dd' → hours)
+  /// so the plan can be tailored to each day's availability.
   Future<Map<String, dynamic>?> generateStudyPlan({
     required String studentName,
     required List tasks,
+    double? defaultDailyHours,
+    Map<String, double>? dailyHours,
   }) async {
     try {
       final taskPayload = tasks.map((t) {
@@ -167,6 +173,11 @@ class ApiService {
         };
       }).toList();
 
+      final dailyHoursPayload = (dailyHours ?? {})
+          .entries
+          .map((e) => {'date': e.key, 'hours': e.value})
+          .toList();
+
       final response = await _http
           .post(
             Uri.parse('$_apiBase/api/plan/generate'),
@@ -174,6 +185,9 @@ class ApiService {
             body: json.encode({
               'studentName': studentName,
               'tasks': taskPayload,
+              if (defaultDailyHours != null)
+                'defaultDailyHours': defaultDailyHours,
+              if (dailyHoursPayload.isNotEmpty) 'dailyHours': dailyHoursPayload,
             }),
           )
           .timeout(const Duration(seconds: 60));

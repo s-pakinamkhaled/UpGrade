@@ -234,6 +234,7 @@ class Task {
     DateTime? completedAt,
     bool clearCompletedAt = false,
     DateTime? updatedAt,
+    int? estimatedMinutes,
     // Classification overrides
     String? source,
     String? itemType,
@@ -258,7 +259,7 @@ class Task {
       priority: priority ?? this.priority,
       status: status ?? this.status,
       startedAt: clearStartedAt ? null : (startedAt ?? this.startedAt),
-      estimatedMinutes: estimatedMinutes,
+      estimatedMinutes: estimatedMinutes ?? this.estimatedMinutes,
       scheduledTime: scheduledTime,
       completedAt: clearCompletedAt ? null : (completedAt ?? this.completedAt),
       updatedAt: updatedAt ?? this.updatedAt,

@@ -102,9 +102,22 @@ class TaskInput(BaseModel):
     deadlineSource: Optional[str] = None
 
 
+class DayBudget(BaseModel):
+    """A user-customized study-hour budget for a specific calendar day."""
+
+    date: str  # YYYY-MM-DD
+    hours: float
+
+
 class PlanRequest(BaseModel):
     studentName: str = "Student"
     tasks: List[TaskInput]
+    # How many hours per day the student wants to study by default. Used to
+    # spread tasks realistically instead of piling everything on one day.
+    defaultDailyHours: Optional[float] = None
+    # Per-day overrides, e.g. "today I can do 5h, tomorrow only 3h". These take
+    # precedence over defaultDailyHours for the matching date.
+    dailyHours: Optional[List[DayBudget]] = None
 
 
 class PlanItem(BaseModel):
@@ -138,6 +151,27 @@ class PlanResponse(BaseModel):
 
 _PRIORITY_RANK: Dict[str, int] = {"urgent": 0, "high": 1, "medium": 2, "low": 3}
 _MAX_PLANNER_TASKS = 80
+# Fallback daily study capacity (hours) when the user has not customized it.
+_DEFAULT_DAILY_HOURS = 4.0
+
+
+def _resolve_daily_capacity(req: PlanRequest) -> Tuple[float, Dict[str, float]]:
+    """Return (default hours/day, {date: hours}) from the request.
+
+    Both are user-customizable. The per-date map lets a student say e.g.
+    "today I'll study 5h, tomorrow only 3h"; the default applies to any day
+    without an explicit override.
+    """
+    default_hours = req.defaultDailyHours or _DEFAULT_DAILY_HOURS
+    # Guard against nonsensical values.
+    default_hours = min(max(default_hours, 0.5), 16.0)
+
+    overrides: Dict[str, float] = {}
+    for budget in req.dailyHours or []:
+        if not budget.date:
+            continue
+        overrides[budget.date] = min(max(budget.hours, 0.0), 16.0)
+    return default_hours, overrides
 
 
 def _parse_deadline(deadline: Optional[str]) -> Optional[datetime]:
@@ -224,33 +258,116 @@ def _fallback_plan_item(
         suggestedTime=f"{start_hour:02d}:00 – {end_hour:02d}:00",
         hoursNeeded=round(hours, 2),
         priority=priority,
-        tip=(
-            "Overdue — start today and submit as soon as you can."
-            if overdue
-            else (
-                "Finish a day early to leave a safety buffer before the deadline."
-                if dl is not None
-                else "No hard deadline; slot a short checkpoint so it doesn't drift."
-            )
-        ),
+        tip=_fallback_tip(task, overdue=overdue, has_deadline=dl is not None),
+    )
+
+
+def _fallback_tip(task: TaskInput, *, overdue: bool, has_deadline: bool) -> str:
+    """Task-specific tip used only when the LLM is unavailable (offline/rate-limited).
+
+    Derived from the task's own title and deadline proximity to read like real
+    advice rather than a generic placeholder. The LLM writes richer tips in
+    the normal path; this is the graceful-degradation fallback.
+    """
+    title = (task.title or "this task").strip()
+    short = title if len(title) <= 50 else f"{title[:47]}…"
+    course = (task.courseName or "").strip()
+    course_hint = f" for {course}" if course else ""
+
+    if overdue:
+        return (
+            f"This task is overdue — open {short} now, complete what you can, "
+            f"and submit immediately to limit the late penalty{course_hint}."
+        )
+    if has_deadline:
+        return (
+            f"Work through {short}{course_hint} in a focused session today "
+            f"so you finish at least one day before the deadline and have "
+            f"time to review your work."
+        )
+    return (
+        f"Block a dedicated study slot for {short}{course_hint}; "
+        f"break the work into smaller steps and aim to complete the first "
+        f"milestone in this session."
     )
 
 
 def _build_deterministic_plan(
     active_tasks: List[TaskInput],
     now: Optional[datetime] = None,
+    default_daily_hours: float = _DEFAULT_DAILY_HOURS,
+    daily_overrides: Optional[Dict[str, float]] = None,
 ) -> Tuple[List[PlanItem], str]:
     """Build a complete study plan WITHOUT the LLM.
 
     Used as a graceful fallback when the LLM provider is unavailable or
     rate-limited, so the student always receives a usable, logical schedule
     instead of an error. The schedule honours the same rules as the prompt:
-    deadline-ordered, finish ~1 day early, overdue work first.
+    deadline-ordered, finish ~1 day early, overdue work first — and now it
+    also respects the student's daily study capacity (default + per-day
+    overrides) so work is spread realistically instead of piling up.
     """
     now = now or datetime.now()
-    items = [
-        _fallback_plan_item(task, idx, now) for idx, task in enumerate(active_tasks)
-    ]
+    today = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    daily_overrides = daily_overrides or {}
+
+    def capacity_for(day: datetime) -> float:
+        return daily_overrides.get(day.strftime("%Y-%m-%d"), default_daily_hours)
+
+    # Tasks arrive deadline-sorted from the caller; keep that order so earlier
+    # deadlines are scheduled first.
+    used_hours: Dict[str, float] = {}
+    items: List[PlanItem] = []
+
+    for task in active_tasks:
+        hours = max((task.estimatedMinutes or 60) / 60.0, 0.5)
+        dl = (
+            _parse_deadline(task.deadline)
+            if task.hasRealDeadline is not False
+            else None
+        )
+        overdue = (task.status or "").lower() in {"missed", "overdue"} or (
+            dl is not None and (dl - now).total_seconds() < 0
+        )
+
+        # Window in which the task may be scheduled.
+        if dl is None or overdue:
+            target = today + timedelta(days=14)  # flexible: spread over 2 weeks
+        else:
+            target = max(dl - timedelta(days=1), today)
+
+        # Find the earliest day from today→target that still has spare capacity.
+        chosen = target
+        day = today
+        while day <= target:
+            key = day.strftime("%Y-%m-%d")
+            already = used_hours.get(key, 0.0)
+            if already == 0.0 or already + hours <= capacity_for(day):
+                chosen = day
+                break
+            day += timedelta(days=1)
+
+        key = chosen.strftime("%Y-%m-%d")
+        start_hour = int(9 + used_hours.get(key, 0.0))
+        start_hour = min(start_hour, 20)
+        end_hour = min(start_hour + max(1, round(hours)), 22)
+        used_hours[key] = used_hours.get(key, 0.0) + hours
+
+        items.append(
+            PlanItem(
+                taskId=task.id,
+                taskTitle=task.title,
+                courseName=task.courseName or "",
+                deadline=task.deadline if task.hasRealDeadline is not False else None,
+                status=task.status or "pending",
+                suggestedDate=key,
+                suggestedTime=f"{start_hour:02d}:00 – {end_hour:02d}:00",
+                hoursNeeded=round(hours, 2),
+                priority=_effective_priority(task, now),
+                tip=_fallback_tip(task, overdue=overdue, has_deadline=dl is not None),
+            )
+        )
+
     items.sort(
         key=lambda it: (it.suggestedDate or "9999-12-31", it.suggestedTime or "")
     )
@@ -263,7 +380,8 @@ def _build_deterministic_plan(
 
     parts = [
         f"Here is a deadline-ordered plan for your {len(items)} task"
-        f"{'s' if len(items) != 1 else ''}."
+        f"{'s' if len(items) != 1 else ''}, kept within about "
+        f"{default_daily_hours:g}h of study per day."
     ]
     if due_today:
         parts.append(
@@ -322,6 +440,27 @@ def _build_prompt(req: PlanRequest) -> str:
     today_str = now.strftime("%Y-%m-%d")
     tomorrow_str = (now + timedelta(days=1)).strftime("%Y-%m-%d")
 
+    # User-customized study capacity. The student can set a default and override
+    # specific days ("today 5h, tomorrow 3h"); honour these limits exactly.
+    default_hours, overrides = _resolve_daily_capacity(req)
+    capacity_lines = [
+        "",
+        "Student's study capacity (HARD LIMITS — never exceed on any day):",
+        f"- Default: about {default_hours:g} hours of study per day.",
+    ]
+    if overrides:
+        for date_key in sorted(overrides):
+            capacity_lines.append(
+                f"- On {date_key}: at most {overrides[date_key]:g} hours."
+            )
+    capacity_lines.append(
+        "Each task's required time is given as 'Est:' below — treat it as the "
+        "hours the student expects to spend, and pack days up to (but not over) "
+        "the capacity above. If everything does not fit, push lower-priority "
+        "tasks to later days while still finishing before each deadline."
+    )
+    lines += capacity_lines
+
     lines += [
         "",
         "Your job: act like the student personally sitting down to plan their week.",
@@ -334,16 +473,21 @@ def _build_prompt(req: PlanRequest) -> str:
         "2. FINISH-BEFORE-DEADLINE: schedule each task to be completed at least one "
         "full day BEFORE its deadline whenever possible (buffer for the unexpected). "
         "Never schedule a task on a day AFTER its deadline.",
-        "4. REALISTIC LOAD: do not pile everything on one day. Aim for at most ~from 4 to 7 hours per day "
-        "study hours per day; spread the remaining tasks across the following days.",
+        "4. REALISTIC LOAD: respect the student's daily study capacity stated "
+        "above. Do not exceed a day's hour limit; spread remaining tasks across "
+        "the following days. Sum each day's hoursNeeded so it stays within limit.",
         "5. CHRONOLOGICAL DAYS: use real calendar dates. Today is "
         f"{today_str}; tomorrow is {tomorrow_str}. Spread tasks across consecutive "
         "days starting today.",
-        "6. Allocate sensible time windows (e.g. '14:00 – 16:00') based on each "
-        "task's estimated effort.",
-        "7. For each task write a short, concrete 'tip' describing what to actually "
-        "do that day (e.g. 'Draft the CI/CD pipeline and test one stage'), not "
-        "generic advice.",
+        "6. Allocate sensible time windows (e.g. '14:00 – 16:00') whose length "
+        "matches each task's expected hours ('Est:' value).",
+        "7. For each task write ONE specific 'tip' (1–2 sentences, 20–35 words) that "
+        "describes the concrete study approach for THIS particular assignment — name "
+        "the exact topic, concept, or deliverable the student should work on "
+        "(e.g. 'Start by sketching the ER diagram with all entities and foreign-key "
+        "relationships, then write the CREATE TABLE statements — aim to finish both "
+        "in this session'). Never use generic filler like 'work hard', 'stay focused', "
+        "'review material', or 'make sure to complete it'.",
         "8. Include EVERY task listed above exactly once. Never add, merge, rename, "
         "or invent tasks, courses, grades, or deadlines.",
         "9. Provide a 2–3 sentence 'summary' explaining the overall strategy like descriping t0o the student how will finish this task"
@@ -403,8 +547,14 @@ async def generate_plan(req: PlanRequest) -> PlanResponse:
     active_tasks.sort(key=_sort_key)
     active_tasks = active_tasks[:_MAX_PLANNER_TASKS]
 
-    req_trimmed = PlanRequest(studentName=req.studentName, tasks=active_tasks)
+    req_trimmed = PlanRequest(
+        studentName=req.studentName,
+        tasks=active_tasks,
+        defaultDailyHours=req.defaultDailyHours,
+        dailyHours=req.dailyHours,
+    )
     prompt = _build_prompt(req_trimmed)
+    default_hours, daily_overrides = _resolve_daily_capacity(req)
 
     system_message = (
         "You are an expert academic study planner. "
@@ -419,16 +569,17 @@ async def generate_plan(req: PlanRequest) -> PlanResponse:
     ]
 
     try:
-        # max_tokens=1500 keeps each request well within Groq's free-tier
-        # tokens-per-minute budget (each JSON task item is ~80-120 tokens, so
-        # 1500 covers ~15 tasks + summary). If the LLM truncates or fails, the
-        # deterministic fallback below still returns a complete plan.
+        # max_tokens=3000: each task item with a richer tip is ~120-150 tokens,
+        # so 3000 covers ~20-25 tasks with AI-written tips. Tasks beyond that are
+        # filled in by the deterministic fallback which still produces a complete
+        # schedule. Increasing from 1500 ensures the LLM generates meaningful,
+        # specific tips rather than truncating mid-plan.
         parsed, gen_result = _llm_provider.generate_json(
             messages=messages,
             model=_llm_config.plan_model,
             fallback_model=_llm_config.plan_fallback_model,
             temperature=0.4,
-            max_tokens=1500,
+            max_tokens=3000,
         )
 
         logger.info(
@@ -450,7 +601,12 @@ async def generate_plan(req: PlanRequest) -> PlanResponse:
             "[Planner] LLM unavailable (%s) — returning deterministic plan",
             type(exc).__name__,
         )
-        items, summary = _build_deterministic_plan(active_tasks, datetime.now())
+        items, summary = _build_deterministic_plan(
+            active_tasks,
+            datetime.now(),
+            default_daily_hours=default_hours,
+            daily_overrides=daily_overrides,
+        )
         return PlanResponse(
             success=True,
             studentName=req.studentName,

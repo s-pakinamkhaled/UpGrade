@@ -65,10 +65,13 @@
 // _plan≠null     → shows full plan UI (Upcoming Tasks uses plan items when present)
 // ═══════════════════════════════════════════════════════════════════
 
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/theme.dart';
 import '../models/task.dart';
@@ -102,10 +105,64 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
   /// How the AI finish scenario is grouped (user-customizable view).
   _PlanGrouping _grouping = _PlanGrouping.day;
 
+  /// Default hours/day the student wants to study. Customizable + persisted.
+  double _defaultDailyHours = 4.0;
+
+  /// Per-day capacity overrides keyed by 'yyyy-MM-dd' (e.g. today 5h, tomorrow 3h).
+  final Map<String, double> _dayHourOverrides = {};
+
+  static const String _capacityPrefsKey = 'study_plan_capacity';
+
   @override
   void initState() {
     super.initState();
-    _generate();
+    _loadCapacityThenGenerate();
+  }
+
+  Future<void> _loadCapacityThenGenerate() async {
+    await _loadCapacity();
+    await _generate();
+  }
+
+  String get _capacityStorageKey {
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? 'anon';
+    return '${_capacityPrefsKey}_$uid';
+  }
+
+  Future<void> _loadCapacity() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_capacityStorageKey);
+      if (raw == null || raw.isEmpty) return;
+      final data = json.decode(raw) as Map<String, dynamic>;
+      final def = (data['default'] as num?)?.toDouble();
+      if (def != null) _defaultDailyHours = def.clamp(0.5, 16.0);
+      final overrides = data['overrides'] as Map<String, dynamic>?;
+      if (overrides != null) {
+        _dayHourOverrides.clear();
+        overrides.forEach((k, v) {
+          final h = (v as num?)?.toDouble();
+          if (h != null) _dayHourOverrides[k] = h.clamp(0.0, 16.0);
+        });
+      }
+    } catch (_) {
+      // Corrupt or missing config — fall back to defaults silently.
+    }
+  }
+
+  Future<void> _saveCapacity() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        _capacityStorageKey,
+        json.encode({
+          'default': _defaultDailyHours,
+          'overrides': _dayHourOverrides,
+        }),
+      );
+    } catch (_) {
+      // Persistence is best-effort; ignore failures.
+    }
   }
 
   Future<void> _generate() async {
@@ -134,6 +191,8 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
       final response = await ApiService().generateStudyPlan(
         studentName: studentName,
         tasks: activeTasks,
+        defaultDailyHours: _defaultDailyHours,
+        dailyHours: Map<String, double>.from(_dayHourOverrides),
       );
 
       if (!mounted) return;
@@ -215,6 +274,140 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
       SnackBar(
         content: Text('Deadline saved for ${task.title}. Regenerating plan.'),
       ),
+    );
+    await _generate();
+  }
+
+  /// Generic hour-picker bottom sheet. Returns the chosen hours, or null.
+  Future<double?> _pickHours({
+    required String title,
+    required String subtitle,
+    required double current,
+    bool allowZero = false,
+  }) async {
+    final presets = <double>[
+      if (allowZero) 0,
+      0.5,
+      1,
+      1.5,
+      2,
+      3,
+      4,
+      5,
+      6,
+      8,
+    ];
+    return showModalBottomSheet<double>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (ctx) {
+        final theme = Theme.of(ctx);
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: theme.textTheme.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurface.withOpacity(0.65),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: presets.map((h) {
+                    final selected = (h - current).abs() < 0.01;
+                    final label = h == 0
+                        ? 'Skip (0h)'
+                        : (h == h.truncateToDouble()
+                            ? '${h.toInt()}h'
+                            : '${h}h');
+                    return ChoiceChip(
+                      label: Text(label),
+                      selected: selected,
+                      onSelected: (_) => Navigator.of(ctx).pop(h),
+                    );
+                  }).toList(),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  /// Edit a single task's expected time-to-finish, then regenerate the plan.
+  Future<void> _editTaskHours(BuildContext context, Task task) async {
+    final provider = context.read<ClassroomProvider>();
+    final messenger = ScaffoldMessenger.of(context);
+    final currentHours = (task.estimatedMinutes / 60.0);
+    final picked = await _pickHours(
+      title: 'Time to finish',
+      subtitle: 'How long do you expect "${task.title}" to take?',
+      current: currentHours,
+    );
+    if (picked == null || !context.mounted) return;
+
+    final minutes = (picked * 60).round();
+    if (minutes == task.estimatedMinutes) return;
+
+    await provider.updateTaskEstimatedMinutes(task.id, minutes);
+    if (!mounted) return;
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text('Updated expected time for ${task.title}. Regenerating plan.'),
+      ),
+    );
+    await _generate();
+  }
+
+  /// Edit the default hours/day the student wants to study.
+  Future<void> _editDefaultCapacity(BuildContext context) async {
+    final picked = await _pickHours(
+      title: 'Daily study capacity',
+      subtitle: 'How many hours do you usually want to study each day?',
+      current: _defaultDailyHours,
+    );
+    if (picked == null || picked <= 0 || !mounted) return;
+    setState(() => _defaultDailyHours = picked);
+    await _saveCapacity();
+    await _generate();
+  }
+
+  /// Edit how many hours the student can study on one specific day.
+  Future<void> _editDayCapacity(BuildContext context, String dateKey) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final current = _dayHourOverrides[dateKey] ?? _defaultDailyHours;
+    final picked = await _pickHours(
+      title: 'Hours for this day',
+      subtitle: 'Set how much you can study on ${_dayHeaderLabel(dateKey)}.',
+      current: current,
+      allowZero: true,
+    );
+    if (picked == null || !mounted) return;
+    setState(() {
+      if ((picked - _defaultDailyHours).abs() < 0.01) {
+        _dayHourOverrides.remove(dateKey); // back to default
+      } else {
+        _dayHourOverrides[dateKey] = picked;
+      }
+    });
+    await _saveCapacity();
+    if (!mounted) return;
+    messenger.showSnackBar(
+      const SnackBar(content: Text('Updated daily hours. Regenerating plan.')),
     );
     await _generate();
   }
@@ -328,6 +521,14 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
                     isDark: isDark,
                     stats: stats,
                     courseCount: courseStats.length,
+                    secondary: secondary,
+                  ),
+                  SizedBox(height: rem.space(1.4)),
+                  _buildDailyCapacitySection(
+                    context,
+                    rem: rem,
+                    isDark: isDark,
+                    onSurface: onSurface,
                     secondary: secondary,
                   ),
                   SizedBox(height: rem.space(1.4)),
@@ -686,6 +887,294 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
               color: valueFg,
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  // ── Daily study capacity UI ────────────────────────────────────────────────
+
+  /// Hour options available in per-day capacity pickers (2 h → 20 h).
+  static const List<double> _capacityHourOptions = [
+    2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 16, 18, 20
+  ];
+
+  /// Opens a bottom sheet with 2 h – 20 h chip options for picking a specific
+  /// day's study capacity. Returns the chosen hours, or null if dismissed.
+  Future<double?> _pickCapacityHoursSheet({
+    required String title,
+    required String subtitle,
+    required double current,
+    bool allowSkip = false,
+  }) {
+    return showModalBottomSheet<double>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (ctx) {
+        final theme = Theme.of(ctx);
+        final isDark = theme.brightness == Brightness.dark;
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 4, 20, 28),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: theme.textTheme.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurface.withOpacity(0.65),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    if (allowSkip)
+                      ChoiceChip(
+                        label: const Text('Skip (0 h)'),
+                        selected: current == 0,
+                        onSelected: (_) => Navigator.of(ctx).pop(0.0),
+                      ),
+                    ..._capacityHourOptions.map((h) {
+                      final selected = (h - current).abs() < 0.01;
+                      return ChoiceChip(
+                        label: Text('${h.toInt()} h'),
+                        selected: selected,
+                        onSelected: (_) => Navigator.of(ctx).pop(h),
+                        selectedColor: AppTheme.secondaryPurple,
+                        labelStyle: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: selected
+                              ? Colors.white
+                              : (isDark
+                                  ? Colors.white
+                                  : AppTheme.darkText),
+                        ),
+                      );
+                    }),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  /// Inline section that lets the student set their default daily study
+  /// capacity (2–20 h) and inspect or clear per-day overrides.
+  Widget _buildDailyCapacitySection(
+    BuildContext context, {
+    required UpGradeRem rem,
+    required bool isDark,
+    required Color onSurface,
+    required Color secondary,
+  }) {
+    final border = isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0);
+    final cardBg = isDark ? const Color(0xFF111827) : Colors.white;
+
+    return Container(
+      padding: EdgeInsets.all(rem.space(1.0)),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: border),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.secondaryPurple.withOpacity(isDark ? 0.12 : 0.07),
+            blurRadius: 14,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Header row ──────────────────────────────────────────────
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(7),
+                decoration: BoxDecoration(
+                  gradient: AppTheme.primaryGradient,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  Icons.schedule_rounded,
+                  color: Colors.white,
+                  size: rem.iconSmall,
+                ),
+              ),
+              SizedBox(width: rem.space(0.65)),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Daily Study Hours',
+                      style: TextStyle(
+                        fontSize: rem.cardTitle,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.3,
+                        color: onSurface,
+                      ),
+                    ),
+                    Text(
+                      'Personalize how many hours you can study each day',
+                      style: TextStyle(
+                        fontSize: rem.listSubtitle * 0.95,
+                        color: secondary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  gradient: AppTheme.primaryGradient,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  '${_defaultDailyHours.toInt()} h/day',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: rem.space(0.65)),
+          Text(
+            'Default (applies to all days without a custom setting):',
+            style: TextStyle(
+              fontSize: rem.listSubtitle,
+              color: secondary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          SizedBox(height: rem.space(0.55)),
+          // ── Inline chip row for default hours ────────────────────────
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: _capacityHourOptions.map((h) {
+                final selected = (h - _defaultDailyHours).abs() < 0.01;
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(10),
+                      onTap: _isGenerating
+                          ? null
+                          : () async {
+                              if (selected) return;
+                              setState(() => _defaultDailyHours = h);
+                              await _saveCapacity();
+                              await _generate();
+                            },
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 180),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 8),
+                        decoration: BoxDecoration(
+                          gradient: selected ? AppTheme.primaryGradient : null,
+                          color: selected
+                              ? null
+                              : (isDark
+                                  ? const Color(0xFF1E293B)
+                                  : const Color(0xFFF1F5F9)),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: selected
+                                ? Colors.transparent
+                                : AppTheme.primaryBlue.withOpacity(0.22),
+                          ),
+                          boxShadow: selected
+                              ? [
+                                  BoxShadow(
+                                    color: AppTheme.secondaryPurple
+                                        .withOpacity(0.3),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 3),
+                                  )
+                                ]
+                              : null,
+                        ),
+                        child: Text(
+                          '${h.toInt()} h',
+                          style: TextStyle(
+                            fontSize: rem.listTitle,
+                            fontWeight: FontWeight.w700,
+                            color: selected ? Colors.white : onSurface,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+          // ── Per-day overrides ────────────────────────────────────────
+          if (_dayHourOverrides.isNotEmpty) ...[
+            SizedBox(height: rem.space(0.75)),
+            Divider(
+              color: border,
+              height: 1,
+            ),
+            SizedBox(height: rem.space(0.65)),
+            Text(
+              'Custom days (tap × to reset to default):',
+              style: TextStyle(
+                fontSize: rem.listSubtitle,
+                color: secondary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            SizedBox(height: rem.space(0.5)),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: _dayHourOverrides.entries.map((entry) {
+                return Chip(
+                  avatar: Icon(
+                    Icons.calendar_today_rounded,
+                    size: 14,
+                    color: AppTheme.secondaryPurple,
+                  ),
+                  label: Text(
+                    '${_dayHeaderLabel(entry.key)}: ${entry.value.toInt()} h',
+                    style: TextStyle(
+                      fontSize: rem.listSubtitle,
+                      fontWeight: FontWeight.w700,
+                      color: onSurface,
+                    ),
+                  ),
+                  deleteIcon: const Icon(Icons.close_rounded, size: 14),
+                  onDeleted: () async {
+                    setState(() => _dayHourOverrides.remove(entry.key));
+                    await _saveCapacity();
+                    await _generate();
+                  },
+                );
+              }).toList(),
+            ),
+          ],
         ],
       ),
     );
@@ -1289,7 +1778,7 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
         child: SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: ConstrainedBox(
-            constraints: const BoxConstraints(minWidth: 1165),
+            constraints: const BoxConstraints(minWidth: 1310),
             child: Column(
               children: [
                 Container(
@@ -1298,13 +1787,14 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   child: Row(
                     children: [
-                      _tableHeader('Task', 310, onSurface),
-                      _tableHeader('Priority', 115, onSurface),
-                      _tableHeader('Deadline', 150, onSurface),
-                      _tableHeader('Action', 125, onSurface),
-                      _tableHeader('Status', 115, onSurface),
-                      _tableHeader('Finish Window', 180, onSurface),
-                      _tableHeader('Course', 210, onSurface),
+                      _tableHeader('Task', 300, onSurface),
+                      _tableHeader('Priority', 110, onSurface),
+                      _tableHeader('Deadline', 145, onSurface),
+                      _tableHeader('Action', 120, onSurface),
+                      _tableHeader('Est. Hours', 145, onSurface),
+                      _tableHeader('Status', 110, onSurface),
+                      _tableHeader('Finish Window', 175, onSurface),
+                      _tableHeader('Course', 205, onSurface),
                     ],
                   ),
                 ),
@@ -1360,7 +1850,7 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
       child: Row(
         children: [
           SizedBox(
-            width: 310,
+            width: 300,
             child: Text(
               task.title,
               maxLines: 2,
@@ -1372,9 +1862,9 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
               ),
             ),
           ),
-          SizedBox(width: 115, child: _priorityPill(task.priority.name)),
+          SizedBox(width: 110, child: _priorityPill(task.priority.name)),
           SizedBox(
-            width: 150,
+            width: 145,
             child: Text(
               _deadlineLabel(task),
               style: TextStyle(
@@ -1384,10 +1874,11 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
               ),
             ),
           ),
-          SizedBox(width: 125, child: _deadlineAction(context, task)),
-          SizedBox(width: 115, child: _statusPill(task)),
+          SizedBox(width: 120, child: _deadlineAction(context, task)),
+          SizedBox(width: 145, child: _hoursCell(context, task, secondary)),
+          SizedBox(width: 110, child: _statusPill(task)),
           SizedBox(
-            width: 180,
+            width: 175,
             child: Text(
               finishWindow,
               style: TextStyle(
@@ -1398,7 +1889,7 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
             ),
           ),
           SizedBox(
-            width: 210,
+            width: 205,
             child: Text(
               task.courseName.trim().isEmpty ? 'Other' : task.courseName,
               maxLines: 2,
@@ -1411,6 +1902,45 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  /// Editable "expected hours to finish" cell. Tapping opens an hour picker
+  /// and the customized value is sent to the AI planner on regeneration.
+  Widget _hoursCell(BuildContext context, Task task, Color secondary) {
+    final hours = task.estimatedMinutes / 60.0;
+    final label = hours == hours.truncateToDouble()
+        ? '${hours.toInt()}h'
+        : '${hours.toStringAsFixed(1)}h';
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: () => _editTaskHours(context, task),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.hourglass_bottom_rounded,
+                    size: 14, color: AppTheme.secondaryPurple),
+                const SizedBox(width: 4),
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(width: 2),
+                Icon(Icons.edit, size: 13, color: secondary),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -1716,8 +2246,11 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
     required Color onSurface,
     required Color secondary,
   }) {
-    // Build ordered groups of (header, items) based on the selected grouping.
+    // Build ordered groups of (label, items) alongside raw date keys so each
+    // day header can expose a per-day capacity editor when in day-grouping mode.
     final groups = <MapEntry<String, List<StudyPlanItem>>>[];
+    // Raw ISO date keys, parallel to groups; empty string for non-day groupings.
+    final groupDateKeys = <String>[];
 
     if (_grouping == _PlanGrouping.day) {
       final byDate = <String, List<StudyPlanItem>>{};
@@ -1727,6 +2260,7 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
       final keys = byDate.keys.toList()..sort();
       for (final k in keys) {
         groups.add(MapEntry(_dayHeaderLabel(k), byDate[k]!));
+        groupDateKeys.add(k);
       }
     } else if (_grouping == _PlanGrouping.priority) {
       const order = ['urgent', 'high', 'medium', 'low'];
@@ -1740,6 +2274,7 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
             '${p[0].toUpperCase()}${p.substring(1)} priority',
             byPriority[p]!,
           ));
+          groupDateKeys.add('');
         }
       }
     } else {
@@ -1751,14 +2286,18 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
       final keys = byCourse.keys.toList()..sort();
       for (final k in keys) {
         groups.add(MapEntry(k, byCourse[k]!));
+        groupDateKeys.add('');
       }
     }
 
     final widgets = <Widget>[];
-    for (final group in groups) {
+    for (int i = 0; i < groups.length; i++) {
+      final group = groups[i];
+      final rawDateKey =
+          i < groupDateKeys.length ? groupDateKeys[i] : '';
       final groupItems = group.value;
       final totalHours =
-          groupItems.fold<double>(0, (sum, i) => sum + i.hoursNeeded);
+          groupItems.fold<double>(0, (sum, it) => sum + it.hoursNeeded);
       widgets.add(
         Padding(
           padding: EdgeInsets.only(
@@ -1769,6 +2308,7 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
             rem: rem,
             isDark: isDark,
             title: group.key,
+            dateKey: rawDateKey.isNotEmpty ? rawDateKey : null,
             taskCount: groupItems.length,
             totalHours: totalHours,
             onSurface: onSurface,
@@ -1806,11 +2346,22 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
     required double totalHours,
     required Color onSurface,
     required Color secondary,
+    /// ISO date (yyyy-MM-dd) for day-grouping mode; null for priority/course mode.
+    String? dateKey,
   }) {
     final hoursStr = totalHours >= 1
         ? '${totalHours.toStringAsFixed(totalHours.truncateToDouble() == totalHours ? 0 : 1)}h'
         : '${(totalHours * 60).round()}m';
+
+    // Capacity badge: shows the student's budget for this specific day.
+    final capacityForDay = dateKey != null
+        ? (_dayHourOverrides[dateKey] ?? _defaultDailyHours)
+        : null;
+    final hasOverride =
+        dateKey != null && _dayHourOverrides.containsKey(dateKey);
+
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Container(
           padding: const EdgeInsets.all(7),
@@ -1823,14 +2374,33 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
         ),
         SizedBox(width: rem.space(0.55)),
         Expanded(
-          child: Text(
-            title,
-            style: TextStyle(
-              fontSize: rem.cardTitle,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.3,
-              color: onSurface,
-            ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: rem.cardTitle,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.3,
+                  color: onSurface,
+                ),
+              ),
+              if (dateKey != null && capacityForDay != null)
+                Text(
+                  hasOverride
+                      ? 'Custom: ${capacityForDay.toInt()} h available'
+                      : 'Budget: ${capacityForDay.toInt()} h (default)',
+                  style: TextStyle(
+                    fontSize: rem.listSubtitle * 0.9,
+                    color: hasOverride
+                        ? AppTheme.secondaryPurple
+                        : secondary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+            ],
           ),
         ),
         Container(
@@ -1848,6 +2418,57 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
             ),
           ),
         ),
+        // Per-day hours edit button — only shown in day-grouping mode.
+        if (dateKey != null) ...[
+          const SizedBox(width: 6),
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: () async {
+                if (_isGenerating) return;
+                final current =
+                    _dayHourOverrides[dateKey] ?? _defaultDailyHours;
+                final picked = await _pickCapacityHoursSheet(
+                  title: 'Hours for ${_dayHeaderLabel(dateKey)}',
+                  subtitle:
+                      'How many hours can you study on this day? '
+                      'This overrides the default (${_defaultDailyHours.toInt()} h).',
+                  current: current,
+                  allowSkip: true,
+                );
+                if (picked == null || !mounted) return;
+                setState(() {
+                  if ((picked - _defaultDailyHours).abs() < 0.01) {
+                    _dayHourOverrides.remove(dateKey);
+                  } else {
+                    _dayHourOverrides[dateKey] = picked;
+                  }
+                });
+                await _saveCapacity();
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Day hours updated. Regenerating plan.'),
+                  ),
+                );
+                await _generate();
+              },
+              child: Padding(
+                padding: const EdgeInsets.all(7),
+                child: Icon(
+                  hasOverride
+                      ? Icons.edit_calendar_rounded
+                      : Icons.add_circle_outline_rounded,
+                  size: 17,
+                  color: hasOverride
+                      ? AppTheme.secondaryPurple
+                      : secondary,
+                ),
+              ),
+            ),
+          ),
+        ],
       ],
     );
   }

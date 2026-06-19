@@ -7,7 +7,7 @@ import '../core/security_utils.dart';
 class ApiService {
   // Backend API base URL — must match backend port (run: run-backend.ps1 or uvicorn on 8001)
   // Web/desktop: 127.0.0.1:8001. Android emulator: 10.0.2.2:8001
-  static const String baseUrl = 'http://127.0.0.1:8001';
+  static const String baseUrl = 'https://upgrade-backend-v1op.onrender.com';
 
   // Singleton pattern
   static final ApiService _instance = ApiService._internal();

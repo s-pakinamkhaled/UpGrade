@@ -82,8 +82,7 @@ import '../widgets/dashboard_secondary_shell.dart';
 import '../widgets/upgrade_visual_system.dart';
 
 /// Study Plan page matching the dashboard design: header, summary cards,
-/// My Courses / Upcoming Tasks tabs, course cards with gradient progress,
-/// and AI recommendation card.
+/// My Courses / My Tasks tabs, and course cards with gradient progress.
 class StudyPlanScreen extends StatefulWidget {
   const StudyPlanScreen({super.key});
 
@@ -92,15 +91,19 @@ class StudyPlanScreen extends StatefulWidget {
 }
 
 class _StudyPlanScreenState extends State<StudyPlanScreen> {
-  int _tabIndex = 0; // 0 = My Courses, 1 = Upcoming Tasks
-  bool _loading = true;
+  int _tabIndex = 0; // 0 = My Courses, 1 = My Tasks
+  bool _loading = false;
 
   /// True while a backend request is in flight. Prevents concurrent requests
   /// that would hit the LLM rate limit and both fail.
   bool _isGenerating = false;
-
   StudyPlan? _plan;
-  String? _generateError;
+
+  /// Selected day index in the interactive AI schedule strip.
+  int _selectedScheduleDay = 0;
+
+  /// Expanded schedule cards (task title + date).
+  final Set<String> _expandedScheduleKeys = {};
 
   /// How the AI finish scenario is grouped (user-customizable view).
   _PlanGrouping _grouping = _PlanGrouping.day;
@@ -112,6 +115,9 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
   final Map<String, double> _dayHourOverrides = {};
 
   static const String _capacityPrefsKey = 'study_plan_capacity';
+
+  /// True only after the user taps Generate New Plan (not deadline regen).
+  bool _showAiSchedule = false;
 
   @override
   void initState() {
@@ -165,17 +171,24 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
     }
   }
 
-  Future<void> _generate() async {
+  Future<void> _generate({bool revealSchedule = false}) async {
     // Prevent concurrent requests: if one is already in flight, do nothing.
     // This is the first line of defence against rate-limit bursts when the
     // user taps "Regenerate" rapidly.
     if (_isGenerating) return;
 
+    final previousPlan = _plan;
     setState(() {
       _isGenerating = true;
       _loading = true;
-      _plan = null;
-      _generateError = null;
+      if (revealSchedule) {
+        _showAiSchedule = true;
+        _tabIndex = 1;
+        _selectedScheduleDay = 0;
+        _grouping = _PlanGrouping.day;
+        _expandedScheduleKeys.clear();
+      }
+      if (previousPlan == null) _plan = null;
     });
 
     try {
@@ -202,14 +215,26 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
           _plan = StudyPlan.fromJson(response);
           _loading = false;
           _isGenerating = false;
+          if (revealSchedule) {
+            _tabIndex = 1;
+            _selectedScheduleDay = 0;
+          }
         });
       } else {
         setState(() {
           _loading = false;
           _isGenerating = false;
-          _generateError =
-              'The AI planner did not return a plan. Please try again in a moment.';
+          if (revealSchedule) _showAiSchedule = false;
         });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'The AI planner did not return a plan. Please try again in a moment.',
+              ),
+            ),
+          );
+        }
       }
     } catch (e) {
       if (!mounted) return;
@@ -227,8 +252,11 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
       setState(() {
         _loading = false;
         _isGenerating = false;
-        _generateError = userMessage;
+        if (revealSchedule) _showAiSchedule = false;
       });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(userMessage)),
+      );
     }
   }
 
@@ -514,7 +542,7 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
                       secondary: secondary,
                     )
                   else
-                    _buildUpcomingTasks(
+                    _buildMyTasksTab(
                       context,
                       rem: rem,
                       isDark: isDark,
@@ -523,17 +551,6 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
                       onSurface: onSurface,
                       secondary: secondary,
                     ),
-                  if (_plan != null && _plan!.summary.isNotEmpty) ...[
-                    SizedBox(height: rem.space(1.4)),
-                    _buildAIRecommendationCard(
-                      context,
-                      rem: rem,
-                      isDark: isDark,
-                      plan: _plan!,
-                      onSurface: onSurface,
-                      secondary: secondary,
-                    ),
-                  ],
                   SizedBox(height: rem.space(1.85)),
                 ],
               );
@@ -635,7 +652,9 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
         final button = UpGradeGradientFilledButton(
           // Disable while a request is in flight so the user cannot fire
           // concurrent calls that would hit the LLM rate limit.
-          onPressed: (_loading || _isGenerating) ? null : _generate,
+          onPressed: (_loading || _isGenerating)
+              ? null
+              : () => _generate(revealSchedule: true),
           icon: Icon(
             _isGenerating ? Icons.hourglass_top_rounded : Icons.add,
             size: 20,
@@ -787,6 +806,7 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
     required Color secondary,
   }) {
     final valueFg = isDark ? Colors.white : iconColor;
+    final labelFg = isDark ? secondary : iconColor;
 
     return Container(
       padding: EdgeInsets.all(rem.space(1.15)),
@@ -837,7 +857,7 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
             label,
             style: TextStyle(
               fontSize: rem.listSubtitle,
-              color: secondary,
+              color: labelFg,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -1210,7 +1230,7 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
             child: _tabChip(
               rem: rem,
               isDark: isDark,
-              label: 'Upcoming Tasks',
+              label: 'My Tasks',
               selected: _tabIndex == 1,
               onTap: () => setState(() => _tabIndex = 1),
               surface: surface,
@@ -1605,7 +1625,7 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
         : name.toUpperCase();
   }
 
-  Widget _buildUpcomingTasks(
+  Widget _buildMyTasksTab(
     BuildContext context, {
     required UpGradeRem rem,
     required bool isDark,
@@ -1628,13 +1648,13 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
       }
     }
 
-    if (fallbackTasks.isEmpty) {
+    if (fallbackTasks.isEmpty && items.isEmpty && !_loading) {
       return _emptySection(
         context,
         rem: rem,
         isDark: isDark,
         icon: Icons.assignment_outlined,
-        message: 'No upcoming tasks. Create a plan or add assignments.',
+        message: 'No tasks yet. Add assignments or sync Google Classroom.',
         secondary: secondary,
       );
     }
@@ -1642,44 +1662,121 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _sectionTitle('Personalized Task Plan', rem, onSurface),
-        SizedBox(height: rem.space(1.0)),
-        _planningTable(
-          context,
-          rem: rem,
-          isDark: isDark,
-          tasks: fallbackTasks,
-          planById: planById,
-          planByTitle: planByTitle,
-          onSurface: onSurface,
-          secondary: secondary,
-        ),
-        if (items.isNotEmpty) ...[
+        if (_showAiSchedule && _loading) ...[
+          _buildScheduleGeneratingBanner(rem: rem, isDark: isDark),
+          SizedBox(height: rem.space(1.0)),
+        ],
+        if (_showAiSchedule && items.isNotEmpty) ...[
+          _buildInteractiveSchedule(
+            context,
+            rem: rem,
+            isDark: isDark,
+            items: items,
+            onSurface: onSurface,
+            secondary: secondary,
+          ),
           SizedBox(height: rem.space(1.25)),
+        ],
+        if (fallbackTasks.isNotEmpty) ...[
+          _sectionTitle('Your Tasks', rem, onSurface),
+          SizedBox(height: rem.space(1.0)),
+          _planningTable(
+            context,
+            rem: rem,
+            isDark: isDark,
+            tasks: fallbackTasks,
+            planById: planById,
+            planByTitle: planByTitle,
+            onSurface: onSurface,
+            secondary: secondary,
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildScheduleGeneratingBanner({
+    required UpGradeRem rem,
+    required bool isDark,
+  }) {
+    return Container(
+      padding: EdgeInsets.all(rem.space(1.0)),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            AppTheme.primaryBlue.withOpacity(isDark ? 0.22 : 0.12),
+            AppTheme.secondaryPurple.withOpacity(isDark ? 0.18 : 0.1),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: AppTheme.primaryBlue.withOpacity(isDark ? 0.35 : 0.22),
+        ),
+      ),
+      child: Row(
+        children: [
+          SizedBox(
+            width: rem.iconSmall * 1.35,
+            height: rem.iconSmall * 1.35,
+            child: CircularProgressIndicator(
+              strokeWidth: 2.5,
+              color: AppTheme.primaryBlue,
+            ),
+          ),
+          SizedBox(width: rem.space(0.85)),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Building your AI schedule...',
+                  style: TextStyle(
+                    fontSize: rem.listTitle,
+                    fontWeight: FontWeight.w800,
+                    color: isDark ? Colors.white : const Color(0xFF0F172A),
+                  ),
+                ),
+                SizedBox(height: rem.space(0.2)),
+                Text(
+                  'Sorting tasks day by day with realistic finish windows.',
+                  style: TextStyle(
+                    fontSize: rem.listSubtitle,
+                    color: isDark
+                        ? const Color(0xFF94A3B8)
+                        : AppTheme.darkText.withOpacity(0.62),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInteractiveSchedule(
+    BuildContext context, {
+    required UpGradeRem rem,
+    required bool isDark,
+    required List<StudyPlanItem> items,
+    required Color onSurface,
+    required Color secondary,
+  }) {
+    if (_grouping != _PlanGrouping.day) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
           Row(
             children: [
               Expanded(
                 child: _sectionTitle(
-                  'AI Finish Scenario — day by day',
+                  'Your personalized plan',
                   rem,
                   onSurface,
                 ),
               ),
               _groupingToggle(rem: rem, isDark: isDark, onSurface: onSurface),
             ],
-          ),
-          SizedBox(height: rem.space(0.4)),
-          Text(
-            _grouping == _PlanGrouping.day
-                ? 'A realistic schedule: what to finish today, tomorrow, and beyond.'
-                : _grouping == _PlanGrouping.priority
-                    ? 'Tasks grouped by how urgent they are.'
-                    : 'Tasks grouped by course.',
-            style: TextStyle(
-              fontSize: rem.listSubtitle,
-              color: secondary,
-              fontWeight: FontWeight.w500,
-            ),
           ),
           SizedBox(height: rem.space(0.85)),
           ..._buildGroupedSchedule(
@@ -1691,34 +1788,523 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
             secondary: secondary,
           ),
         ],
-        if (items.isEmpty && _loading)
-          ...fallbackTasks.take(10).map(
-            (task) {
-              final days = task.deadline.difference(DateTime.now()).inDays;
-              final dueText = days < 0
-                  ? 'Overdue'
-                  : days == 0
-                      ? 'Due today'
-                      : 'Due in $days days';
-              return Padding(
-                padding: EdgeInsets.only(bottom: rem.space(0.75)),
-                child: _upcomingTaskCard(
+      );
+    }
+
+    final dates = _sortedPlanDates(items);
+    if (dates.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    if (_selectedScheduleDay >= dates.length) {
+      _selectedScheduleDay = 0;
+    }
+    final selectedDate = dates[_selectedScheduleDay];
+    final dayItems = _itemsForDate(items, selectedDate)
+      ..sort((a, b) => _scheduleSortKey(a).compareTo(_scheduleSortKey(b)));
+    final dayHours =
+        dayItems.fold<double>(0, (sum, i) => sum + i.hoursNeeded);
+
+    return UpGradeListSectionPanel(
+      rem: rem,
+      isDark: isDark,
+      tintTop: const Color(0xFFEEF2FF),
+      borderAccent: AppTheme.primaryBlue,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: EdgeInsets.all(rem.space(0.45)),
+                decoration: BoxDecoration(
+                  gradient: AppTheme.primaryGradient,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: AppTheme.softShadow,
+                ),
+                child: Icon(
+                  Icons.auto_awesome_rounded,
+                  color: Colors.white,
+                  size: rem.iconSmall * 1.1,
+                ),
+              ),
+              SizedBox(width: rem.space(0.55)),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Your personalized study plan',
+                      style: TextStyle(
+                        fontSize: rem.sectionTitle,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.35,
+                        color: isDark ? Colors.white : const Color(0xFF0F172A),
+                      ),
+                    ),
+                    SizedBox(height: rem.space(0.25)),
+                    Text(
+                      'Tap a day to explore your sorted study schedule.',
+                      style: TextStyle(
+                        fontSize: rem.cardBody,
+                        height: 1.35,
+                        color: onSurface.withOpacity(0.62),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              _groupingToggle(rem: rem, isDark: isDark, onSurface: onSurface),
+            ],
+          ),
+          SizedBox(height: rem.space(0.95)),
+          SizedBox(
+            height: 86,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: dates.length,
+              separatorBuilder: (_, __) => SizedBox(width: rem.space(0.55)),
+              itemBuilder: (context, index) {
+                final iso = dates[index];
+                final date = DateTime.tryParse(iso);
+                final count = _itemsForDate(items, iso).length;
+                final hours = _itemsForDate(items, iso)
+                    .fold<double>(0, (s, i) => s + i.hoursNeeded);
+                final selected = index == _selectedScheduleDay;
+                return _scheduleDayChip(
+                  rem: rem,
+                  isDark: isDark,
+                  date: date,
+                  isoDate: iso,
+                  taskCount: count,
+                  hours: hours,
+                  selected: selected,
+                  onTap: () => setState(() => _selectedScheduleDay = index),
+                );
+              },
+            ),
+          ),
+          SizedBox(height: rem.space(1.0)),
+          _dayGroupHeader(
+            rem: rem,
+            isDark: isDark,
+            title: _dayHeaderLabel(selectedDate),
+            taskCount: dayItems.length,
+            totalHours: dayHours,
+            onSurface: onSurface,
+            secondary: secondary,
+          ),
+          SizedBox(height: rem.space(0.75)),
+          if (dayItems.isEmpty)
+            Text(
+              'No tasks scheduled for this day.',
+              style: TextStyle(
+                fontSize: rem.listSubtitle,
+                color: secondary,
+                fontWeight: FontWeight.w600,
+              ),
+            )
+          else
+            ..._buildScheduleTimeline(
+              context,
+              rem: rem,
+              isDark: isDark,
+              items: dayItems,
+              onSurface: onSurface,
+              secondary: secondary,
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _scheduleDayChip({
+    required UpGradeRem rem,
+    required bool isDark,
+    required DateTime? date,
+    required String isoDate,
+    required int taskCount,
+    required double hours,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    final muted = isDark ? const Color(0xFF94A3B8) : AppTheme.darkText.withOpacity(0.55);
+    final text = isDark ? Colors.white : const Color(0xFF0F172A);
+    final dayLabel = date == null
+        ? 'Day'
+        : _dayShortLabel(date);
+    final hoursLabel = hours >= 1
+        ? '${hours.toStringAsFixed(hours.truncateToDouble() == hours ? 0 : 1)}h'
+        : '${(hours * 60).round()}m';
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+          width: 92,
+          padding: EdgeInsets.symmetric(
+            horizontal: rem.space(0.65),
+            vertical: rem.space(0.7),
+          ),
+          decoration: BoxDecoration(
+            gradient: selected ? AppTheme.primaryGradient : null,
+            color: selected
+                ? null
+                : (isDark ? const Color(0xFF1E293B) : Colors.white),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: selected
+                  ? Colors.transparent
+                  : AppTheme.primaryBlue.withOpacity(0.2),
+            ),
+            boxShadow: selected
+                ? [
+                    BoxShadow(
+                      color: AppTheme.primaryBlue.withOpacity(0.25),
+                      blurRadius: 14,
+                      offset: const Offset(0, 6),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                dayLabel,
+                style: TextStyle(
+                  fontSize: rem.listSubtitle * 0.95,
+                  fontWeight: FontWeight.w700,
+                  color: selected ? Colors.white : muted,
+                ),
+              ),
+              SizedBox(height: rem.space(0.2)),
+              Text(
+                date != null ? '${date.day}' : isoDate.substring(5),
+                style: TextStyle(
+                  fontSize: rem.cardTitle,
+                  fontWeight: FontWeight.w800,
+                  color: selected ? Colors.white : text,
+                ),
+              ),
+              SizedBox(height: rem.space(0.15)),
+              Text(
+                '$taskCount · $hoursLabel',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: selected
+                      ? Colors.white.withOpacity(0.9)
+                      : AppTheme.primaryBlue,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _buildScheduleTimeline(
+    BuildContext context, {
+    required UpGradeRem rem,
+    required bool isDark,
+    required List<StudyPlanItem> items,
+    required Color onSurface,
+    required Color secondary,
+  }) {
+    return List.generate(items.length, (index) {
+      final item = items[index];
+      final isLast = index == items.length - 1;
+      final timeLabel = _timelineTimeLabel(item.suggestedTime);
+      final cardKey = '${item.suggestedDate}|${item.taskTitle}';
+      final expanded = _expandedScheduleKeys.contains(cardKey);
+
+      return IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: 76,
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      timeLabel,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.primaryBlue,
+                        height: 1.2,
+                      ),
+                    ),
+                  ),
+                  if (!isLast)
+                    Expanded(
+                      child: Container(
+                        width: 2,
+                        margin: const EdgeInsets.symmetric(vertical: 6),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              AppTheme.primaryBlue.withOpacity(0.45),
+                              AppTheme.secondaryPurple.withOpacity(0.15),
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: Padding(
+                padding: EdgeInsets.only(bottom: rem.space(0.85)),
+                child: _interactiveScheduleItemCard(
                   context,
                   rem: rem,
                   isDark: isDark,
-                  title: task.title,
-                  courseName: task.courseName.trim().isNotEmpty
-                      ? task.courseName.trim()
-                      : '—',
-                  dueText: dueText,
-                  priority: _effectiveTaskPriorityName(task),
+                  item: item,
+                  expanded: expanded,
+                  onTap: () {
+                    setState(() {
+                      if (expanded) {
+                        _expandedScheduleKeys.remove(cardKey);
+                      } else {
+                        _expandedScheduleKeys.add(cardKey);
+                      }
+                    });
+                  },
                   onSurface: onSurface,
+                  secondary: secondary,
                 ),
-              );
-            },
+              ),
+            ),
+          ],
+        ),
+      );
+    });
+  }
+
+  Widget _interactiveScheduleItemCard(
+    BuildContext context, {
+    required UpGradeRem rem,
+    required bool isDark,
+    required StudyPlanItem item,
+    required bool expanded,
+    required VoidCallback onTap,
+    required Color onSurface,
+    required Color secondary,
+  }) {
+    final priorityColor = _priorityColor(item.priority);
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: EdgeInsets.all(rem.space(1.0)),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF111827) : Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: expanded
+                  ? priorityColor.withOpacity(0.55)
+                  : (isDark
+                      ? const Color(0xFF334155)
+                      : const Color(0xFFE2E8F0)),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: priorityColor.withOpacity(
+                  expanded ? (isDark ? 0.2 : 0.12) : (isDark ? 0.1 : 0.06),
+                ),
+                blurRadius: expanded ? 16 : 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
-      ],
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 4,
+                    height: rem.cardTitle * 1.5,
+                    margin: const EdgeInsets.only(right: 10, top: 2),
+                    decoration: BoxDecoration(
+                      color: priorityColor,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          item.taskTitle,
+                          style: TextStyle(
+                            fontSize: rem.listTitle,
+                            fontWeight: FontWeight.w700,
+                            color: onSurface,
+                          ),
+                        ),
+                        SizedBox(height: rem.space(0.2)),
+                        Text(
+                          item.courseName.trim().isEmpty
+                              ? '—'
+                              : item.courseName.trim(),
+                          style: TextStyle(
+                            fontSize: rem.listSubtitle,
+                            color: secondary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    expanded
+                        ? Icons.expand_less_rounded
+                        : Icons.expand_more_rounded,
+                    color: AppTheme.primaryBlue,
+                    size: 22,
+                  ),
+                ],
+              ),
+              SizedBox(height: rem.space(0.55)),
+              Wrap(
+                spacing: rem.space(0.5),
+                runSpacing: rem.space(0.35),
+                children: [
+                  if (item.suggestedTime.trim().isNotEmpty)
+                    _scheduleInfoChip(
+                      Icons.schedule_rounded,
+                      item.suggestedTime.trim(),
+                      AppTheme.primaryBlue,
+                      isDark,
+                    ),
+                  _scheduleInfoChip(
+                    Icons.hourglass_bottom_rounded,
+                    '${item.hoursNeeded.toStringAsFixed(item.hoursNeeded.truncateToDouble() == item.hoursNeeded ? 0 : 1)}h',
+                    AppTheme.secondaryPurple,
+                    isDark,
+                  ),
+                  _scheduleInfoChip(
+                    Icons.flag_rounded,
+                    item.priority.toLowerCase(),
+                    priorityColor,
+                    isDark,
+                  ),
+                ],
+              ),
+              AnimatedCrossFade(
+                firstChild: const SizedBox.shrink(),
+                secondChild: item.tip.trim().isEmpty
+                    ? const SizedBox.shrink()
+                    : Padding(
+                        padding: EdgeInsets.only(top: rem.space(0.65)),
+                        child: Container(
+                          width: double.infinity,
+                          padding: EdgeInsets.all(rem.space(0.7)),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryBlue
+                                .withOpacity(isDark ? 0.12 : 0.06),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(
+                                Icons.lightbulb_outline_rounded,
+                                size: 15,
+                                color: AppTheme.secondaryPurple,
+                              ),
+                              SizedBox(width: rem.space(0.45)),
+                              Expanded(
+                                child: Text(
+                                  item.tip.trim(),
+                                  style: TextStyle(
+                                    fontSize: rem.listSubtitle,
+                                    color: isDark
+                                        ? const Color(0xFFCBD5E1)
+                                        : AppTheme.darkText.withOpacity(0.72),
+                                    height: 1.45,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                crossFadeState: expanded && item.tip.trim().isNotEmpty
+                    ? CrossFadeState.showSecond
+                    : CrossFadeState.showFirst,
+                duration: const Duration(milliseconds: 200),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
+  }
+
+  List<String> _sortedPlanDates(List<StudyPlanItem> items) {
+    final dates = items
+        .map((i) => i.suggestedDate.trim())
+        .where((d) => d.isNotEmpty)
+        .toSet()
+        .toList()
+      ..sort();
+    return dates;
+  }
+
+  List<StudyPlanItem> _itemsForDate(List<StudyPlanItem> items, String isoDate) {
+    return items.where((i) => i.suggestedDate == isoDate).toList();
+  }
+
+  int _scheduleSortKey(StudyPlanItem item) {
+    final parsed = _parseScheduleMinutes(item.suggestedTime);
+    return parsed ?? 9999;
+  }
+
+  int? _parseScheduleMinutes(String suggestedTime) {
+    final match = RegExp(r'(\d{1,2}):(\d{2})').firstMatch(suggestedTime);
+    if (match == null) return null;
+    return int.parse(match.group(1)!) * 60 + int.parse(match.group(2)!);
+  }
+
+  String _timelineTimeLabel(String suggestedTime) {
+    final minutes = _parseScheduleMinutes(suggestedTime);
+    if (minutes == null) {
+      return suggestedTime.trim().isEmpty ? '—' : suggestedTime.trim();
+    }
+    final hour = minutes ~/ 60;
+    final min = minutes % 60;
+    final dt = DateTime(2000, 1, 1, hour, min);
+    return DateFormat('h:mm a').format(dt);
+  }
+
+  String _dayShortLabel(DateTime date) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final target = DateTime(date.year, date.month, date.day);
+    final diff = target.difference(today).inDays;
+    if (diff == 0) return 'Today';
+    if (diff == 1) return 'Tomorrow';
+    return DateFormat('EEE').format(date);
   }
 
   Widget _planningTable(
@@ -2005,152 +2591,6 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
     );
   }
 
-  Widget _upcomingTaskCard(
-    BuildContext context, {
-    required UpGradeRem rem,
-    required bool isDark,
-    required String title,
-    required String courseName,
-    required String dueText,
-    required String priority,
-    required Color onSurface,
-  }) {
-    final priorityColor = _priorityColor(priority);
-    final courseLineColor =
-        isDark ? const Color(0xFF94A3B8) : const Color(0xFF334155);
-    final dueBg = isDark
-        ? AppTheme.primaryBlue.withOpacity(0.16)
-        : const Color(0xFFEFF6FF);
-    final dueFg = isDark ? const Color(0xFF93C5FD) : AppTheme.primaryBlue;
-
-    return Container(
-      padding: EdgeInsets.all(rem.space(1.05)),
-      decoration: BoxDecoration(
-        gradient: isDark
-            ? LinearGradient(
-                begin: Alignment.centerLeft,
-                end: Alignment.centerRight,
-                colors: [
-                  priorityColor.withOpacity(0.12),
-                  const Color(0xFF111827),
-                ],
-              )
-            : LinearGradient(
-                begin: Alignment.centerLeft,
-                end: Alignment.centerRight,
-                colors: [
-                  priorityColor.withOpacity(0.08),
-                  Colors.white,
-                ],
-              ),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: priorityColor.withOpacity(isDark ? 0.35 : 0.22),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: priorityColor.withOpacity(isDark ? 0.15 : 0.1),
-            blurRadius: 14,
-            offset: const Offset(0, 5),
-          ),
-          BoxShadow(
-            color: AppTheme.primaryBlue.withOpacity(0.04),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: rem.listTitle,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.2,
-                    color: onSurface,
-                  ),
-                ),
-                SizedBox(height: rem.space(0.35)),
-                Text(
-                  courseName,
-                  style: TextStyle(
-                    fontSize: rem.listSubtitle,
-                    color: courseLineColor,
-                    fontWeight: FontWeight.w600,
-                    height: 1.35,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: EdgeInsets.symmetric(
-                  horizontal: rem.space(0.5),
-                  vertical: rem.space(0.32),
-                ),
-                decoration: BoxDecoration(
-                  color: dueBg,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: dueFg.withOpacity(0.25)),
-                  boxShadow: [
-                    BoxShadow(
-                      color: dueFg.withOpacity(0.06),
-                      blurRadius: 6,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Text(
-                  dueText,
-                  style: TextStyle(
-                    fontSize: rem.listSubtitle * 0.92,
-                    fontWeight: FontWeight.w600,
-                    color: dueFg,
-                  ),
-                ),
-              ),
-              SizedBox(width: rem.space(0.45)),
-              Container(
-                padding: EdgeInsets.symmetric(
-                  horizontal: rem.space(0.5),
-                  vertical: rem.space(0.32),
-                ),
-                decoration: BoxDecoration(
-                  color: priorityColor.withOpacity(isDark ? 0.22 : 0.14),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: priorityColor.withOpacity(0.35)),
-                  boxShadow: [
-                    BoxShadow(
-                      color: priorityColor.withOpacity(0.08),
-                      blurRadius: 6,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Text(
-                  priority.toLowerCase(),
-                  style: TextStyle(
-                    fontSize: rem.listSubtitle * 0.92,
-                    fontWeight: FontWeight.w700,
-                    color: priorityColor,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
   // ── AI finish scenario: grouped day-by-day schedule ────────────────────────
 
   Widget _groupingToggle({
@@ -2166,7 +2606,12 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
           color: Colors.transparent,
           child: InkWell(
             borderRadius: BorderRadius.circular(10),
-            onTap: () => setState(() => _grouping = value),
+            onTap: () => setState(() {
+              _grouping = value;
+              if (value == _PlanGrouping.day) {
+                _selectedScheduleDay = 0;
+              }
+            }),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 160),
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
@@ -2682,88 +3127,6 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
     }
   }
 
-  Widget _buildAIRecommendationCard(
-    BuildContext context, {
-    required UpGradeRem rem,
-    required bool isDark,
-    required StudyPlan plan,
-    required Color onSurface,
-    required Color secondary,
-  }) {
-    return UpGradeGradientFrameCard(
-      rem: rem,
-      isDark: isDark,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: EdgeInsets.all(rem.space(0.75)),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      AppTheme.secondaryPurple.withOpacity(0.25),
-                      AppTheme.primaryBlue.withOpacity(0.2),
-                    ],
-                  ),
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: AppTheme.secondaryPurple.withOpacity(0.35),
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppTheme.secondaryPurple.withOpacity(0.15),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Icon(
-                  Icons.auto_awesome,
-                  color: AppTheme.secondaryPurple,
-                  size: rem.iconSmall * 1.15,
-                ),
-              ),
-              SizedBox(width: rem.space(0.95)),
-              Expanded(
-                child: Text(
-                  'AI Study Recommendation',
-                  style: TextStyle(
-                    fontSize: rem.sectionTitle,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.35,
-                    color: onSurface,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: rem.space(0.95)),
-          Text(
-            plan.summary,
-            style: TextStyle(
-              fontSize: rem.cardBody,
-              color: secondary,
-              height: 1.55,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          SizedBox(height: rem.space(1.1)),
-          UpGradeGradientFilledButton(
-            onPressed: () => setState(() => _tabIndex = 1),
-            icon: const Icon(Icons.check_circle_outline, size: 20),
-            label: const Text('Apply Recommendation'),
-            padding: EdgeInsets.symmetric(
-              horizontal: rem.space(1.35),
-              vertical: rem.space(0.85),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _emptySection(
     BuildContext context, {
     required UpGradeRem rem,
@@ -2830,54 +3193,6 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildLoading({
-    required UpGradeRem rem,
-    required bool isDark,
-  }) {
-    return Center(
-      child: Padding(
-        padding: EdgeInsets.all(rem.space(1.85)),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: EdgeInsets.all(rem.space(1.35)),
-              decoration: BoxDecoration(
-                gradient: AppTheme.primaryGradient,
-                shape: BoxShape.circle,
-                boxShadow: AppTheme.softShadow,
-              ),
-              child: SizedBox(
-                width: rem.iconSmall * 1.6,
-                height: rem.iconSmall * 1.6,
-                child: CircularProgressIndicator(
-                  strokeWidth: 3,
-                  color: Colors.white,
-                  backgroundColor: Colors.white.withOpacity(0.25),
-                ),
-              ),
-            ),
-            SizedBox(height: rem.space(1.35)),
-            Text(
-              'Generating your study plan...',
-              style: TextStyle(
-                fontSize: rem.cardTitle,
-                fontWeight: FontWeight.w700,
-                color: isDark ? Colors.white : const Color(0xFF0F172A),
-              ),
-            ),
-            SizedBox(height: rem.space(0.45)),
-            UpGradeMutedSubtitle(
-              'AI-powered personalized schedule',
-              rem: rem,
-              isDark: isDark,
-            ),
-          ],
         ),
       ),
     );

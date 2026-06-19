@@ -99,6 +99,7 @@ class LLMJudge:
         ai_response: str,
         student_context: Optional[Dict[str, Any]] = None,
         generator_model: str = "",
+        system_prompt: str = "",
     ) -> JudgeResult:
         """Evaluate a chatbot response for hallucination and quality.
 
@@ -109,6 +110,8 @@ class LLMJudge:
             student_context: Student context that was provided to the generator.
             generator_model: Model that produced the response; the judge will
                              prefer a *different* model when possible.
+            system_prompt:   System prompt used by the generator, truncated in
+                             the judge prompt.
 
         Returns:
             ``JudgeResult`` with structured evaluation.
@@ -121,6 +124,8 @@ class LLMJudge:
 
         prompt = (
             f"Evaluate this AI study assistant response:\n\n"
+            f"Generator system prompt (first 1200 chars):\n"
+            f"{system_prompt[:1200] if system_prompt else 'Not provided.'}\n\n"
             f"User message (first 500 chars): {user_message[:500]}\n\n"
             f"Student context summary (no IDs):\n{context_summary}\n\n"
             f"AI response (first 2000 chars):\n{ai_response[:2000]}\n\n"
@@ -136,6 +141,8 @@ class LLMJudge:
         input_tasks: List[Dict[str, Any]],
         summary: str,
         generator_model: str = "",
+        system_prompt: str = "",
+        user_prompt: str = "",
     ) -> JudgeResult:
         """Evaluate a generated study plan.
 
@@ -147,6 +154,8 @@ class LLMJudge:
             input_tasks:     Tasks that were passed to the planner.
             summary:         Generated plan summary text.
             generator_model: Model that generated the plan.
+            system_prompt:   System prompt used by the planner generator.
+            user_prompt:     User/task prompt used by the planner generator.
 
         Returns:
             ``JudgeResult`` with structured evaluation.
@@ -159,18 +168,27 @@ class LLMJudge:
         task_lines = "\n".join(
             f"  - {t.get('title', 'N/A')} | "
             f"course: {t.get('courseName', 'N/A')} | "
-            f"deadline: {t.get('deadline', 'none')}"
+            f"deadline: {t.get('deadline', 'none')} | "
+            f"status: {t.get('status', 'N/A')} | "
+            f"est: {t.get('estimatedMinutes', 'N/A')} min"
             for t in input_tasks[:20]
         )
         plan_lines = "\n".join(
             f"  - {p.get('taskTitle', 'N/A')} | "
             f"date: {p.get('suggestedDate', 'N/A')} | "
-            f"priority: {p.get('priority', 'N/A')}"
+            f"time: {p.get('suggestedTime', 'N/A')} | "
+            f"hours: {p.get('hoursNeeded', 'N/A')} | "
+            f"priority: {p.get('priority', 'N/A')} | "
+            f"status: {p.get('status', 'N/A')}"
             for p in plan_items[:20]
         )
 
         prompt = (
             f"Evaluate this AI-generated study plan:\n\n"
+            f"Generator system prompt (first 1200 chars):\n"
+            f"{system_prompt[:1200] if system_prompt else 'Not provided.'}\n\n"
+            f"Planner user prompt with student data/rules (first 3000 chars):\n"
+            f"{user_prompt[:3000] if user_prompt else 'Not provided.'}\n\n"
             f"Input tasks provided ({len(input_tasks)} total, showing first 20):\n"
             f"{task_lines}\n\n"
             f"Generated plan items ({len(plan_items)} total, showing first 20):\n"
@@ -178,7 +196,11 @@ class LLMJudge:
             f"Generated summary (first 500 chars): {summary[:500]}\n\n"
             f"{_HALLUCINATION_CHECK_GUIDE}\n"
             f"Verify that all plan tasks exist in the input list, no grades were "
-            f"invented, and deadlines match. Return JSON evaluation."
+            f"invented, deadlines match, no pending/in-progress task is scheduled "
+            f"after its deadline, hoursNeeded matches the input estimates, daily "
+            f"capacity rules from the prompt are respected, and urgent/high "
+            f"upcoming work is not pushed behind missed catch-up tasks. Return "
+            f"JSON evaluation."
         )
 
         return self._run_judge(prompt, judge_model, operation="study_plan")
@@ -201,6 +223,8 @@ class LLMJudge:
                 messages=messages,
                 model=judge_model,
                 fallback_model=self.config.judge_fallback_model,
+                provider=self.config.judge_provider,
+                fallback_provider=self.config.judge_fallback_provider,
                 temperature=0.1,
                 max_tokens=500,
             )

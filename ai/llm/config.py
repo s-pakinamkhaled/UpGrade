@@ -16,6 +16,12 @@ from typing import Optional
 class LLMConfig:
     # ── Provider ──────────────────────────────────────────────────────────────
     llm_provider: str = "groq"
+    plan_provider: str = "groq"
+    plan_fallback_provider: str = "groq"
+    chat_provider: str = "groq"
+    chat_fallback_provider: str = "groq"
+    judge_provider: str = "groq"
+    judge_fallback_provider: str = "groq"
 
     # ── Plan models ───────────────────────────────────────────────────────────
     plan_model: str = "llama-3.3-70b-versatile"
@@ -55,8 +61,23 @@ def load_config() -> LLMConfig:
     def _bool(key: str, default: bool = False) -> bool:
         return os.getenv(key, str(default)).strip().lower() in {"true", "1", "yes"}
 
+    base_provider = os.getenv("LLM_PROVIDER", "groq").strip().lower()
+
+    def _provider(key: str, default: str) -> str:
+        return os.getenv(key, default).strip().lower()
+
+    plan_provider = _provider("PLAN_PROVIDER", base_provider)
+    chat_provider = _provider("CHAT_PROVIDER", base_provider)
+    judge_provider = _provider("JUDGE_PROVIDER", base_provider)
+
     return LLMConfig(
-        llm_provider=os.getenv("LLM_PROVIDER", "groq").strip().lower(),
+        llm_provider=base_provider,
+        plan_provider=plan_provider,
+        plan_fallback_provider=_provider("PLAN_FALLBACK_PROVIDER", plan_provider),
+        chat_provider=chat_provider,
+        chat_fallback_provider=_provider("CHAT_FALLBACK_PROVIDER", chat_provider),
+        judge_provider=judge_provider,
+        judge_fallback_provider=_provider("JUDGE_FALLBACK_PROVIDER", judge_provider),
         # Plan models
         plan_model=os.getenv("PLAN_MODEL", "llama-3.3-70b-versatile"),
         plan_fallback_model=os.getenv("PLAN_FALLBACK_MODEL", "llama-3.1-8b-instant"),

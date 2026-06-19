@@ -43,7 +43,7 @@ class AIChatService:
         self.system_prompt: str = self._get_system_prompt()
         logger.info(
             "[ChatService] init provider=%s chat_model=%s",
-            self.config.llm_provider,
+            self.config.chat_provider,
             self.config.chat_model,
         )
 
@@ -114,6 +114,7 @@ class AIChatService:
                     ai_response=gen.content,
                     student_context=student_context,
                     generator_model=gen.model,
+                    system_prompt=self.system_prompt,
                 )
                 judge_meta = {
                     "passed": verdict.passed,
@@ -208,8 +209,8 @@ class AIChatService:
         default = (
             cfg.chat_model,
             cfg.chat_fallback_model,
-            cfg.llm_provider,
-            cfg.llm_provider,
+            cfg.chat_provider,
+            cfg.chat_fallback_provider,
         )
 
         if (
@@ -222,7 +223,7 @@ class AIChatService:
             return (
                 cfg.chat_model,
                 cfg.educational_fallback_model,
-                cfg.llm_provider,
+                cfg.chat_provider,
                 cfg.educational_fallback_provider,
             )
 

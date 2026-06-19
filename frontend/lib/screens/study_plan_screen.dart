@@ -219,7 +219,8 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
         userMessage =
             'The AI service is busy right now. Please wait a few seconds and try again.';
       } else if (msg.contains('503') || msg.contains('unavailable')) {
-        userMessage = 'AI service is temporarily unavailable. Try again shortly.';
+        userMessage =
+            'AI service is temporarily unavailable. Try again shortly.';
       } else {
         userMessage = 'Could not generate a plan. Please try again.';
       }
@@ -367,7 +368,8 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
     if (!mounted) return;
     messenger.showSnackBar(
       SnackBar(
-        content: Text('Updated expected time for ${task.title}. Regenerating plan.'),
+        content:
+            Text('Updated expected time for ${task.title}. Regenerating plan.'),
       ),
     );
     await _generate();
@@ -415,7 +417,8 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: AppTheme.errorRed.withOpacity(isDark ? 0.18 : 0.08),
+                          color: AppTheme.errorRed
+                              .withOpacity(isDark ? 0.18 : 0.08),
                           borderRadius: BorderRadius.circular(14),
                           border: Border.all(
                             color: AppTheme.errorRed.withOpacity(0.4),
@@ -857,7 +860,20 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
 
   /// Hour options available in per-day capacity pickers (2 h → 20 h).
   static const List<double> _capacityHourOptions = [
-    2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 16, 18, 20
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    12,
+    14,
+    16,
+    18,
+    20
   ];
 
   /// Opens a bottom sheet with 2 h – 20 h chip options for picking a specific
@@ -916,9 +932,7 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
                           fontWeight: FontWeight.w700,
                           color: selected
                               ? Colors.white
-                              : (isDark
-                                  ? Colors.white
-                                  : AppTheme.darkText),
+                              : (isDark ? Colors.white : AppTheme.darkText),
                         ),
                       );
                     }),
@@ -1002,7 +1016,8 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
                   gradient: AppTheme.primaryGradient,
                   borderRadius: BorderRadius.circular(999),
@@ -1696,7 +1711,7 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
                       ? task.courseName.trim()
                       : '—',
                   dueText: dueText,
-                  priority: task.priority.name,
+                  priority: _effectiveTaskPriorityName(task),
                   onSurface: onSurface,
                 ),
               );
@@ -1823,7 +1838,10 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
               ),
             ),
           ),
-          SizedBox(width: 110, child: _priorityPill(task.priority.name)),
+          SizedBox(
+            width: 110,
+            child: _priorityPill(_displayPriorityForTask(task, item)),
+          ),
           SizedBox(
             width: 145,
             child: Text(
@@ -2241,7 +2259,8 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
     } else {
       final byCourse = <String, List<StudyPlanItem>>{};
       for (final item in items) {
-        final c = item.courseName.trim().isEmpty ? 'Other' : item.courseName.trim();
+        final c =
+            item.courseName.trim().isEmpty ? 'Other' : item.courseName.trim();
         byCourse.putIfAbsent(c, () => []).add(item);
       }
       final keys = byCourse.keys.toList()..sort();
@@ -2254,8 +2273,7 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
     final widgets = <Widget>[];
     for (int i = 0; i < groups.length; i++) {
       final group = groups[i];
-      final rawDateKey =
-          i < groupDateKeys.length ? groupDateKeys[i] : '';
+      final rawDateKey = i < groupDateKeys.length ? groupDateKeys[i] : '';
       final groupItems = group.value;
       final totalHours =
           groupItems.fold<double>(0, (sum, it) => sum + it.hoursNeeded);
@@ -2307,6 +2325,7 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
     required double totalHours,
     required Color onSurface,
     required Color secondary,
+
     /// ISO date (yyyy-MM-dd) for day-grouping mode; null for priority/course mode.
     String? dateKey,
   }) {
@@ -2355,9 +2374,7 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
                       : 'Budget: ${capacityForDay.toInt()} h (default)',
                   style: TextStyle(
                     fontSize: rem.listSubtitle * 0.9,
-                    color: hasOverride
-                        ? AppTheme.secondaryPurple
-                        : secondary,
+                    color: hasOverride ? AppTheme.secondaryPurple : secondary,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -2392,8 +2409,7 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
                     _dayHourOverrides[dateKey] ?? _defaultDailyHours;
                 final picked = await _pickCapacityHoursSheet(
                   title: 'Hours for ${_dayHeaderLabel(dateKey)}',
-                  subtitle:
-                      'How many hours can you study on this day? '
+                  subtitle: 'How many hours can you study on this day? '
                       'This overrides the default (${_defaultDailyHours.toInt()} h).',
                   current: current,
                   allowSkip: true,
@@ -2422,9 +2438,7 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
                       ? Icons.edit_calendar_rounded
                       : Icons.add_circle_outline_rounded,
                   size: 17,
-                  color: hasOverride
-                      ? AppTheme.secondaryPurple
-                      : secondary,
+                  color: hasOverride ? AppTheme.secondaryPurple : secondary,
                 ),
               ),
             ),
@@ -2502,8 +2516,7 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
                 ),
               ),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                 decoration: BoxDecoration(
                   color: priorityColor.withOpacity(isDark ? 0.22 : 0.13),
                   borderRadius: BorderRadius.circular(999),
@@ -2934,25 +2947,71 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
       // without a real deadline are placed last.
       final aHas = a.hasRealDeadline;
       final bHas = b.hasRealDeadline;
+      final bucket = _planningBucket(a).compareTo(_planningBucket(b));
+      if (bucket != 0) return bucket;
       if (aHas != bHas) return aHas ? -1 : 1;
-      if (!aHas && !bHas) {
-        return _priorityRank(a.priority).compareTo(_priorityRank(b.priority));
+      if (aHas && bHas) {
+        final byDeadline = a.deadline.compareTo(b.deadline);
+        if (byDeadline != 0) return byDeadline;
       }
-      return a.deadline.compareTo(b.deadline);
+      final byPriority =
+          _priorityRankName(_effectiveTaskPriorityName(a)).compareTo(
+        _priorityRankName(_effectiveTaskPriorityName(b)),
+      );
+      if (byPriority != 0) return byPriority;
+      final byEstimate = b.estimatedMinutes.compareTo(a.estimatedMinutes);
+      if (byEstimate != 0) return byEstimate;
+      return a.title.toLowerCase().compareTo(b.title.toLowerCase());
     });
     return planning;
   }
 
-  static int _priorityRank(TaskPriority priority) {
-    switch (priority) {
-      case TaskPriority.urgent:
+  static String _displayPriorityForTask(Task task, StudyPlanItem? item) {
+    final planPriority = item?.priority.trim().toLowerCase();
+    if (planPriority != null && planPriority.isNotEmpty) {
+      return planPriority;
+    }
+    return _effectiveTaskPriorityName(task);
+  }
+
+  static String _effectiveTaskPriorityName(Task task) {
+    if (!task.hasRealDeadline) return 'low';
+    if (_isMissedOrOverdue(task)) {
+      return task.status == TaskStatus.missed ? 'high' : 'urgent';
+    }
+
+    final hoursLeft = task.deadline.difference(DateTime.now()).inMinutes / 60.0;
+    if (hoursLeft <= 48) return 'urgent';
+    if (hoursLeft <= 96) return 'high';
+    if (hoursLeft <= 7 * 24) return 'medium';
+    return 'low';
+  }
+
+  static int _planningBucket(Task task) {
+    final priority = _effectiveTaskPriorityName(task);
+    final missedOrOverdue = _isMissedOrOverdue(task);
+    if (!missedOrOverdue && priority == 'urgent') return 0;
+    if (!missedOrOverdue && priority == 'high') return 1;
+    if (missedOrOverdue) return 2;
+    if (priority == 'medium') return 3;
+    return 4;
+  }
+
+  static bool _isMissedOrOverdue(Task task) =>
+      task.status == TaskStatus.missed || task.isOverdue;
+
+  static int _priorityRankName(String priority) {
+    switch (priority.toLowerCase()) {
+      case 'urgent':
         return 0;
-      case TaskPriority.high:
+      case 'high':
         return 1;
-      case TaskPriority.medium:
+      case 'medium':
         return 2;
-      case TaskPriority.low:
+      case 'low':
         return 3;
+      default:
+        return 4;
     }
   }
 }

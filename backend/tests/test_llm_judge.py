@@ -178,6 +178,50 @@ def test_study_plan_judge_parses_result():
     assert result.score == 0.88
 
 
+def test_study_plan_judge_receives_generator_prompts_and_schedule_rules():
+    judge_json = {
+        "passed": True,
+        "hallucination_detected": False,
+        "score": 0.9,
+        "issues": [],
+        "recommended_action": "accept",
+        "reasoning": "Schedule respects prompt constraints.",
+    }
+    judge = _judge_with_mock_provider(judge_json)
+
+    judge.evaluate_study_plan(
+        plan_items=[
+            {
+                "taskTitle": "Final Submission",
+                "suggestedDate": "2026-06-20",
+                "suggestedTime": "09:00 - 11:00",
+                "hoursNeeded": 2,
+                "priority": "urgent",
+            }
+        ],
+        input_tasks=[
+            {
+                "title": "Final Submission",
+                "courseName": "Senior Project",
+                "deadline": "2026-06-20T23:59:00",
+                "status": "pending",
+                "estimatedMinutes": 120,
+            }
+        ],
+        summary="Finish the final submission before catch-up work.",
+        system_prompt="Planner system rules",
+        user_prompt="Student daily capacity: 6 hours. Do not exceed it.",
+        generator_model="planner-model",
+    )
+
+    messages = judge.provider.generate_json.call_args.kwargs["messages"]
+    judge_prompt = messages[-1]["content"]
+    assert "Planner system rules" in judge_prompt
+    assert "Student daily capacity: 6 hours" in judge_prompt
+    assert "no pending/in-progress task is scheduled after its deadline" in judge_prompt
+    assert "hoursNeeded matches the input estimates" in judge_prompt
+
+
 # ── JudgeResult fields ─────────────────────────────────────────────────────────
 
 

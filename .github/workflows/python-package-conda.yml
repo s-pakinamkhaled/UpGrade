@@ -45,8 +45,11 @@ jobs:
           test -f backend/app/main.py
           test -f backend/app/api/routes/chat.py
           test -f backend/app/api/routes/planner.py
-          test -f backend/app/api/routes/auth.py
           test -f backend/app/api/routes/tasks.py
+          test -f backend/app/api/routes/profile.py
+          test -f backend/app/api/routes/study_groups.py
+          test -f backend/app/api/routes/notifications.py
+          test -f backend/app/api/routes/app_notifications.py
 
       - name: Create backend .env
         run: |
